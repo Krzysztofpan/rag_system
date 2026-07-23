@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
@@ -12,11 +11,12 @@ from docling_core.types.doc.document import DoclingDocument
 from docling_core.types.doc.items.table.table_data import TableCell
 from docling_core.types.doc.items.text import TextItem
 
+from app.config import get_settings
+
 from .ocr_repair import text_needs_ocr_repair
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = os.getenv("PARSER_LLM_MODEL", "gpt-4o-mini")
 BATCH_SIZE = 8
 
 SYSTEM_PROMPT = """You repair text extracted from PDF documents.
@@ -122,12 +122,12 @@ def _collect_targets(doc: DoclingDocument) -> list[_RepairTarget]:
     return targets
 
 
-def _call_llm(batch: list[_RepairTarget], model: str) -> dict[int, str]:
+def _call_llm(batch: list[_RepairTarget], model: str, api_key: str) -> dict[int, str]:
     from langchain_core.messages import HumanMessage, SystemMessage
     from langchain_openai import ChatOpenAI
 
     payload = [{"id": target.id, "text": target.text} for target in batch]
-    llm = ChatOpenAI(model=model, temperature=0)
+    llm = ChatOpenAI(model=model, temperature=0, api_key=api_key)
     response = llm.invoke(
         [
             SystemMessage(content=SYSTEM_PROMPT),
@@ -152,15 +152,18 @@ def _call_llm(batch: list[_RepairTarget], model: str) -> dict[int, str]:
 def repair_document_with_llm(
     doc: DoclingDocument,
     *,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     enabled: bool = True,
 ) -> DoclingDocument:
     if not enabled:
         return doc
-    if not os.getenv("OPENAI_API_KEY"):
-        logger.info("LLM repair skipped: OPENAI_API_KEY not set")
+
+    settings = get_settings()
+    if not settings.openai_api_key:
+        logger.info("LLM repair skipped: openai_api_key not set")
         return doc
 
+    resolved_model = model or settings.parser_llm_model
     targets = _collect_targets(doc)
     if not targets:
         return doc
@@ -168,7 +171,7 @@ def repair_document_with_llm(
     for start in range(0, len(targets), BATCH_SIZE):
         batch = targets[start : start + BATCH_SIZE]
         try:
-            fixes = _call_llm(batch, model)
+            fixes = _call_llm(batch, resolved_model, settings.openai_api_key)
         except Exception as exc:
             logger.warning("LLM repair batch failed: %s", exc)
             continue
