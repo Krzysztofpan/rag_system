@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
-from app.services.parser_service import ParseQualityError, ParserFactory
+from app.services.parser import ParseQualityError, ParserFactory
 
 
 @asynccontextmanager
