@@ -5,7 +5,8 @@ from fastapi.responses import JSONResponse
 
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
-
+from pydantic import BaseModel
+from fastapi import UploadFile, File
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,6 +14,9 @@ async def lifespan(app: FastAPI):
     yield
     await dispose_engine()
 
+
+class UploadFile(BaseModel):
+    file: UploadFile
 
 app = FastAPI(
     title="Open Rag system",
@@ -26,6 +30,9 @@ app = FastAPI(
 async def root():
     return {"message": "Hello World"}
 
+@app.post("/upload")
+async def upload(file: UploadFile = File(...)):
+    print(file)
 
 @app.get("/health/db")
 async def health_db():
