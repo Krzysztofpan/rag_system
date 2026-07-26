@@ -2,14 +2,23 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from typing import TYPE_CHECKING
 
 from .ocr_repair import MISSING_GLYPH, REPLACEMENT_CHAR
+
+if TYPE_CHECKING:
+    from app.services.chunker.base import ChunkResult
 
 
 _CHECKS = {
     "unresolved_glyph": re.compile(f"[{MISSING_GLYPH}{REPLACEMENT_CHAR}]"),
     "split_number": re.compile(r"\b\d{2,}\s+\d\b"),
     "broken_fi_fl": re.compile(r"\b\w{2,}\s+(?:fi|fl)\s+\w{2,}\b", re.I),
+}
+
+# Only these defects drop a chunk; softer warnings stay in the document report.
+_CRITICAL_CHUNK_CHECKS = {
+    "unresolved_glyph": _CHECKS["unresolved_glyph"],
 }
 
 
@@ -33,4 +42,55 @@ def audit_markdown(markdown: str) -> dict[str, object]:
         "ok": not issues,
         "counts": dict(sorted(counts.items())),
         "issues": issues,
+    }
+
+
+def chunk_defect_kinds(text: str) -> list[str]:
+    """Critical parse defects that make a chunk unsafe to index."""
+    return [
+        kind for kind, pattern in _CRITICAL_CHUNK_CHECKS.items() if pattern.search(text)
+    ]
+
+
+def evaluate_chunk_quality(
+    chunks: list["ChunkResult"],
+    *,
+    max_rejected_ratio: float,
+) -> dict[str, object]:
+    """Score chunk-level quality and decide whether the document can be kept.
+
+    Soft document warnings (split numbers, fi/fl breaks) do not drop chunks.
+    Unresolved glyphs do: those chunks are rejected individually. The whole
+    document is rejected only when the rejected-chunk ratio reaches the threshold.
+    """
+    kept_indexes: list[int] = []
+    rejected: list[dict[str, object]] = []
+
+    for index, chunk in enumerate(chunks):
+        kinds = chunk_defect_kinds(chunk.content)
+        if kinds:
+            rejected.append(
+                {
+                    "index": index,
+                    "kinds": kinds,
+                    "text": chunk.content[:500],
+                }
+            )
+        else:
+            kept_indexes.append(index)
+
+    total = len(chunks)
+    rejected_count = len(rejected)
+    rejected_ratio = (rejected_count / total) if total else 1.0
+    ok = total > 0 and rejected_ratio < max_rejected_ratio
+
+    return {
+        "ok": ok,
+        "total_chunks": total,
+        "kept_chunks": len(kept_indexes),
+        "rejected_chunks": rejected_count,
+        "rejected_ratio": rejected_ratio,
+        "max_rejected_ratio": max_rejected_ratio,
+        "kept_indexes": kept_indexes,
+        "rejected": rejected,
     }

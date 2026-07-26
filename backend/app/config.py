@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     parser_llm_model: str = "gpt-4o-mini"
     parser_ocr_repair: bool = True
     parser_llm_repair: bool = True
+    # Reject the whole document only when this fraction of chunks is unusable.
+    parser_max_rejected_chunk_ratio: float = 0.25
 
     embedding_model: str = "text-embedding-3-small"
     embedding_model_max_tokens: int = 512
