@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from typing import Literal
 
 from app.services.document_indexing_service import DocumentIndexingService
 from fastapi import FastAPI, File, Query, UploadFile
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse
 
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
@@ -46,7 +47,6 @@ async def upload(
     indexing_service = DocumentIndexingService(parser, chunker)
     try:
         result = await indexing_service.ingest(file)
-        """ print(result, len(result)) """
     except ParseQualityError as exc:
         return JSONResponse(
             status_code=422,
@@ -55,7 +55,15 @@ async def upload(
 
     return {
         "status": "ok",
-        "result": result
+        "result": [asdict(chunk) for chunk in result.chunks],
+        "quality": {
+            "parse_report": result.parse_report,
+            "chunk_quality": {
+                key: value
+                for key, value in result.chunk_quality.items()
+                if key != "kept_indexes"
+            },
+        },
     }
 
 @app.get("/health/db")

@@ -3,7 +3,6 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.services.parser.base import (
-    ParseQualityError,
     ParseResult,
     Parser,
     ensure_real_newlines,
@@ -41,13 +40,9 @@ class ComplexParser(Parser):
             tmp_path.unlink(missing_ok=True)
 
         markdown = ensure_real_newlines(markdown)
+        # Document-level audit stays informational; hard reject happens after
+        # chunking based on the rejected-chunk ratio.
         report = audit_markdown(markdown)
-        unresolved = report.get("counts", {}).get("unresolved_glyph", 0)
-        if unresolved:
-            raise ParseQualityError(
-                f"Document rejected: {unresolved} unresolved glyph(s) after parsing",
-                report=report,
-            )
         return ParseResult(
             markdown=markdown,
             report=report,

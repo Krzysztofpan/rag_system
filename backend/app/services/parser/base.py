@@ -24,7 +24,7 @@ class ParseResult:
 
 
 class ParseQualityError(ValueError):
-    """Raised when extraction quality checks find unresolved critical defects."""
+    """Raised when too many chunks fail critical extraction quality checks."""
 
     def __init__(self, message: str, report: dict):
         super().__init__(message)
