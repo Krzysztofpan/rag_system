@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
 from app.services.parser import ParseQualityError, ParserFactory
-
+from app.services.chunker import ChunkerFactory
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,38 +41,22 @@ async def upload(
         ),
     ),
 ):
-    parser = ParserFactory(file).create_parser()
-    indexing_service = DocumentIndexingService(parser)
+    parser = ParserFactory.create_parser(file)
+    chunker = ChunkerFactory.create_chunker(file.content_type)
+    indexing_service = DocumentIndexingService(parser, chunker)
     try:
         result = await indexing_service.ingest(file)
+        """ print(result, len(result)) """
     except ParseQualityError as exc:
         return JSONResponse(
             status_code=422,
             content={"status": "rejected", "detail": str(exc), "report": exc.report},
         )
 
-    if format == "markdown":
-        filename = result.filename or "parsed.md"
-        stem = filename.rsplit(".", 1)[0]
-        return PlainTextResponse(
-            content=result.markdown,
-            media_type="text/markdown; charset=utf-8",
-            headers={
-                "Content-Disposition": f'inline; filename="{stem}_parsed.md"',
-                "X-Parse-Ok": "true" if result.ok else "false",
-            },
-        )
-
-    # JSON keeps real newlines inside the string; clients must JSON-parse,
-    # not copy the raw response body, or \\n will stay escaped.
     return {
         "status": "ok",
-        "filename": result.filename,
-        "content_type": result.content_type,
-        "markdown": result.markdown,
-        "report": result.report,
+        "result": result
     }
-
 
 @app.get("/health/db")
 async def health_db():

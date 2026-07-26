@@ -3,12 +3,12 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.services.parser.base import (
-    FileTypes,
     ParseQualityError,
     ParseResult,
     Parser,
     ensure_real_newlines,
 )
+from app.types import FileTypes
 from app.services.parser.complex.converter import convert_document
 from app.services.parser.complex.quality_audit import audit_markdown
 
@@ -53,4 +53,5 @@ class ComplexParser(Parser):
             report=report,
             filename=self.file.filename,
             content_type=self.file.content_type,
+            document=document,
         )

@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import UniqueConstraint
+import sqlalchemy as sa
+from sqlalchemy import Column, UniqueConstraint
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -17,7 +19,11 @@ class Chunk(SQLModel, table=True):
     document_id: UUID = Field(foreign_key="documents.id", index=True)
     chunk_index: int
     content: str
-    page: int | None = None
+    context: str | None = None
+    pages: Optional[list[int]] = Field(
+        default=None,
+        sa_column=Column(ARRAY(sa.Integer()), nullable=True),
+    )
     char_start: int | None = None
     char_end: int | None = None
     token_count: int | None = None
