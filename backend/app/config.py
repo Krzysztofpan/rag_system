@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     parser_ocr_repair: bool = True
     parser_llm_repair: bool = True
 
+    embedding_model: str = "text-embedding-3-small"
+    embedding_model_max_tokens: int = 512
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

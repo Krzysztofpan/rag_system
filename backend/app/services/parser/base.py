@@ -1,15 +1,11 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
+from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
 
-
-class FileTypes(str, Enum):
-    PDF = "application/pdf"
-    DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    MD = "text/markdown"
-    TXT = "text/plain"
+if TYPE_CHECKING:
+    from docling_core.types.doc.document import DoclingDocument
 
 
 @dataclass(frozen=True)
@@ -20,6 +16,7 @@ class ParseResult:
     report: dict
     filename: str | None = None
     content_type: str | None = None
+    document: "DoclingDocument | None" = None
 
     @property
     def ok(self) -> bool:
