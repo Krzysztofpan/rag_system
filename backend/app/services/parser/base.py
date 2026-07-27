@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from fastapi import UploadFile
 
@@ -26,9 +27,15 @@ class ParseResult:
 class ParseQualityError(ValueError):
     """Raised when too many chunks fail critical extraction quality checks."""
 
-    def __init__(self, message: str, report: dict):
+    def __init__(
+        self,
+        message: str,
+        report: dict,
+        document_id: UUID | None = None,
+    ):
         super().__init__(message)
         self.report = report
+        self.document_id = document_id
 
 
 class Parser(ABC):
