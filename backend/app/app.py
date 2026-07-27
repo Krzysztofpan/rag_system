@@ -2,14 +2,17 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict
 from typing import Literal
 
-from app.services.document_indexing_service import DocumentIndexingService
-from fastapi import FastAPI, File, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Query, UploadFile
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.health import check_db_connection
-from app.db.session import dispose_engine
-from app.services.parser import ParseQualityError, ParserFactory
+from app.db.session import dispose_engine, get_session
 from app.services.chunker import ChunkerFactory
+from app.services.doc_store import DocumentStore
+from app.services.document_indexing_service import DocumentIndexingService
+from app.services.parser import ParseQualityError, ParserFactory
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,20 +44,30 @@ async def upload(
             "markdown: raw text/markdown (easy to save/open in a viewer)."
         ),
     ),
+    session: AsyncSession = Depends(get_session),
 ):
     parser = ParserFactory.create_parser(file)
     chunker = ChunkerFactory.create_chunker(file.content_type)
-    indexing_service = DocumentIndexingService(parser, chunker)
+    doc_store = DocumentStore(session)
+    indexing_service = DocumentIndexingService(parser, chunker, doc_store=doc_store)
     try:
         result = await indexing_service.ingest(file)
     except ParseQualityError as exc:
         return JSONResponse(
             status_code=422,
-            content={"status": "rejected", "detail": str(exc), "report": exc.report},
+            content={
+                "status": "rejected",
+                "document_id": (
+                    str(exc.document_id) if exc.document_id is not None else None
+                ),
+                "detail": str(exc),
+                "report": exc.report,
+            },
         )
 
     return {
         "status": "ok",
+        "document_id": str(result.document_id),
         "result": [asdict(chunk) for chunk in result.chunks],
         "quality": {
             "parse_report": result.parse_report,
@@ -65,6 +78,7 @@ async def upload(
             },
         },
     }
+
 
 @app.get("/health/db")
 async def health_db():
