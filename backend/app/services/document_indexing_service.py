@@ -34,12 +34,13 @@ class DocumentIndexingService:
         self.parser = parser
         self.chunker = chunker
 
-    async def ingest(self, file: UploadFile) -> IngestResult:
+    async def ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
         if self.doc_store is None:
             raise RuntimeError("DocumentStore is required for ingest")
 
         settings = get_settings()
         document = await self.doc_store.create_document(
+            conversation_id=conversation_id,
             filename=file.filename or "unknown",
             content_type=file.content_type,
             file_size_bytes=file.size,
