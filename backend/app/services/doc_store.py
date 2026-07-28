@@ -15,13 +15,13 @@ class DocumentStore:
     async def create_document(
         self,
         *,
-        session_id: UUID,
+        conversation_id: UUID,
         filename: str,
         content_type: str | None = None,
         file_size_bytes: int | None = None,
     ) -> Document:
         document = Document(
-            session_id=session_id,
+            conversation_id=conversation_id,
             filename=filename,
             content_type=content_type,
             file_size_bytes=file_size_bytes,

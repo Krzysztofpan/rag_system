@@ -11,10 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine, get_session
 from app.services.chunker import ChunkerFactory
+from app.services.conversation_store import ConversationStore
 from app.services.doc_store import DocumentStore
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser import ParseQualityError, ParserFactory
-from app.services.session_store import SessionStore
 
 
 @asynccontextmanager
@@ -32,7 +32,7 @@ app = FastAPI(
 )
 
 
-class CreateSessionRequest(BaseModel):
+class CreateConversationRequest(BaseModel):
     user_id: UUID
 
 
@@ -41,27 +41,29 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/sessions")
-async def create_session(
-    body: CreateSessionRequest,
+@app.post("/conversations")
+async def create_conversation(
+    body: CreateConversationRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Create a chat session for a Supabase Auth user (MVP: pass user_id explicitly)."""
-    store = SessionStore(session)
+    """Create a conversation for a Supabase Auth user (MVP: pass user_id explicitly)."""
+    store = ConversationStore(session)
     try:
-        query_session = await store.create_session(user_id=body.user_id)
+        conversation = await store.create_conversation(user_id=body.user_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
-        "session_id": str(query_session.id),
-        "user_id": str(query_session.user_id),
+        "conversation_id": str(conversation.id),
+        "user_id": str(conversation.user_id),
     }
 
 
 @app.post("/upload")
 async def upload(
     file: UploadFile = File(...),
-    session_id: UUID = Query(..., description="query_sessions.id for this conversation"),
+    conversation_id: UUID = Query(
+        ..., description="conversations.id for this chat"
+    ),
     format: Literal["json", "markdown"] = Query(
         "json",
         description=(
@@ -71,9 +73,9 @@ async def upload(
     ),
     session: AsyncSession = Depends(get_session),
 ):
-    session_store = SessionStore(session)
+    conversation_store = ConversationStore(session)
     try:
-        await session_store.get_session(session_id)
+        await conversation_store.get_conversation(conversation_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -82,7 +84,9 @@ async def upload(
     doc_store = DocumentStore(session)
     indexing_service = DocumentIndexingService(parser, chunker, doc_store=doc_store)
     try:
-        result = await indexing_service.ingest(file, session_id=session_id)
+        result = await indexing_service.ingest(
+            file, conversation_id=conversation_id
+        )
     except ParseQualityError as exc:
         return JSONResponse(
             status_code=422,
@@ -98,7 +102,7 @@ async def upload(
 
     return {
         "status": "ok",
-        "session_id": str(session_id),
+        "conversation_id": str(conversation_id),
         "document_id": str(result.document_id),
         "result": [asdict(chunk) for chunk in result.chunks],
         "quality": {

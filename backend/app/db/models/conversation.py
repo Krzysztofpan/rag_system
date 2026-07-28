@@ -9,8 +9,8 @@ if TYPE_CHECKING:
     from app.db.models.document import Document
 
 
-class QuerySession(SQLModel, table=True):
-    __tablename__ = "query_sessions"
+class Conversation(SQLModel, table=True):
+    __tablename__ = "conversations"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(
@@ -38,4 +38,4 @@ class QuerySession(SQLModel, table=True):
         ),
     )
 
-    documents: list["Document"] = Relationship(back_populates="session")
+    documents: list["Document"] = Relationship(back_populates="conversation")

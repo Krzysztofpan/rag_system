@@ -8,7 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.db.models.chunk import Chunk
-    from app.db.models.query_session import QuerySession
+    from app.db.models.conversation import Conversation
 
 
 class DocumentStatus(str, Enum):
@@ -28,10 +28,10 @@ class Document(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    session_id: UUID = Field(
+    conversation_id: UUID = Field(
         sa_column=Column(
             Uuid(),
-            ForeignKey("query_sessions.id", ondelete="CASCADE"),
+            ForeignKey("conversations.id", ondelete="CASCADE"),
             nullable=False,
             index=True,
         ),
@@ -71,5 +71,5 @@ class Document(SQLModel, table=True):
         ),
     )
 
-    session: "QuerySession" = Relationship(back_populates="documents")
+    conversation: "Conversation" = Relationship(back_populates="documents")
     chunks: list["Chunk"] = Relationship(back_populates="document")
