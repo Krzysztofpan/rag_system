@@ -3,11 +3,12 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum
+from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum, ForeignKey, Uuid
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.db.models.chunk import Chunk
+    from app.db.models.query_session import QuerySession
 
 
 class DocumentStatus(str, Enum):
@@ -27,6 +28,14 @@ class Document(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    session_id: UUID = Field(
+        sa_column=Column(
+            Uuid(),
+            ForeignKey("query_sessions.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
     filename: str
     content_type: str | None = None
     file_size_bytes: int | None = None
@@ -62,4 +71,5 @@ class Document(SQLModel, table=True):
         ),
     )
 
+    session: "QuerySession" = Relationship(back_populates="documents")
     chunks: list["Chunk"] = Relationship(back_populates="document")
