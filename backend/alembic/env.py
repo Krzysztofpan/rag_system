@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
 
 from app.config import get_settings
-from app.db.models import Chunk, Conversation, Document  # noqa: F401
+from app.db.models import AuthUser, Chunk, Conversation, Document  # noqa: F401
 
 config = context.config
 
@@ -25,12 +25,20 @@ def get_database_url() -> str:
     return database_url
 
 
+def include_object(object_, name, type_, reflected, compare_to) -> bool:
+    """Skip Supabase-managed auth schema (e.g. auth.users)."""
+    if type_ == "table" and getattr(object_, "schema", None) == "auth":
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=get_database_url(),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -38,7 +46,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
