@@ -9,7 +9,6 @@ from app.services.doc_store import DocumentStore
 from app.services.parser import ParseQualityError, Parser
 from app.services.parser.complex.quality_audit import evaluate_chunk_quality
 
-
 @dataclass(frozen=True)
 class IngestResult:
     document_id: UUID
@@ -18,6 +17,7 @@ class IngestResult:
     parse_report: dict
     chunk_quality: dict
 
+settings = get_settings()
 
 class DocumentIndexingService:
     def __init__(
@@ -26,11 +26,9 @@ class DocumentIndexingService:
         chunker: Chunker,
         doc_store: DocumentStore | None = None,
         vector_store=None,
-        embedder=None,
     ):
         self.doc_store = doc_store
         self.vector_store = vector_store
-        self.embedder = embedder
         self.parser = parser
         self.chunker = chunker
 
@@ -38,7 +36,6 @@ class DocumentIndexingService:
         if self.doc_store is None:
             raise RuntimeError("DocumentStore is required for ingest")
 
-        settings = get_settings()
         document = await self.doc_store.create_document(
             conversation_id=conversation_id,
             filename=file.filename or "unknown",
@@ -79,6 +76,20 @@ class DocumentIndexingService:
             kept_indexes = chunk_quality["kept_indexes"]
             kept = [chunks[i] for i in kept_indexes]
             stored = await self.doc_store.save_chunks(document_id, kept)
+
+            if self.vector_store is None:
+                raise RuntimeError("VectorStore is required for ingest")
+
+            vectors = self.vector_store.construct_vectors(
+                stored,
+                document_id=document_id,
+                source_filename=file.filename or "unknown",
+            )
+            self.vector_store.add_vectors(
+                vectors,
+                conversation_id=conversation_id,
+            )
+            
             return IngestResult(
                 document_id=document_id,
                 chunks=kept,

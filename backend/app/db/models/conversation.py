@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import Column, DateTime, ForeignKey, Uuid
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.db.models.auth_user import AuthUser  # noqa: F401
+
 if TYPE_CHECKING:
     from app.db.models.document import Document
 

@@ -13,6 +13,7 @@ from app.db.session import dispose_engine, get_session
 from app.services.chunker import ChunkerFactory
 from app.services.conversation_store import ConversationStore
 from app.services.doc_store import DocumentStore
+from app.services.vector_store import VectorStore
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser import ParseQualityError, ParserFactory
 
@@ -82,10 +83,18 @@ async def upload(
     parser = ParserFactory.create_parser(file)
     chunker = ChunkerFactory.create_chunker(file.content_type)
     doc_store = DocumentStore(session)
-    indexing_service = DocumentIndexingService(parser, chunker, doc_store=doc_store)
+    vector_store = VectorStore()
+    indexing_service = DocumentIndexingService(
+        parser,
+        chunker,
+        doc_store=doc_store,
+        vector_store=vector_store,
+    )
+
     try:
         result = await indexing_service.ingest(
-            file, conversation_id=conversation_id
+            file,
+            conversation_id=conversation_id,
         )
     except ParseQualityError as exc:
         return JSONResponse(
