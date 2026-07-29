@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
-from sqlalchemy import Column, DateTime, UniqueConstraint
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Column, Computed, DateTime, UniqueConstraint
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -27,6 +27,17 @@ class Chunk(SQLModel, table=True):
     char_start: int | None = None
     char_end: int | None = None
     token_count: int | None = None
+    search_vector: Any = Field(
+        default=None,
+        sa_column=Column(
+            TSVECTOR,
+            Computed(
+                "to_tsvector('english', coalesce(content, '') || ' ' || coalesce(context, ''))",
+                persisted=True,
+            ),
+            nullable=True,
+        ),
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(
