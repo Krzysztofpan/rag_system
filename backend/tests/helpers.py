@@ -1,0 +1,178 @@
+"""Shared helpers and fakes for the document indexing pipeline tests."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from io import BytesIO
+from types import SimpleNamespace
+from uuid import UUID, uuid4
+
+from fastapi import UploadFile
+from starlette.datastructures import Headers
+
+from app.db.models.document import Document, DocumentStatus
+from app.services.chunker.base import ChunkResult
+from app.services.parser.base import ParseResult, Parser
+
+
+def make_upload_file(
+    content: bytes | str,
+    *,
+    content_type: str,
+    filename: str = "sample.bin",
+) -> UploadFile:
+    payload = content.encode("utf-8") if isinstance(content, str) else content
+    return UploadFile(
+        file=BytesIO(payload),
+        filename=filename,
+        size=len(payload),
+        headers=Headers({"content-type": content_type}),
+    )
+
+
+def make_chunk(
+    content: str,
+    *,
+    context: str | None = None,
+    pages: list[int] | None = None,
+    char_start: int | None = None,
+    char_end: int | None = None,
+    token_count: int | None = None,
+) -> ChunkResult:
+    return ChunkResult(
+        content=content,
+        context=context,
+        pages=pages,
+        char_start=char_start,
+        char_end=char_end,
+        token_count=token_count if token_count is not None else max(1, len(content.split())),
+    )
+
+
+def make_fake_docling_document(markdown: str = "# Doc\n\nBody text.") -> SimpleNamespace:
+    """Minimal stand-in for DoclingDocument used by the complex path."""
+    return SimpleNamespace(
+        export_to_markdown=lambda: markdown,
+        _markdown=markdown,
+    )
+
+
+class FakeParser(Parser):
+    def __init__(self, file: UploadFile, result: ParseResult):
+        super().__init__(file)
+        self._result = result
+
+    async def _parse(self) -> ParseResult:
+        return self._result
+
+
+class FakeChunker:
+    def __init__(self, chunks: list[ChunkResult]):
+        self._chunks = chunks
+        self.calls: list[dict] = []
+
+    def _chunk(self, *, doc, source_text: str) -> list[ChunkResult]:
+        self.calls.append({"doc": doc, "source_text": source_text})
+        return list(self._chunks)
+
+
+class FakeParserFactory:
+    def __init__(self, parser: Parser):
+        self.parser = parser
+        self.calls: list[UploadFile] = []
+
+    def create_parser(self, file: UploadFile) -> Parser:
+        self.calls.append(file)
+        return self.parser
+
+
+class FakeChunkerFactory:
+    def __init__(self, chunker: FakeChunker):
+        self.chunker = chunker
+        self.calls: list[str | None] = []
+
+    def create_chunker(self, content_type) -> FakeChunker:
+        self.calls.append(content_type)
+        return self.chunker
+
+
+@dataclass
+class FakeDocumentStore:
+    documents: dict[UUID, Document] = field(default_factory=dict)
+    saved_chunks: dict[UUID, list[ChunkResult]] = field(default_factory=dict)
+    events: list[tuple[str, UUID, object | None]] = field(default_factory=list)
+
+    async def create_document(
+        self,
+        *,
+        conversation_id: UUID,
+        filename: str,
+        content_type: str | None = None,
+        file_size_bytes: int | None = None,
+    ) -> Document:
+        document = Document(
+            id=uuid4(),
+            conversation_id=conversation_id,
+            filename=filename,
+            content_type=content_type,
+            file_size_bytes=file_size_bytes,
+            status=DocumentStatus.pending,
+        )
+        self.documents[document.id] = document
+        self.events.append(("create", document.id, filename))
+        return document
+
+    async def mark_processing(self, document_id: UUID) -> None:
+        self.documents[document_id].status = DocumentStatus.processing
+        self.events.append(("processing", document_id, None))
+
+    async def save_chunks(
+        self,
+        document_id: UUID,
+        chunks: list[ChunkResult],
+    ) -> list[tuple[UUID, ChunkResult]]:
+        document = self.documents[document_id]
+        document.status = DocumentStatus.ready
+        document.chunk_count = len(chunks)
+        document.token_count = sum(c.token_count or 0 for c in chunks) or None
+        self.saved_chunks[document_id] = list(chunks)
+        stored = [(uuid4(), chunk) for chunk in chunks]
+        self.events.append(("save_chunks", document_id, len(chunks)))
+        return stored
+
+    async def mark_failed(self, document_id: UUID, message: str) -> None:
+        document = self.documents[document_id]
+        document.status = DocumentStatus.failed
+        document.error_message = message
+        self.events.append(("failed", document_id, message))
+
+
+@dataclass
+class FakeVectorStore:
+    vectors: list[dict] = field(default_factory=list)
+    added: list[tuple[list[dict], UUID]] = field(default_factory=list)
+
+    def construct_vectors(
+        self,
+        stored_chunks: list[tuple[UUID, ChunkResult]],
+        *,
+        document_id: UUID,
+        source_filename: str,
+    ) -> list[dict]:
+        built = [
+            {
+                "id": str(chunk_id),
+                "values": [0.1, 0.2],
+                "metadata": {
+                    "document_id": str(document_id),
+                    "chunk_index": index,
+                    "source_filename": source_filename,
+                },
+            }
+            for index, (chunk_id, _) in enumerate(stored_chunks)
+        ]
+        self.vectors = built
+        return built
+
+    def add_vectors(self, vectors, *, conversation_id: UUID) -> None:
+        self.added.append((list(vectors), conversation_id))
