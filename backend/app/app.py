@@ -1,6 +1,4 @@
 from contextlib import asynccontextmanager
-from dataclasses import asdict
-from typing import Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
@@ -10,13 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine, get_session
-from app.services.chunker import ChunkerFactory
 from app.services.conversation_store import ConversationStore
-from app.services.doc_store import DocumentStore
-from app.services.vector_store import VectorStore
-from app.services.document_indexing_service import DocumentIndexingService
-from app.services.parser import ParseQualityError, ParserFactory
-
+from app.services.parser import ParseQualityError
+from app.dependencies import DocumentIndexingServiceDep
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,16 +55,10 @@ async def create_conversation(
 
 @app.post("/upload")
 async def upload(
+    indexing_service: DocumentIndexingServiceDep,
     file: UploadFile = File(...),
     conversation_id: UUID = Query(
         ..., description="conversations.id for this chat"
-    ),
-    format: Literal["json", "markdown"] = Query(
-        "json",
-        description=(
-            "json: markdown + quality report for UI preview. "
-            "markdown: raw text/markdown (easy to save/open in a viewer)."
-        ),
     ),
     session: AsyncSession = Depends(get_session),
 ):
@@ -79,17 +67,6 @@ async def upload(
         await conversation_store.get_conversation(conversation_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    parser = ParserFactory.create_parser(file)
-    chunker = ChunkerFactory.create_chunker(file.content_type)
-    doc_store = DocumentStore(session)
-    vector_store = VectorStore()
-    indexing_service = DocumentIndexingService(
-        parser,
-        chunker,
-        doc_store=doc_store,
-        vector_store=vector_store,
-    )
 
     try:
         result = await indexing_service.ingest(
@@ -113,7 +90,7 @@ async def upload(
         "status": "ok",
         "conversation_id": str(conversation_id),
         "document_id": str(result.document_id),
-        "result": [asdict(chunk) for chunk in result.chunks],
+        "parsed_content": result.parsed_content,
         "quality": {
             "parse_report": result.parse_report,
             "chunk_quality": {

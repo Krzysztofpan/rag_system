@@ -67,7 +67,8 @@ class VectorStore:
                 "source_filename": source_filename,
             }
             if chunk.pages is not None:
-                metadata["pages"] = chunk.pages
+                # Pinecone allows list metadata only as list of strings.
+                metadata["pages"] = [str(page) for page in chunk.pages]
 
             vectors.append(
                 {
