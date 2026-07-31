@@ -1,0 +1,266 @@
+"""End-to-end orchestration tests for DocumentIndexingService.ingest."""
+
+from __future__ import annotations
+
+from unittest.mock import patch
+
+import pytest
+
+from app.db.models.document import DocumentStatus
+from app.services.chunker.factory import ChunkerFactory
+from app.services.chunker.simple import SimpleChunker
+from app.services.document_indexing_service import DocumentIndexingService
+from app.services.parser.base import ParseQualityError, ParseResult
+from app.services.parser.complex.ocr_repair import REPLACEMENT_CHAR
+from app.services.parser.factory import ParserFactory
+from app.services.parser.simple import SimpleParser
+from app.types import FileTypes
+from tests.helpers import (
+    FakeChunker,
+    FakeChunkerFactory,
+    FakeParser,
+    FakeParserFactory,
+    FakeVectorStore,
+    make_chunk,
+    make_fake_docling_document,
+    make_upload_file,
+)
+
+
+def _service(
+    *,
+    parser_factory=None,
+    chunker_factory=None,
+    doc_store=None,
+    vector_store=None,
+) -> DocumentIndexingService:
+    return DocumentIndexingService(
+        parser_factory=parser_factory or ParserFactory(),
+        chunker_factory=chunker_factory or ChunkerFactory(),
+        doc_store=doc_store,
+        vector_store=vector_store,
+    )
+
+
+async def test_ingest_requires_doc_store(markdown_upload, conversation_id):
+    service = _service(vector_store=FakeVectorStore())
+    with pytest.raises(RuntimeError, match="DocumentStore is required"):
+        await service.ingest(markdown_upload, conversation_id=conversation_id)
+
+
+async def test_ingest_requires_vector_store(markdown_upload, conversation_id, fake_doc_store):
+    service = _service(doc_store=fake_doc_store)
+    with pytest.raises(RuntimeError, match="VectorStore is required"):
+        await service.ingest(markdown_upload, conversation_id=conversation_id)
+
+
+async def test_ingest_simple_path_happy(
+    markdown_upload,
+    conversation_id,
+    fake_doc_store,
+    fake_vector_store,
+):
+    """MD/TXT: real SimpleParser + SimpleChunker through the full ingest pipeline."""
+    service = _service(doc_store=fake_doc_store, vector_store=fake_vector_store)
+
+    result = await service.ingest(markdown_upload, conversation_id=conversation_id)
+
+    document = fake_doc_store.documents[result.document_id]
+    assert document.status == DocumentStatus.ready
+    assert document.filename == "note.md"
+    assert result.parsed_content.startswith("# Title")
+    assert result.chunk_ids
+    assert result.parse_report["ok"] is True
+    assert result.chunk_quality["ok"] is True
+    assert result.chunk_quality["kept_chunks"] == len(result.chunk_ids)
+    assert len(fake_vector_store.added) == 1
+    vectors, ns = fake_vector_store.added[0]
+    assert ns == conversation_id
+    assert len(vectors) == len(result.chunk_ids)
+    assert [e[0] for e in fake_doc_store.events[:2]] == ["create", "processing"]
+
+
+async def test_ingest_text_path_uses_simple_parser_and_chunker(
+    text_upload,
+    conversation_id,
+    fake_doc_store,
+    fake_vector_store,
+):
+    service = _service(doc_store=fake_doc_store, vector_store=fake_vector_store)
+    result = await service.ingest(text_upload, conversation_id=conversation_id)
+
+    assert "Plain text" in result.parsed_content
+    assert fake_doc_store.documents[result.document_id].status == DocumentStatus.ready
+    assert fake_vector_store.added
+
+
+async def test_ingest_complex_path_passes_docling_document_to_chunker(
+    pdf_upload,
+    conversation_id,
+    fake_doc_store,
+    fake_vector_store,
+):
+    """PDF/DOCX: ComplexParser (mocked convert) + chunker receives DoclingDocument."""
+    fake_doc = make_fake_docling_document("# PDF Title\n\nParsed PDF body for chunking.")
+    captured: dict = {}
+
+    class CapturingChunkerFactory:
+        def create_chunker(self, content_type):
+            assert content_type == FileTypes.PDF
+
+            class Wrapper:
+                def _chunk(self, *, doc, source_text: str):
+                    captured["doc"] = doc
+                    captured["source_text"] = source_text
+                    return [
+                        make_chunk(
+                            "Parsed PDF body for chunking.",
+                            context="PDF Title",
+                            pages=[1],
+                            char_start=0,
+                            char_end=10,
+                            token_count=5,
+                        )
+                    ]
+
+            return Wrapper()
+
+    with patch(
+        "app.services.parser.complex.parser.convert_document",
+        return_value=fake_doc,
+    ):
+        service = _service(
+            parser_factory=ParserFactory(),
+            chunker_factory=CapturingChunkerFactory(),
+            doc_store=fake_doc_store,
+            vector_store=fake_vector_store,
+        )
+        result = await service.ingest(pdf_upload, conversation_id=conversation_id)
+
+    assert captured["doc"] is fake_doc
+    assert captured["source_text"] == "# PDF Title\n\nParsed PDF body for chunking."
+    assert result.parsed_content.startswith("# PDF Title")
+    assert result.chunk_ids
+    assert fake_vector_store.added[0][1] == conversation_id
+
+
+async def test_ingest_docx_complex_path(
+    docx_upload,
+    conversation_id,
+    fake_doc_store,
+    fake_vector_store,
+):
+    fake_doc = make_fake_docling_document("DOCX content")
+
+    class StubChunkerFactory:
+        def create_chunker(self, content_type):
+            assert content_type == FileTypes.DOCX
+            return FakeChunker([make_chunk("DOCX content", token_count=2)])
+
+    with patch(
+        "app.services.parser.complex.parser.convert_document",
+        return_value=fake_doc,
+    ):
+        service = _service(
+            chunker_factory=StubChunkerFactory(),
+            doc_store=fake_doc_store,
+            vector_store=fake_vector_store,
+        )
+        result = await service.ingest(docx_upload, conversation_id=conversation_id)
+
+    assert result.parsed_content == "DOCX content"
+    assert fake_doc_store.documents[result.document_id].status == DocumentStatus.ready
+
+
+async def test_ingest_marks_failed_on_parse_quality_error(
+    conversation_id,
+    fake_doc_store,
+    fake_vector_store,
+):
+    upload = make_upload_file("x", content_type=FileTypes.MD, filename="bad.md")
+    bad_chunks = [
+        make_chunk(f"bad {REPLACEMENT_CHAR}"),
+        make_chunk(f"also bad {REPLACEMENT_CHAR}"),
+        make_chunk("good"),
+        make_chunk(f"still bad {REPLACEMENT_CHAR}"),
+    ]
+    parser = FakeParser(
+        upload,
+        ParseResult(markdown="x", report={"ok": True}),
+    )
+    service = _service(
+        parser_factory=FakeParserFactory(parser),
+        chunker_factory=FakeChunkerFactory(FakeChunker(bad_chunks)),
+        doc_store=fake_doc_store,
+        vector_store=fake_vector_store,
+    )
+
+    with pytest.raises(ParseQualityError) as exc_info:
+        await service.ingest(upload, conversation_id=conversation_id)
+
+    document_id = exc_info.value.document_id
+    assert document_id is not None
+    assert fake_doc_store.documents[document_id].status == DocumentStatus.failed
+    assert "Document rejected" in (fake_doc_store.documents[document_id].error_message or "")
+    assert not fake_vector_store.added
+    assert "failed" in {e[0] for e in fake_doc_store.events}
+
+
+async def test_ingest_marks_failed_on_generic_error(
+    conversation_id,
+    fake_doc_store,
+    fake_vector_store,
+):
+    upload = make_upload_file("x", content_type=FileTypes.MD, filename="boom.md")
+
+    class BoomParser(FakeParser):
+        async def _parse(self) -> ParseResult:
+            raise RuntimeError("parse exploded")
+
+    service = _service(
+        parser_factory=FakeParserFactory(
+            BoomParser(upload, ParseResult(markdown="", report={}))
+        ),
+        chunker_factory=FakeChunkerFactory(FakeChunker([])),
+        doc_store=fake_doc_store,
+        vector_store=fake_vector_store,
+    )
+
+    with pytest.raises(RuntimeError, match="parse exploded"):
+        await service.ingest(upload, conversation_id=conversation_id)
+
+    document = next(iter(fake_doc_store.documents.values()))
+    assert document.status == DocumentStatus.failed
+    assert document.error_message == "parse exploded"
+    assert not fake_vector_store.added
+
+
+async def test_ingest_simple_path_passes_markdown_string_as_doc(
+    conversation_id,
+    fake_doc_store,
+    fake_vector_store,
+):
+    """When ParseResult.document is None, chunker receives markdown string."""
+    upload = make_upload_file("hello chunk", content_type=FileTypes.TXT, filename="a.txt")
+    parser = FakeParser(
+        upload,
+        ParseResult(markdown="hello chunk", report={"ok": True}, document=None),
+    )
+    chunker = FakeChunker([make_chunk("hello chunk", token_count=2)])
+    service = _service(
+        parser_factory=FakeParserFactory(parser),
+        chunker_factory=FakeChunkerFactory(chunker),
+        doc_store=fake_doc_store,
+        vector_store=fake_vector_store,
+    )
+
+    await service.ingest(upload, conversation_id=conversation_id)
+
+    assert chunker.calls[0]["doc"] == "hello chunk"
+    assert chunker.calls[0]["source_text"] == "hello chunk"
+
+
+async def test_create_parser_and_chunker_delegate_to_factories(markdown_upload):
+    service = _service()
+    assert isinstance(service.create_parser(markdown_upload), SimpleParser)
+    assert isinstance(service.create_chunker(markdown_upload), SimpleChunker)
