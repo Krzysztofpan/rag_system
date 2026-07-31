@@ -4,6 +4,9 @@ import re
 from collections import Counter
 from typing import TYPE_CHECKING
 
+from app.config import get_settings
+from app.services.parser.base import ParseQualityError
+
 from .ocr_repair import MISSING_GLYPH, REPLACEMENT_CHAR
 
 if TYPE_CHECKING:
@@ -94,3 +97,45 @@ def evaluate_chunk_quality(
         "kept_indexes": kept_indexes,
         "rejected": rejected,
     }
+
+
+def ensure_chunk_quality(
+    chunks: list["ChunkResult"],
+    *,
+    parse_report: dict,
+    max_rejected_ratio: float | None = None,
+) -> tuple[list["ChunkResult"], dict[str, object]]:
+    """Keep clean chunks or reject the document when quality is too poor.
+
+    Returns (kept_chunks, chunk_quality). Raises ParseQualityError when the
+    rejected-chunk ratio reaches the configured threshold.
+    """
+    if max_rejected_ratio is None:
+        max_rejected_ratio = get_settings().parser_max_rejected_chunk_ratio
+
+    chunk_quality = evaluate_chunk_quality(
+        chunks,
+        max_rejected_ratio=max_rejected_ratio,
+    )
+    report = {
+        **parse_report,
+        "chunk_quality": chunk_quality,
+    }
+
+    if not chunk_quality["ok"]:
+        rejected = chunk_quality["rejected_chunks"]
+        total = chunk_quality["total_chunks"]
+        ratio = chunk_quality["rejected_ratio"]
+        threshold = chunk_quality["max_rejected_ratio"]
+        raise ParseQualityError(
+            (
+                f"Document rejected: {rejected}/{total} chunks "
+                f"({ratio:.0%}) failed quality checks "
+                f"(threshold {threshold:.0%})"
+            ),
+            report=report,
+        )
+
+    kept_indexes = chunk_quality["kept_indexes"]
+    kept = [chunks[i] for i in kept_indexes]
+    return kept, chunk_quality
