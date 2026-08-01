@@ -5,46 +5,46 @@
 
 /** Pozycja z audytu markdownu: audit_markdown() w quality_audit.py */
 export type ParseIssue = {
-  line: number
-  kinds: string[]
-  text: string
+    line: number;
+    kinds: string[];
+    text: string;
 }
 
 export type ParseReport = {
-  ok: boolean
-  /** Liczba wystąpień per rodzaj defektu, np. { unresolved_glyph: 3 } */
-  counts: Record<string, number>
-  issues: ParseIssue[]
+    ok: boolean;
+    /** Liczba wystąpień per rodzaj defektu, np. { unresolved_glyph: 3 } */
+    counts: Record<string, number>;
+    issues: ParseIssue[];
 }
 
 export type RejectedChunk = {
-  index: number
-  kinds: string[]
-  text: string
+    index: number;
+    kinds: string[];
+    text: string;
 }
 
 export type ChunkQuality = {
-  ok: boolean
-  total_chunks: number
-  kept_chunks: number
-  rejected_chunks: number
-  rejected_ratio: number
-  max_rejected_ratio: number
-  rejected: RejectedChunk[]
+    ok: boolean;
+    total_chunks: number;
+    kept_chunks: number;
+    rejected_chunks: number;
+    rejected_ratio: number;
+    max_rejected_ratio: number;
+    rejected: RejectedChunk[];
 }
 
 export type UploadQuality = {
-  parse_report: ParseReport
-  chunk_quality: ChunkQuality
+    parse_report: ParseReport;
+    chunk_quality: ChunkQuality;
 }
 
 /** 200 — dokument sparsowany, pochunkowany i zaindeksowany. */
 export type UploadOkResponse = {
-  status: "ok"
-  conversation_id: string
-  document_id: string
-  parsed_content: string
-  quality: UploadQuality
+    status: 'ok';
+    conversation_id: string;
+    document_id: string;
+    parsed_content: string;
+    quality: UploadQuality;
 }
 
 /**
@@ -53,21 +53,21 @@ export type UploadOkResponse = {
  * dodatkowo zawiera kept_indexes.
  */
 export type UploadRejectedResponse = {
-  status: "rejected"
-  document_id: string | null
-  detail: string
-  report: ParseReport & {
-    chunk_quality: ChunkQuality & { kept_indexes: number[] }
-  }
+    status: 'rejected';
+    document_id: string | null;
+    detail: string;
+    report: ParseReport & {
+        chunk_quality: ChunkQuality & { kept_indexes: number[] };
+    };
 }
 
 /** 404 i pozostałe HTTPException z FastAPI. */
 export type ApiErrorResponse = {
-  detail: string
+    detail: string;
 }
 
 export type UploadResponse = UploadOkResponse | UploadRejectedResponse
 
 export function isUploadOk(response: UploadResponse): response is UploadOkResponse {
-  return response.status === "ok"
+    return response.status === 'ok'
 }
