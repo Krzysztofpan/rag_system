@@ -1,9 +1,10 @@
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from typing import List
 from app.db.models.conversation import Conversation
-
+from app.db.models.document import Document
+from sqlalchemy import select
 
 class ConversationStore:
     def __init__(self, session: AsyncSession):
@@ -21,3 +22,15 @@ class ConversationStore:
         if conversation is None:
             raise ValueError(f"Conversation {conversation_id} not found")
         return conversation
+
+    async def get_conversation_resources(self, conversation_id: UUID) -> List[Document]:
+        result = await self.session.execute(
+            select(Document).where(Document.conversation_id == conversation_id)
+        )
+
+        resources = list(result.scalars().all())
+
+        if resources is None:
+            return []
+
+        return resources

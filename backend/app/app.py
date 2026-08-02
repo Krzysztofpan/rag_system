@@ -34,8 +34,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
 class CreateConversationRequest(BaseModel):
     user_id: UUID
 
@@ -61,6 +59,20 @@ async def create_conversation(
         "user_id": str(conversation.user_id),
     }
 
+@app.get("/conversations/{conversation_id}/resources")
+async def get_resources(
+    conversation_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    conversation_store = ConversationStore(session)
+
+    conversation_resources = await conversation_store.get_conversation_resources(conversation_id)
+    resources_count = len(conversation_resources)
+    
+    return {
+        "count": resources_count,
+        "conversation_resources": conversation_resources
+    }
 
 @app.post("/upload")
 async def upload(
