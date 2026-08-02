@@ -38,5 +38,5 @@
     "lib",
     "types",
     "hooks"
-  ]
+, "vite-env.d.ts"  ]
 }
