@@ -3,7 +3,8 @@
 import { useOptimistic, useState, useTransition } from 'react'
 
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
-import { createPendingResource, uploadResource } from '@/lib/api'
+import { applyUploadResponse, createPendingResource, rejectResource } from '@/lib/resource'
+import { apiService } from '@/services/apiService'
 import type { Resource } from '@/types/resource'
 
 import { Separator } from './ui/separator'
@@ -28,8 +29,13 @@ function ResourceSection() {
 
         startTransition(async () => {
             addOptimisticResource(pendingResource)
-            const uploadedResource = await uploadResource(pendingResource, conversationId)
-            setResources((currentResources) => [...currentResources, uploadedResource])
+            try {
+                const body = await apiService.uploadResource(conversationId, file)
+                setResources((current) => [...current, applyUploadResponse(pendingResource, body)])
+            }
+            catch {
+                setResources((current) => [...current, rejectResource(pendingResource, 'Server didn\'t respond')])
+            }
         })
     }
 

@@ -8,9 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine, get_session
+from app.dependencies import DocumentIndexingServiceDep
+from app.schemas.upload import (
+    UploadResourceResponse,
+    build_upload_quality,
+    quality_from_rejected_report,
+)
 from app.services.conversation_store import ConversationStore
 from app.services.parser import ParseQualityError
-from app.dependencies import DocumentIndexingServiceDep
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -74,7 +79,7 @@ async def get_resources(
         "conversation_resources": conversation_resources
     }
 
-@app.post("/upload")
+@app.post("/upload", response_model=UploadResourceResponse)
 async def upload(
     indexing_service: DocumentIndexingServiceDep,
     file: UploadFile = File(...),
@@ -82,12 +87,16 @@ async def upload(
         ..., description="conversations.id for this chat"
     ),
     session: AsyncSession = Depends(get_session),
-):
+) -> UploadResourceResponse:
+    """Business outcomes always return HTTP 200 with status ready|rejected."""
     conversation_store = ConversationStore(session)
     try:
         await conversation_store.get_conversation(conversation_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return UploadResourceResponse(
+            status="rejected",
+            error=str(exc),
+        )
 
     try:
         result = await indexing_service.ingest(
@@ -95,32 +104,25 @@ async def upload(
             conversation_id=conversation_id,
         )
     except ParseQualityError as exc:
-        return JSONResponse(
-            status_code=422,
-            content={
-                "status": "rejected",
-                "document_id": (
-                    str(exc.document_id) if exc.document_id is not None else None
-                ),
-                "detail": str(exc),
-                "report": exc.report,
-            },
+        return UploadResourceResponse(
+            status="rejected",
+            document_id=(
+                str(exc.document_id) if exc.document_id is not None else None
+            ),
+            quality=quality_from_rejected_report(exc.report),
+            error=str(exc),
         )
 
-    return {
-        "status": "ok",
-        "conversation_id": str(conversation_id),
-        "document_id": str(result.document_id),
-        "parsed_content": result.parsed_content,
-        "quality": {
-            "parse_report": result.parse_report,
-            "chunk_quality": {
-                key: value
-                for key, value in result.chunk_quality.items()
-                if key != "kept_indexes"
-            },
-        },
-    }
+    return UploadResourceResponse(
+        status="ready",
+        document_id=str(result.document_id),
+        parsed_content=result.parsed_content,
+        quality=build_upload_quality(
+            parse_report=result.parse_report,
+            chunk_quality=result.chunk_quality,
+        ),
+        error=None,
+    )
 
 
 @app.get("/health/db")
