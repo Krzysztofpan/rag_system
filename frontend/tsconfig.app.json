@@ -37,6 +37,8 @@
     "components",
     "lib",
     "types",
-    "hooks"
-, "vite-env.d.ts"  ]
+    "hooks",
+    "vite-env.d.ts",
+    "services"
+  ]
 }

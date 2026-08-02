@@ -38,36 +38,11 @@ export type UploadQuality = {
     chunk_quality: ChunkQuality;
 }
 
-/** 200 — dokument sparsowany, pochunkowany i zaindeksowany. */
-export type UploadOkResponse = {
-    status: 'ok';
-    conversation_id: string;
-    document_id: string;
-    parsed_content: string;
-    quality: UploadQuality;
-}
-
-/**
- * 422 — ParseQualityError. Raport ma inny kształt niż przy 200:
- * pola parse_report są rozpłaszczone na wierzchu, a chunk_quality
- * dodatkowo zawiera kept_indexes.
- */
-export type UploadRejectedResponse = {
-    status: 'rejected';
+/** Jednolity kształt odpowiedzi POST /upload (zawsze HTTP 200). */
+export type UploadResourceResponse = {
+    status: 'ready' | 'rejected';
     document_id: string | null;
-    detail: string;
-    report: ParseReport & {
-        chunk_quality: ChunkQuality & { kept_indexes: number[] };
-    };
-}
-
-/** 404 i pozostałe HTTPException z FastAPI. */
-export type ApiErrorResponse = {
-    detail: string;
-}
-
-export type UploadResponse = UploadOkResponse | UploadRejectedResponse
-
-export function isUploadOk(response: UploadResponse): response is UploadOkResponse {
-    return response.status === 'ok'
+    parsed_content: string | null;
+    quality: UploadQuality | null;
+    error: string | null;
 }
