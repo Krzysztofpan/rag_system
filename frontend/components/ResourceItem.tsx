@@ -35,7 +35,7 @@ const ResourceItem = ({ resource }: ResourceItemProps) => {
             <div className="flex gap-2 items-center min-w-0">
                 {iconSrc
                     ? <img src={iconSrc} width={25} alt={filename} />
-                    : <div className="size-[25px] shrink-0 rounded bg-muted" aria-hidden />}
+                    : <div className="size-6.25 shrink-0 rounded bg-muted" aria-hidden />}
                 {!isCollapsed && <div className="flex items-center text-sm truncate w-full">{filename}</div>}
             </div>
             {isPending
