@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum, ForeignKey, Uuid
@@ -9,6 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from app.db.models.chunk import Chunk
     from app.db.models.conversation import Conversation
+    from app.db.models.document_report import DocumentReport
 
 
 class DocumentStatus(str, Enum):
@@ -73,3 +74,4 @@ class Document(SQLModel, table=True):
 
     conversation: "Conversation" = Relationship(back_populates="documents")
     chunks: list["Chunk"] = Relationship(back_populates="document")
+    report: Optional["DocumentReport"] = Relationship(back_populates="document")

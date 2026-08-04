@@ -32,10 +32,12 @@ class ParseQualityError(ValueError):
         message: str,
         report: dict,
         document_id: UUID | None = None,
+        parsed_content: str | None = None,
     ):
         super().__init__(message)
         self.report = report
         self.document_id = document_id
+        self.parsed_content = parsed_content
 
 
 class Parser(ABC):

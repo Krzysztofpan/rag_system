@@ -1,13 +1,10 @@
-import type { UploadQuality } from './upload'
-
-export type ResourceStatus = 'pending' | 'ready' | 'rejected'
+export type ResourceStatus = 'pending' | 'processing' | 'ready' | 'failed'
 
 export type Resource = {
     id: string;
-    file: File;
+    filename: string;
+    contentType: string | null;
     status: ResourceStatus;
-    documentId: string | null;
-    parsedContent: string | null;
-    quality: UploadQuality | null;
     error: string | null;
+    chunkCount: number;
 }

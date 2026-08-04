@@ -1,21 +1,34 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
-from fastapi.middleware.cors import CORSMiddleware
+
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine, get_session
 from app.dependencies import DocumentIndexingServiceDep
-from app.schemas.upload import (
+from app.schemas.conversation import (
+    CreateConversationRequest,
+    CreateConversationResponse,
+)
+from app.schemas.resource import (
+    GetResourcesResponse,
+    ResourceReportResponse,
+    ResourceResponse,
     UploadResourceResponse,
+    report_from_document_report,
+    resource_from_document,
+)
+from app.schemas.upload import (
     build_upload_quality,
     quality_from_rejected_report,
 )
 from app.services.conversation_store import ConversationStore
+from app.services.doc_store import DocumentStore
 from app.services.parser import ParseQualityError
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,45 +52,74 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class CreateConversationRequest(BaseModel):
-    user_id: UUID
-
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/conversations")
+@app.post("/conversations", response_model=CreateConversationResponse)
 async def create_conversation(
     body: CreateConversationRequest,
     session: AsyncSession = Depends(get_session),
-):
+) -> CreateConversationResponse:
     """Create a conversation for a Supabase Auth user (MVP: pass user_id explicitly)."""
     store = ConversationStore(session)
     try:
         conversation = await store.create_conversation(user_id=body.user_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {
-        "conversation_id": str(conversation.id),
-        "user_id": str(conversation.user_id),
-    }
+    return CreateConversationResponse(
+        conversation_id=str(conversation.id),
+        user_id=str(conversation.user_id),
+    )
 
-@app.get("/conversations/{conversation_id}/resources")
+
+@app.get(
+    "/conversations/{conversation_id}/resources",
+    response_model=GetResourcesResponse,
+)
 async def get_resources(
     conversation_id: UUID,
     session: AsyncSession = Depends(get_session),
-):
+) -> GetResourcesResponse:
     conversation_store = ConversationStore(session)
 
-    conversation_resources = await conversation_store.get_conversation_resources(conversation_id)
-    resources_count = len(conversation_resources)
-    
-    return {
-        "count": resources_count,
-        "conversation_resources": conversation_resources
-    }
+    conversation_resources = await conversation_store.get_conversation_resources(
+        conversation_id
+    )
+    resources = [resource_from_document(document) for document in conversation_resources]
+
+    return GetResourcesResponse(
+        count=len(resources),
+        conversation_resources=resources,
+    )
+
+
+@app.get(
+    "/conversations/{conversation_id}/resources/{document_id}/report",
+    response_model=ResourceReportResponse,
+)
+async def get_resource_report(
+    conversation_id: UUID,
+    document_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> ResourceReportResponse:
+    document_store = DocumentStore(session)
+    try:
+        document = await document_store.get_document(document_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    if document.conversation_id != conversation_id:
+        raise HTTPException(status_code=404, detail="Document not found in conversation")
+
+    report = await document_store.get_report(document_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return report_from_document_report(report)
+
 
 @app.post("/upload", response_model=UploadResourceResponse)
 async def upload(
@@ -88,15 +130,15 @@ async def upload(
     ),
     session: AsyncSession = Depends(get_session),
 ) -> UploadResourceResponse:
-    """Business outcomes always return HTTP 200 with status ready|rejected."""
+    """Business outcomes always return HTTP 200; failures use resource.status=failed or resource=null."""
     conversation_store = ConversationStore(session)
     try:
         await conversation_store.get_conversation(conversation_id)
     except ValueError as exc:
-        return UploadResourceResponse(
-            status="rejected",
-            error=str(exc),
-        )
+        return UploadResourceResponse(error=str(exc))
+
+    filename = file.filename or "unknown"
+    content_type = file.content_type
 
     try:
         result = await indexing_service.ingest(
@@ -104,22 +146,45 @@ async def upload(
             conversation_id=conversation_id,
         )
     except ParseQualityError as exc:
+        resource = None
+        report = None
+        if exc.document_id is not None:
+            resource = ResourceResponse(
+                id=str(exc.document_id),
+                filename=filename,
+                content_type=content_type,
+                status="failed",
+                error=str(exc),
+                chunk_count=0,
+            )
+            report = ResourceReportResponse(
+                document_id=str(exc.document_id),
+                parsed_content=exc.parsed_content,
+                quality=quality_from_rejected_report(exc.report),
+            )
         return UploadResourceResponse(
-            status="rejected",
-            document_id=(
-                str(exc.document_id) if exc.document_id is not None else None
-            ),
-            quality=quality_from_rejected_report(exc.report),
+            resource=resource,
+            report=report,
             error=str(exc),
         )
 
+    quality = build_upload_quality(
+        parse_report=result.parse_report,
+        chunk_quality=result.chunk_quality,
+    )
     return UploadResourceResponse(
-        status="ready",
-        document_id=str(result.document_id),
-        parsed_content=result.parsed_content,
-        quality=build_upload_quality(
-            parse_report=result.parse_report,
-            chunk_quality=result.chunk_quality,
+        resource=ResourceResponse(
+            id=str(result.document_id),
+            filename=filename,
+            content_type=content_type,
+            status="ready",
+            error=None,
+            chunk_count=len(result.chunk_ids),
+        ),
+        report=ResourceReportResponse(
+            document_id=str(result.document_id),
+            parsed_content=result.parsed_content,
+            quality=quality,
         ),
         error=None,
     )

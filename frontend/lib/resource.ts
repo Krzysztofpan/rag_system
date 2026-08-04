@@ -1,29 +1,33 @@
+import type { UploadResourceResponse } from '@/services/api/types'
 import type { Resource } from '@/types/resource'
-import type { UploadResourceResponse } from '@/types/upload'
 
 export function createPendingResource(file: File): Resource {
     return {
         id: crypto.randomUUID(),
-        file,
+        filename: file.name,
+        contentType: file.type || null,
         status: 'pending',
-        documentId: null,
-        parsedContent: null,
-        quality: null,
         error: null,
+        chunkCount: 0,
     }
 }
 
 export function applyUploadResponse(resource: Resource, body: UploadResourceResponse): Resource {
+    if (body.resource == null) {
+        return {
+            ...resource,
+            status: 'failed',
+            error: body.error,
+        }
+    }
+
     return {
         ...resource,
-        status: body.status,
-        documentId: body.document_id,
-        parsedContent: body.parsed_content,
-        quality: body.quality,
-        error: body.error,
+        ...body.resource,
+        error: body.error ?? body.resource.error,
     }
 }
 
 export function rejectResource(resource: Resource, error: string): Resource {
-    return { ...resource, status: 'rejected', error }
+    return { ...resource, status: 'failed', error }
 }

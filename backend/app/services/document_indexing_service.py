@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
+from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
 from app.services.doc_store import DocumentStore
 from app.services.parser import ParseQualityError, ParserFactory, Parser
@@ -57,9 +58,11 @@ class DocumentIndexingService:
 
         document_id = document.id
         await self.doc_store.mark_processing(document_id)
+        parsed_markdown: str | None = None
 
         try:
             parsed = await self.parser._parse()
+            parsed_markdown = parsed.markdown
             doc = parsed.document if parsed.document is not None else parsed.markdown
             chunks = self.chunker._chunk(doc=doc, source_text=parsed.markdown)
 
@@ -75,10 +78,20 @@ class DocumentIndexingService:
                 document_id=document_id,
                 source_filename=file.filename or "unknown",
             )
-            
+
             self.vector_store.add_vectors(
                 vectors,
                 conversation_id=conversation_id,
+            )
+
+            quality = build_upload_quality(
+                parse_report=parsed.report,
+                chunk_quality=chunk_quality,
+            )
+            await self.doc_store.upsert_report(
+                document_id,
+                parsed_content=parsed.markdown,
+                quality=quality.model_dump(mode="json"),
             )
 
             return IngestResult(
@@ -90,10 +103,17 @@ class DocumentIndexingService:
             )
         except ParseQualityError as exc:
             await self.doc_store.mark_failed(document_id, str(exc))
+            quality = quality_from_rejected_report(exc.report)
+            await self.doc_store.upsert_report(
+                document_id,
+                parsed_content=parsed_markdown,
+                quality=quality.model_dump(mode="json") if quality is not None else None,
+            )
             raise ParseQualityError(
                 str(exc),
                 report=exc.report,
                 document_id=document_id,
+                parsed_content=parsed_markdown,
             ) from exc
         except Exception as exc:
             await self.doc_store.mark_failed(document_id, str(exc))

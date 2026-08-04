@@ -100,6 +100,7 @@ class FakeChunkerFactory:
 class FakeDocumentStore:
     documents: dict[UUID, Document] = field(default_factory=dict)
     saved_chunks: dict[UUID, list[ChunkResult]] = field(default_factory=dict)
+    reports: dict[UUID, dict] = field(default_factory=dict)
     events: list[tuple[str, UUID, object | None]] = field(default_factory=list)
 
     async def create_document(
@@ -145,6 +146,19 @@ class FakeDocumentStore:
         document.status = DocumentStatus.failed
         document.error_message = message
         self.events.append(("failed", document_id, message))
+
+    async def upsert_report(
+        self,
+        document_id: UUID,
+        *,
+        parsed_content: str | None,
+        quality: dict | None,
+    ) -> None:
+        self.events.append(("upsert_report", document_id, parsed_content))
+        self.reports[document_id] = {
+            "parsed_content": parsed_content,
+            "quality": quality,
+        }
 
 
 @dataclass

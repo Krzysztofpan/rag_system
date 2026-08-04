@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.chunk import Chunk
 from app.db.models.document import Document, DocumentStatus
+from app.db.models.document_report import DocumentReport
 from app.services.chunker import ChunkResult
 
 
@@ -74,6 +76,31 @@ class DocumentStore:
         document.error_message = message
         document.updated_at = datetime.now(UTC)
         await self.session.commit()
+
+    async def upsert_report(
+        self,
+        document_id: UUID,
+        *,
+        parsed_content: str | None,
+        quality: dict[str, Any] | None,
+    ) -> DocumentReport:
+        report = await self.session.get(DocumentReport, document_id)
+        if report is None:
+            report = DocumentReport(document_id=document_id)
+            self.session.add(report)
+
+        report.parsed_content = parsed_content
+        report.quality = quality
+        report.updated_at = datetime.now(UTC)
+        await self.session.commit()
+        await self.session.refresh(report)
+        return report
+
+    async def get_report(self, document_id: UUID) -> DocumentReport | None:
+        return await self.session.get(DocumentReport, document_id)
+
+    async def get_document(self, document_id: UUID) -> Document:
+        return await self._get_document(document_id)
 
     def _set_document_ready(
         self,
