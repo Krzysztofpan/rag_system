@@ -15,27 +15,30 @@ type ResourceItemProps = {
 }
 
 const ResourceItem = ({ resource }: ResourceItemProps) => {
-    const { file, status, error } = resource
+    const { filename, contentType, status, error } = resource
     const { state } = useSidebar()
     const [isOpen, setIsOpen] = useState(false)
 
     const isCollapsed = state === 'collapsed'
-    const isPending = status === 'pending'
+    const isPending = status === 'pending' || status === 'processing'
+    const iconSrc = contentType ? IconsMap[contentType] : undefined
 
     return (
         <div
             title={error ?? undefined}
             className={
                 `flex gap-2 items-center group hover:bg-muted p-3 py-4 rounded-lg cursor-pointer
-        ${isCollapsed ? 'justify-center' : 'w-full justify-between'} ${status === 'rejected' || isPending ? 'opacity-60' : ''}  
+        ${isCollapsed ? 'justify-center' : 'w-full justify-between'} ${status === 'failed' || isPending ? 'opacity-60' : ''}  
         `
             }
         >
             <div className="flex gap-2 items-center min-w-0">
-                <img src={IconsMap[file.type]} width={25} alt={file.name} />
-                {!isCollapsed && <div className="flex items-center text-sm truncate w-full">{file.name}</div>}
+                {iconSrc
+                    ? <img src={iconSrc} width={25} alt={filename} />
+                    : <div className="size-[25px] shrink-0 rounded bg-muted" aria-hidden />}
+                {!isCollapsed && <div className="flex items-center text-sm truncate w-full">{filename}</div>}
             </div>
-            {status === 'pending'
+            {isPending
                 ? (
                         <Spinner />
                     )

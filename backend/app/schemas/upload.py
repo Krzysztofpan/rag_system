@@ -1,29 +1,31 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import APIModel
 
 
-class ParseIssue(BaseModel):
+class ParseIssue(APIModel):
     line: int
     kinds: list[str]
     text: str
 
 
-class ParseReport(BaseModel):
+class ParseReport(APIModel):
     ok: bool
     counts: dict[str, int] = Field(default_factory=dict)
     issues: list[ParseIssue] = Field(default_factory=list)
 
 
-class RejectedChunk(BaseModel):
+class RejectedChunk(APIModel):
     index: int
     kinds: list[str]
     text: str
 
 
-class ChunkQuality(BaseModel):
+class ChunkQuality(APIModel):
     ok: bool
     total_chunks: int
     kept_chunks: int
@@ -33,17 +35,9 @@ class ChunkQuality(BaseModel):
     rejected: list[RejectedChunk] = Field(default_factory=list)
 
 
-class UploadQuality(BaseModel):
+class UploadQuality(APIModel):
     parse_report: ParseReport
     chunk_quality: ChunkQuality
-
-
-class UploadResourceResponse(BaseModel):
-    status: Literal["ready", "rejected"]
-    document_id: str | None = None
-    parsed_content: str | None = None
-    quality: UploadQuality | None = None
-    error: str | None = None
 
 
 def _public_chunk_quality(chunk_quality: dict[str, Any]) -> dict[str, Any]:
