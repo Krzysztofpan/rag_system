@@ -5,7 +5,7 @@ import SourceSection from '@/components/Sources/SourceSection'
 import { SidebarProvider } from '@/components/ui/sidebar'
 
 const ConversationPage = () => {
-    const { conversationId } = useParams<{ conversationId: string }>()
+    const { conversationId } = useParams<{ conversationId?: string }>()
 
     return (
         <SidebarProvider
