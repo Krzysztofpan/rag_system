@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import { Plus } from 'lucide-react'
 
-import { Button } from './ui/button'
-import { useSidebar } from './ui/sidebar'
+import { Button } from '../ui/button'
+import { useSidebar } from '../ui/sidebar'
 
 
 type UploadFileBtn = {

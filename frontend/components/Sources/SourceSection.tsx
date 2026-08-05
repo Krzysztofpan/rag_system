@@ -3,12 +3,11 @@
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useSources, useSourcesClient } from '@/hooks/useSources'
 
-import { Separator } from './ui/separator'
-import { Skeleton } from './ui/skeleton'
+import { Separator } from '../ui/separator'
+import { Skeleton } from '../ui/skeleton'
 import SourceItem from './SourceItem'
 import UploadFilePage from './UploadFile'
 
-const conversationId = 'e682d642-6295-40f7-b20c-1f16fe1dcc78'
 const SKELETON_COUNT = 3
 
 function SourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
@@ -20,7 +19,7 @@ function SourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
     )
 }
 
-function SourceSection() {
+function SourceSection({ conversationId }: { conversationId: string }) {
     const { state } = useSidebar()
     const { data: sources = [], isLoading, error } = useSources(conversationId)
     const { uploadSource } = useSourcesClient(conversationId)

@@ -2,7 +2,7 @@ import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
 
 import { useEditSourceName } from '@/hooks/useEditSourceName';
 
-import { Input } from './ui/input';
+import { Input } from '../ui/input';
 
 type SourceNameEditViewProps = {
     conversationId: string;
