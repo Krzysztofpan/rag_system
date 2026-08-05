@@ -1,4 +1,4 @@
-from fastapi import Depends,HTTPException
+from fastapi import Body, Depends, HTTPException
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -86,7 +86,7 @@ async def delete_source(
 async def change_source_name(
     conversation_id: UUID,
     document_id: UUID,
-    name: str,
+    name: str = Body(...),
     session: AsyncSession = Depends(get_session),
 ):
     document_store = DocumentStore(session)

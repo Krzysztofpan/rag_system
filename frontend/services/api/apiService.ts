@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance } from 'axios'
 
 import type {
+    DeleteSourceResponse,
     GetSourcesResponse,
     SourceReportResponse,
     UploadSourceResponse,
@@ -27,6 +28,29 @@ class ApiService {
         const { data } = await this.client.get<GetSourcesResponse>(
             `/conversations/${conversationId}/sources`,
         )
+        return data
+    }
+
+    deleteSource = async (
+        conversationId: string,
+        documentId: string,
+    ): Promise<DeleteSourceResponse> => {
+        const { data } = await this.client.delete<DeleteSourceResponse>(
+            `/conversations/${conversationId}/sources/${documentId}`,
+        )
+        return data
+    }
+
+    editSourceName = async (
+        conversationId: string,
+        documentId: string,
+        name: string,
+    ): Promise<string> => {
+        const { data } = await this.client.patch<string>(
+            `/conversations/${conversationId}/sources/${documentId}`,
+            name,
+        )
+
         return data
     }
 

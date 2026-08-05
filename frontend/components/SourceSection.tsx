@@ -8,7 +8,7 @@ import { Skeleton } from './ui/skeleton'
 import SourceItem from './SourceItem'
 import UploadFilePage from './UploadFile'
 
-const conversationId = 'f77a3288-7589-49d5-bd12-3a29597d3b0a'
+const conversationId = 'e682d642-6295-40f7-b20c-1f16fe1dcc78'
 const SKELETON_COUNT = 3
 
 function SourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
@@ -46,7 +46,13 @@ function SourceSection() {
                     <div className={`flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
                         {isLoading && Array.from({ length: SKELETON_COUNT }, (_, i) => <SourceItemSkeleton key={i} isCollapsed={isCollapsed} />)}
                         {error && !isCollapsed && <p className="px-3 py-4 text-sm text-muted-foreground">Failed to load sources. Please try again later.</p>}
-                        {!isLoading && !error && sources.map((source) => <SourceItem key={source.id} source={source} />)}
+                        {!isLoading && !error && sources.map((source) => (
+                            <SourceItem
+                                key={source.id}
+                                source={source}
+                                conversationId={conversationId}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>

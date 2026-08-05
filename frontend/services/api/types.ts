@@ -8,6 +8,10 @@ export type GetSourcesResponse = {
     conversationSources: SourceResponse[];
 }
 
+export type DeleteSourceResponse = {
+    deletedDocument: Source;
+}
+
 export type SourceReportResponse = SourceReport
 
 export type UploadSourceResponse = {
