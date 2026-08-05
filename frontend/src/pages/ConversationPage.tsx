@@ -7,6 +7,10 @@ import { SidebarProvider } from '@/components/ui/sidebar'
 const ConversationPage = () => {
     const { conversationId } = useParams<{ conversationId?: string }>()
 
+    if (!conversationId) {
+        return <div>Conversation not found</div>
+    }
+
     return (
         <SidebarProvider
             className="flex h-svh flex-col overflow-hidden"
@@ -26,7 +30,7 @@ const ConversationPage = () => {
                 </main>
             </div>
         </SidebarProvider>
-    );
+    )
 }
 
-export default ConversationPage;
+export default ConversationPage
