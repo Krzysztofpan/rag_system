@@ -41,6 +41,19 @@ class ApiService {
         return data
     }
 
+    editSourceName = async (
+        conversationId: string,
+        documentId: string,
+        name: string,
+    ): Promise<string> => {
+        const { data } = await this.client.patch<string>(
+            `/conversations/${conversationId}/sources/${documentId}`,
+            name,
+        )
+
+        return data
+    }
+
     getSourceReport = async (
         conversationId: string,
         documentId: string,

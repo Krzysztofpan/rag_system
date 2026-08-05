@@ -8,7 +8,7 @@ import { Skeleton } from './ui/skeleton'
 import SourceItem from './SourceItem'
 import UploadFilePage from './UploadFile'
 
-const conversationId = 'f77a3288-7589-49d5-bd12-3a29597d3b0a'
+const conversationId = 'e682d642-6295-40f7-b20c-1f16fe1dcc78'
 const SKELETON_COUNT = 3
 
 function SourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
