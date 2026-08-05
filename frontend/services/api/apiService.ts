@@ -1,9 +1,9 @@
 import axios, { type AxiosInstance } from 'axios'
 
 import type {
-    GetResourcesResponse,
-    ResourceReportResponse,
-    UploadResourceResponse,
+    GetSourcesResponse,
+    SourceReportResponse,
+    UploadSourceResponse,
 } from './types'
 
 class ApiService {
@@ -23,28 +23,28 @@ class ApiService {
         })
     }
 
-    getResources = async (conversationId: string): Promise<GetResourcesResponse> => {
-        const { data } = await this.client.get<GetResourcesResponse>(
-            `/conversations/${conversationId}/resources`,
+    getSources = async (conversationId: string): Promise<GetSourcesResponse> => {
+        const { data } = await this.client.get<GetSourcesResponse>(
+            `/conversations/${conversationId}/sources`,
         )
         return data
     }
 
-    getResourceReport = async (
+    getSourceReport = async (
         conversationId: string,
         documentId: string,
-    ): Promise<ResourceReportResponse> => {
-        const { data } = await this.client.get<ResourceReportResponse>(
-            `/conversations/${conversationId}/resources/${documentId}/report`,
+    ): Promise<SourceReportResponse> => {
+        const { data } = await this.client.get<SourceReportResponse>(
+            `/conversations/${conversationId}/sources/${documentId}/report`,
         )
         return data
     }
 
-    uploadResource = async (
+    uploadSource = async (
         conversationId: string,
         formData: FormData,
-    ): Promise<UploadResourceResponse> => {
-        const { data } = await this.client.post<UploadResourceResponse>(
+    ): Promise<UploadSourceResponse> => {
+        const { data } = await this.client.post<UploadSourceResponse>(
             `/upload?conversation_id=${encodeURIComponent(conversationId)}`,
             formData,
         )

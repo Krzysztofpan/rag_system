@@ -1,17 +1,17 @@
-import type { ResourceReport } from '@/types/report'
-import type { Resource } from '@/types/resource'
+import type { SourceReport } from '@/types/report'
+import type { Source } from '@/types/source'
 
-export type ResourceResponse = Resource
+export type SourceResponse = Source
 
-export type GetResourcesResponse = {
+export type GetSourcesResponse = {
     count: number;
-    conversationResources: ResourceResponse[];
+    conversationSources: SourceResponse[];
 }
 
-export type ResourceReportResponse = ResourceReport
+export type SourceReportResponse = SourceReport
 
-export type UploadResourceResponse = {
-    resource: ResourceResponse | null;
-    report: ResourceReportResponse | null;
+export type UploadSourceResponse = {
+    source: SourceResponse | null;
+    report: SourceReportResponse | null;
     error: string | null;
 }

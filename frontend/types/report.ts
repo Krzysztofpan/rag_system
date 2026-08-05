@@ -1,6 +1,6 @@
 import type { UploadQuality } from './upload'
 
-export type ResourceReport = {
+export type SourceReport = {
     documentId: string;
     parsedContent: string | null;
     quality: UploadQuality | null;

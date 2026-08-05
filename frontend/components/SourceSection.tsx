@@ -1,17 +1,17 @@
 'use client'
 
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
-import { useResources, useResourcesClient } from '@/hooks/useResources'
+import { useSources, useSourcesClient } from '@/hooks/useSources'
 
 import { Separator } from './ui/separator'
 import { Skeleton } from './ui/skeleton'
-import ResourceItem from './ResourceItem'
+import SourceItem from './SourceItem'
 import UploadFilePage from './UploadFile'
 
 const conversationId = 'f77a3288-7589-49d5-bd12-3a29597d3b0a'
 const SKELETON_COUNT = 3
 
-function ResourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
+function SourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
     return (
         <div className={`flex gap-2 items-center p-3 py-4 ${isCollapsed ? 'justify-center' : 'w-full'}`}>
             <Skeleton className="size-6.25 shrink-0 rounded" />
@@ -20,17 +20,17 @@ function ResourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
     )
 }
 
-function ResourceSection() {
+function SourceSection() {
     const { state } = useSidebar()
-    const { data: resources = [], isLoading, error } = useResources(conversationId)
-    const { uploadResource } = useResourcesClient(conversationId)
+    const { data: sources = [], isLoading, error } = useSources(conversationId)
+    const { uploadSource } = useSourcesClient(conversationId)
 
     const isCollapsed = state === 'collapsed'
 
-    const handleSelectResource = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSelectSource = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
-        void uploadResource(file)
+        void uploadSource(file)
     }
 
     return (
@@ -41,12 +41,12 @@ function ResourceSection() {
             </div>
             <Separator />
             <div className={`min-h-0 flex-1 overflow-y-auto flex flex-col py-4 ${isCollapsed ? 'items-center gap-2' : 'px-7 gap-6'}`}>
-                <UploadFilePage handleSelectResource={handleSelectResource} />
+                <UploadFilePage handleSelectSource={handleSelectSource} />
                 <div>
                     <div className={`flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
-                        {isLoading && Array.from({ length: SKELETON_COUNT }, (_, i) => <ResourceItemSkeleton key={i} isCollapsed={isCollapsed} />)}
+                        {isLoading && Array.from({ length: SKELETON_COUNT }, (_, i) => <SourceItemSkeleton key={i} isCollapsed={isCollapsed} />)}
                         {error && !isCollapsed && <p className="px-3 py-4 text-sm text-muted-foreground">Failed to load sources. Please try again later.</p>}
-                        {!isLoading && !error && resources.map((resource) => <ResourceItem key={resource.id} resource={resource} />)}
+                        {!isLoading && !error && sources.map((source) => <SourceItem key={source.id} source={source} />)}
                     </div>
                 </div>
             </div>
@@ -54,4 +54,4 @@ function ResourceSection() {
     )
 }
 
-export default ResourceSection
+export default SourceSection

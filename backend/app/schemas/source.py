@@ -8,7 +8,7 @@ from app.schemas.base import APIModel
 from app.schemas.upload import UploadQuality
 
 
-class ResourceResponse(APIModel):
+class SourceResponse(APIModel):
     id: str
     filename: str
     content_type: str | None
@@ -17,27 +17,29 @@ class ResourceResponse(APIModel):
     chunk_count: int = 0
 
 
-class ResourceReportResponse(APIModel):
+class SourceReportResponse(APIModel):
     document_id: str
     parsed_content: str | None = None
     quality: UploadQuality | None = None
 
 
-class GetResourcesResponse(APIModel):
+class GetSourcesResponse(APIModel):
     count: int
-    conversation_resources: list[ResourceResponse]
+    conversation_sources: list[SourceResponse]
 
-class DeleteResourceResponse(APIModel):
+
+class DeleteSourceResponse(APIModel):
     deleted_document: Document
 
-class UploadResourceResponse(APIModel):
-    resource: ResourceResponse | None = None
-    report: ResourceReportResponse | None = None
+
+class UploadSourceResponse(APIModel):
+    source: SourceResponse | None = None
+    report: SourceReportResponse | None = None
     error: str | None = None
 
 
-def resource_from_document(document: Document) -> ResourceResponse:
-    return ResourceResponse(
+def source_from_document(document: Document) -> SourceResponse:
+    return SourceResponse(
         id=str(document.id),
         filename=document.filename,
         content_type=document.content_type,
@@ -47,12 +49,12 @@ def resource_from_document(document: Document) -> ResourceResponse:
     )
 
 
-def report_from_document_report(report: DocumentReport) -> ResourceReportResponse:
+def report_from_document_report(report: DocumentReport) -> SourceReportResponse:
     quality = None
     if report.quality is not None:
         quality = UploadQuality.model_validate(report.quality)
 
-    return ResourceReportResponse(
+    return SourceReportResponse(
         document_id=str(report.document_id),
         parsed_content=report.parsed_content,
         quality=quality,

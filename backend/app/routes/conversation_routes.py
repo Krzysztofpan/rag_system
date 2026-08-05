@@ -8,12 +8,12 @@ from app.schemas.conversation import (
     CreateConversationRequest,
     CreateConversationResponse,
 )
-from app.schemas.resource import (
-    GetResourcesResponse,
-    ResourceReportResponse,
-    DeleteResourceResponse,
+from app.schemas.source import (
+    GetSourcesResponse,
+    SourceReportResponse,
+    DeleteSourceResponse,
     report_from_document_report,
-    resource_from_document,
+    source_from_document,
 )
 
 from app.services.conversation_store import ConversationStore
@@ -43,29 +43,29 @@ async def create_conversation(
 
 
 @conversation_router.get(
-    "/{conversation_id}/resources",
-    response_model=GetResourcesResponse,
+    "/{conversation_id}/sources",
+    response_model=GetSourcesResponse,
 )
-async def get_resources(
+async def get_sources(
     conversation_id: UUID,
     session: AsyncSession = Depends(get_session),
-) -> GetResourcesResponse:
+) -> GetSourcesResponse:
     conversation_store = ConversationStore(session)
 
-    conversation_resources = await conversation_store.get_conversation_resources(
+    conversation_documents = await conversation_store.get_conversation_documents(
         conversation_id
     )
-    resources = [resource_from_document(document) for document in conversation_resources]
+    sources = [source_from_document(document) for document in conversation_documents]
 
-    return GetResourcesResponse(
-        count=len(resources),
-        conversation_resources=resources,
+    return GetSourcesResponse(
+        count=len(sources),
+        conversation_sources=sources,
     )
 
 @conversation_router.delete(
-    "/{conversation_id}/resources/{document_id}"
+    "/{conversation_id}/sources/{document_id}"
 )
-async def delete_resource(
+async def delete_source(
     conversation_id: UUID,
     document_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -76,14 +76,14 @@ async def delete_resource(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) 
     
-    return DeleteResourceResponse(
+    return DeleteSourceResponse(
         deleted_document=deleted_document
     )
 
 @conversation_router.patch(
-    "/{conversation_id}/resources/{document_id}"
+    "/{conversation_id}/sources/{document_id}"
 )
-async def change_resource_name(
+async def change_source_name(
     conversation_id: UUID,
     document_id: UUID,
     name: str,
@@ -100,14 +100,14 @@ async def change_resource_name(
 
 
 @conversation_router.get(
-    "/{conversation_id}/resources/{document_id}/report",
-    response_model=ResourceReportResponse,
+    "/{conversation_id}/sources/{document_id}/report",
+    response_model=SourceReportResponse,
 )
-async def get_resource_report(
+async def get_source_report(
     conversation_id: UUID,
     document_id: UUID,
     session: AsyncSession = Depends(get_session),
-) -> ResourceReportResponse:
+) -> SourceReportResponse:
     document_store = DocumentStore(session)
     try:
         report = await document_store.get_report(conversation_id, document_id)

@@ -23,14 +23,14 @@ class ConversationStore:
             raise ValueError(f"Conversation {conversation_id} not found")
         return conversation
 
-    async def get_conversation_resources(self, conversation_id: UUID) -> List[Document]:
+    async def get_conversation_documents(self, conversation_id: UUID) -> List[Document]:
         result = await self.session.execute(
             select(Document).where(Document.conversation_id == conversation_id)
         )
 
-        resources = list(result.scalars().all())
+        documents = list(result.scalars().all())
 
-        if resources is None:
+        if documents is None:
             return []
 
-        return resources
+        return documents
