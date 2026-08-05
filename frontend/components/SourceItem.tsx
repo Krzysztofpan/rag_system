@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
 
 import { IconsMap } from '@/types/IconsMap'
-import type { Resource } from '@/types/resource'
+import type { Source } from '@/types/source'
 
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
@@ -10,12 +10,12 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { useSidebar } from './ui/sidebar'
 import { Spinner } from './ui/spinner'
 
-type ResourceItemProps = {
-    resource: Resource;
+type SourceItemProps = {
+    source: Source;
 }
 
-const ResourceItem = ({ resource }: ResourceItemProps) => {
-    const { filename, contentType, status, error } = resource
+const SourceItem = ({ source }: SourceItemProps) => {
+    const { filename, contentType, status, error } = source
     const { state } = useSidebar()
     const [isOpen, setIsOpen] = useState(false)
 
@@ -51,11 +51,11 @@ const ResourceItem = ({ resource }: ResourceItemProps) => {
                                 <PopoverContent side="bottom" align="start" className={`${isOpen ? 'flex' : 'hidden'} w-56 flex-col  gap-0 p-0`}>
                                     <Button className="p-5 flex gap-2 justify-start cursor-pointer" variant="ghost">
                                         <Trash2 />
-                                        Delete resource
+                                        Delete source
                                     </Button>
                                     <Button className="p-5 flex gap-2 justify-start cursor-pointer" variant="ghost">
                                         <Pencil />
-                                        Change name of resource
+                                        Change name of source
                                     </Button>
                                 </PopoverContent>
                             </Popover>
@@ -66,4 +66,4 @@ const ResourceItem = ({ resource }: ResourceItemProps) => {
     )
 }
 
-export default ResourceItem
+export default SourceItem

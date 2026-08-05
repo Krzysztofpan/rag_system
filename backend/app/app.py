@@ -9,10 +9,10 @@ from app.routes.conversation_routes import conversation_router
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine, get_session
 from app.dependencies import DocumentIndexingServiceDep
-from app.schemas.resource import (
-    ResourceReportResponse,
-    ResourceResponse,
-    UploadResourceResponse,
+from app.schemas.source import (
+    SourceReportResponse,
+    SourceResponse,
+    UploadSourceResponse,
 )
 from app.schemas.upload import (
     build_upload_quality,
@@ -48,7 +48,7 @@ app.add_middleware(
 async def root():
     return {"message": "Hello World"}
 
-@app.post("/upload", response_model=UploadResourceResponse)
+@app.post("/upload", response_model=UploadSourceResponse)
 async def upload(
     indexing_service: DocumentIndexingServiceDep,
     file: UploadFile = File(...),
@@ -56,13 +56,13 @@ async def upload(
         ..., description="conversations.id for this chat"
     ),
     session: AsyncSession = Depends(get_session),
-) -> UploadResourceResponse:
-    """Business outcomes always return HTTP 200; failures use resource.status=failed or resource=null."""
+) -> UploadSourceResponse:
+    """Business outcomes always return HTTP 200; failures use source.status=failed or source=null."""
     conversation_store = ConversationStore(session)
     try:
         await conversation_store.get_conversation(conversation_id)
     except ValueError as exc:
-        return UploadResourceResponse(error=str(exc))
+        return UploadSourceResponse(error=str(exc))
 
     filename = file.filename or "unknown"
     content_type = file.content_type
@@ -73,10 +73,10 @@ async def upload(
             conversation_id=conversation_id,
         )
     except ParseQualityError as exc:
-        resource = None
+        source = None
         report = None
         if exc.document_id is not None:
-            resource = ResourceResponse(
+            source = SourceResponse(
                 id=str(exc.document_id),
                 filename=filename,
                 content_type=content_type,
@@ -84,13 +84,13 @@ async def upload(
                 error=str(exc),
                 chunk_count=0,
             )
-            report = ResourceReportResponse(
+            report = SourceReportResponse(
                 document_id=str(exc.document_id),
                 parsed_content=exc.parsed_content,
                 quality=quality_from_rejected_report(exc.report),
             )
-        return UploadResourceResponse(
-            resource=resource,
+        return UploadSourceResponse(
+            source=source,
             report=report,
             error=str(exc),
         )
@@ -99,8 +99,8 @@ async def upload(
         parse_report=result.parse_report,
         chunk_quality=result.chunk_quality,
     )
-    return UploadResourceResponse(
-        resource=ResourceResponse(
+    return UploadSourceResponse(
+        source=SourceResponse(
             id=str(result.document_id),
             filename=filename,
             content_type=content_type,
@@ -108,7 +108,7 @@ async def upload(
             error=None,
             chunk_count=len(result.chunk_ids),
         ),
-        report=ResourceReportResponse(
+        report=SourceReportResponse(
             document_id=str(result.document_id),
             parsed_content=result.parsed_content,
             quality=quality,

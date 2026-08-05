@@ -2,25 +2,25 @@ from app.schemas.conversation import (
     CreateConversationRequest,
     CreateConversationResponse,
 )
-from app.schemas.resource import (
-    GetResourcesResponse,
-    ResourceReportResponse,
-    ResourceResponse,
-    UploadResourceResponse,
+from app.schemas.source import (
+    GetSourcesResponse,
+    SourceReportResponse,
+    SourceResponse,
+    UploadSourceResponse,
     report_from_document_report,
-    resource_from_document,
+    source_from_document,
 )
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 
 __all__ = [
     "CreateConversationRequest",
     "CreateConversationResponse",
-    "GetResourcesResponse",
-    "ResourceReportResponse",
-    "ResourceResponse",
-    "UploadResourceResponse",
+    "GetSourcesResponse",
+    "SourceReportResponse",
+    "SourceResponse",
+    "UploadSourceResponse",
     "build_upload_quality",
     "quality_from_rejected_report",
     "report_from_document_report",
-    "resource_from_document",
+    "source_from_document",
 ]

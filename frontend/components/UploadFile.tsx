@@ -6,10 +6,10 @@ import { useSidebar } from './ui/sidebar'
 
 
 type UploadFileBtn = {
-    handleSelectResource: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handleSelectSource: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-const UploadFilePage = ({ handleSelectResource }: UploadFileBtn) => {
+const UploadFilePage = ({ handleSelectSource }: UploadFileBtn) => {
     const fileRef = useRef<HTMLInputElement>(null)
     const { state } = useSidebar()
     const isCollapsed = state === 'collapsed'
@@ -24,13 +24,13 @@ const UploadFilePage = ({ handleSelectResource }: UploadFileBtn) => {
                 onClick={handleClick}
                 variant="outline"
                 size={isCollapsed ? 'icon' : 'default'}
-                title="Add resource"
+                title="Add source"
                 className={isCollapsed ? '' : 'w-full rounded-full font-medium'}
             >
                 <Plus />
-                {!isCollapsed && 'Add resource'}
+                {!isCollapsed && 'Add source'}
             </Button>
-            <input type="file" accept=".pdf,.docxs,.txt,.md" className="hidden" ref={fileRef} onChange={handleSelectResource} />
+            <input type="file" accept=".pdf,.docxs,.txt,.md" className="hidden" ref={fileRef} onChange={handleSelectSource} />
         </div>
     )
 }
