@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
 
+import { useDeleteSource } from '@/hooks/useDeleteSource'
 import { IconsMap } from '@/types/IconsMap'
 import type { Source } from '@/types/source'
 
@@ -12,13 +13,14 @@ import { Spinner } from './ui/spinner'
 
 type SourceItemProps = {
     source: Source;
+    conversationId: string;
 }
 
-const SourceItem = ({ source }: SourceItemProps) => {
+const SourceItem = ({ source, conversationId }: SourceItemProps) => {
     const { filename, contentType, status, error } = source
     const { state } = useSidebar()
     const [isOpen, setIsOpen] = useState(false)
-
+    const { mutate: deleteSource } = useDeleteSource(conversationId)
     const isCollapsed = state === 'collapsed'
     const isPending = status === 'pending' || status === 'processing'
     const iconSrc = contentType ? IconsMap[contentType] : undefined
@@ -49,7 +51,11 @@ const SourceItem = ({ source }: SourceItemProps) => {
                                     <EllipsisVertical size={18} />
                                 </PopoverTrigger>
                                 <PopoverContent side="bottom" align="start" className={`${isOpen ? 'flex' : 'hidden'} w-56 flex-col  gap-0 p-0`}>
-                                    <Button className="p-5 flex gap-2 justify-start cursor-pointer" variant="ghost">
+                                    <Button
+                                        className="p-5 flex gap-2 justify-start cursor-pointer"
+                                        variant="ghost"
+                                        onClick={() => deleteSource(source.id)}
+                                    >
                                         <Trash2 />
                                         Delete source
                                     </Button>

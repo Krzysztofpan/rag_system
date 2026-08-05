@@ -28,6 +28,12 @@ export const useSourcesClient = (conversationId: string) => {
         ])
     }
 
+    const deleteSource = (sourceId: string) => {
+        queryClient.setQueryData<Source[]>(queryKey, (current = []) =>
+            current.filter((source) => source.id !== sourceId),
+        )
+    }
+
     const replaceSource = (sourceId: string, nextSource: Source) => {
         queryClient.setQueryData<Source[]>(queryKey, (current = []) =>
             current.map((source) =>
@@ -56,6 +62,7 @@ export const useSourcesClient = (conversationId: string) => {
 
     return {
         addSource,
+        deleteSource,
         replaceSource,
         uploadSource,
     }

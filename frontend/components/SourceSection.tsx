@@ -46,7 +46,13 @@ function SourceSection() {
                     <div className={`flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
                         {isLoading && Array.from({ length: SKELETON_COUNT }, (_, i) => <SourceItemSkeleton key={i} isCollapsed={isCollapsed} />)}
                         {error && !isCollapsed && <p className="px-3 py-4 text-sm text-muted-foreground">Failed to load sources. Please try again later.</p>}
-                        {!isLoading && !error && sources.map((source) => <SourceItem key={source.id} source={source} />)}
+                        {!isLoading && !error && sources.map((source) => (
+                            <SourceItem
+                                key={source.id}
+                                source={source}
+                                conversationId={conversationId}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>
