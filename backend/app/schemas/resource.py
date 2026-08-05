@@ -27,6 +27,8 @@ class GetResourcesResponse(APIModel):
     count: int
     conversation_resources: list[ResourceResponse]
 
+class DeleteResourceResponse(APIModel):
+    deleted_document: Document
 
 class UploadResourceResponse(APIModel):
     resource: ResourceResponse | None = None

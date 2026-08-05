@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
-from sqlalchemy import Column, Computed, DateTime, UniqueConstraint
+from sqlalchemy import Column, Computed, DateTime, ForeignKey, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -16,7 +16,14 @@ class Chunk(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("document_id", "chunk_index"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    document_id: UUID = Field(foreign_key="documents.id", index=True)
+    document_id: UUID = Field(
+        sa_column=Column(
+            Uuid(),
+            ForeignKey("documents.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
     chunk_index: int
     content: str
     context: str | None = None

@@ -40,6 +40,35 @@ class DocumentStore:
         document.updated_at = datetime.now(UTC)
         await self.session.commit()
 
+    async def delete_document(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> Document:
+        document = await self._require_document_in_conversation(
+            conversation_id,
+            document_id,
+        )
+        await self.session.delete(document)
+        await self.session.commit()
+        return document
+
+    async def change_document_name(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        name: str
+    ) -> str:
+        document = await self._require_document_in_conversation(conversation_id, document_id)
+
+        if(not name):
+            raise ValueError("You have to define new name.")
+
+        document.filename = name
+        await self.session.commit()
+        await self.session.refresh(document)
+        return document.filename
+
     async def save_chunks(
         self,
         document_id: UUID,
@@ -96,11 +125,26 @@ class DocumentStore:
         await self.session.refresh(report)
         return report
 
-    async def get_report(self, document_id: UUID) -> DocumentReport | None:
-        return await self.session.get(DocumentReport, document_id)
+    async def get_report(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> DocumentReport:
+        await self._require_document_in_conversation(conversation_id, document_id)
+        report = await self.session.get(DocumentReport, document_id)
+        if report is None:
+            raise ValueError("Report not found")
+        return report
 
-    async def get_document(self, document_id: UUID) -> Document:
-        return await self._get_document(document_id)
+    async def get_document(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> Document:
+        return await self._require_document_in_conversation(
+            conversation_id,
+            document_id,
+        )
 
     def _set_document_ready(
         self,
@@ -112,6 +156,16 @@ class DocumentStore:
         document.chunk_count = len(chunks)
         document.token_count = sum(token_counts) if token_counts else None
         document.updated_at = datetime.now(UTC)
+
+    async def _require_document_in_conversation(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> Document:
+        document = await self._get_document(document_id)
+        if document.conversation_id != conversation_id:
+            raise ValueError("Document not found in conversation")
+        return document
 
     async def _get_document(self, document_id: UUID) -> Document:
         document = await self.session.get(Document, document_id)
