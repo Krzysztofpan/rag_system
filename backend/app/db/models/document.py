@@ -73,5 +73,11 @@ class Document(SQLModel, table=True):
     )
 
     conversation: "Conversation" = Relationship(back_populates="documents")
-    chunks: list["Chunk"] = Relationship(back_populates="document")
-    report: Optional["DocumentReport"] = Relationship(back_populates="document")
+    chunks: list["Chunk"] = Relationship(
+        back_populates="document",
+        sa_relationship_kwargs={"passive_deletes": True},
+    )
+    report: Optional["DocumentReport"] = Relationship(
+        back_populates="document",
+        sa_relationship_kwargs={"passive_deletes": True},
+    )

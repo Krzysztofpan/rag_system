@@ -1,32 +1,24 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.routes.conversation_routes import conversation_router
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine, get_session
 from app.dependencies import DocumentIndexingServiceDep
-from app.schemas.conversation import (
-    CreateConversationRequest,
-    CreateConversationResponse,
-)
 from app.schemas.resource import (
-    GetResourcesResponse,
     ResourceReportResponse,
     ResourceResponse,
     UploadResourceResponse,
-    report_from_document_report,
-    resource_from_document,
 )
 from app.schemas.upload import (
     build_upload_quality,
     quality_from_rejected_report,
 )
 from app.services.conversation_store import ConversationStore
-from app.services.doc_store import DocumentStore
 from app.services.parser import ParseQualityError
 
 
@@ -52,74 +44,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
-
-
-@app.post("/conversations", response_model=CreateConversationResponse)
-async def create_conversation(
-    body: CreateConversationRequest,
-    session: AsyncSession = Depends(get_session),
-) -> CreateConversationResponse:
-    """Create a conversation for a Supabase Auth user (MVP: pass user_id explicitly)."""
-    store = ConversationStore(session)
-    try:
-        conversation = await store.create_conversation(user_id=body.user_id)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return CreateConversationResponse(
-        conversation_id=str(conversation.id),
-        user_id=str(conversation.user_id),
-    )
-
-
-@app.get(
-    "/conversations/{conversation_id}/resources",
-    response_model=GetResourcesResponse,
-)
-async def get_resources(
-    conversation_id: UUID,
-    session: AsyncSession = Depends(get_session),
-) -> GetResourcesResponse:
-    conversation_store = ConversationStore(session)
-
-    conversation_resources = await conversation_store.get_conversation_resources(
-        conversation_id
-    )
-    resources = [resource_from_document(document) for document in conversation_resources]
-
-    return GetResourcesResponse(
-        count=len(resources),
-        conversation_resources=resources,
-    )
-
-
-@app.get(
-    "/conversations/{conversation_id}/resources/{document_id}/report",
-    response_model=ResourceReportResponse,
-)
-async def get_resource_report(
-    conversation_id: UUID,
-    document_id: UUID,
-    session: AsyncSession = Depends(get_session),
-) -> ResourceReportResponse:
-    document_store = DocumentStore(session)
-    try:
-        document = await document_store.get_document(document_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    if document.conversation_id != conversation_id:
-        raise HTTPException(status_code=404, detail="Document not found in conversation")
-
-    report = await document_store.get_report(document_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    return report_from_document_report(report)
-
 
 @app.post("/upload", response_model=UploadResourceResponse)
 async def upload(
@@ -198,3 +125,5 @@ async def health_db():
         status_code=status_code,
         content={"status": "ok" if ok else "error", "detail": message},
     )
+
+app.include_router(conversation_router)
