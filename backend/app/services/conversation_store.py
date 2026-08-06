@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document
-
+from typing import List
 
 class ConversationStore:
     """Every lookup is scoped to the owning user; `user_id` is never optional."""
@@ -19,6 +19,16 @@ class ConversationStore:
         await self.session.commit()
         await self.session.refresh(conversation)
         return conversation
+
+    async def get_conversations(
+            self, *, user_id: UUID
+    ) -> List[Conversation]:
+        result = await self.session.execute(
+            select(Conversation).where(Conversation.user_id==user_id)
+        )
+
+        return list(result.scalars().all())
+        
 
     async def get_conversation(
         self,

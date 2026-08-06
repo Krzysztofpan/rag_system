@@ -41,6 +41,17 @@ async def create_conversation(
         user_id=str(conversation.user_id),
     )
 
+@conversation_router.get("/")
+async def get_conversations(
+    current_user: CurrentUserDep,
+    session: AsyncSession = Depends(get_session),
+):
+    conversation_store = ConversationStore(session)
+    conversations = await conversation_store.get_conversations(user_id=current_user.user_id)
+
+    return conversations
+
+
 
 @conversation_router.get(
     "/{conversation_id}/sources",
