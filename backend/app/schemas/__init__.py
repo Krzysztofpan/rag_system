@@ -1,7 +1,4 @@
-from app.schemas.conversation import (
-    CreateConversationRequest,
-    CreateConversationResponse,
-)
+from app.schemas.conversation import CreateConversationResponse
 from app.schemas.source import (
     GetSourcesResponse,
     SourceReportResponse,
@@ -13,7 +10,6 @@ from app.schemas.source import (
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 
 __all__ = [
-    "CreateConversationRequest",
     "CreateConversationResponse",
     "GetSourcesResponse",
     "SourceReportResponse",

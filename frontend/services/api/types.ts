@@ -1,6 +1,11 @@
 import type { SourceReport } from '@/types/report'
 import type { Source } from '@/types/source'
 
+export type CreateConversationResponse = {
+    conversationId: string;
+    userId: string;
+}
+
 export type SourceResponse = Source
 
 export type GetSourcesResponse = {

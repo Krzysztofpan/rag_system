@@ -2,9 +2,11 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.chunk import Chunk
+from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.services.chunker import ChunkResult
@@ -44,10 +46,13 @@ class DocumentStore:
         self,
         conversation_id: UUID,
         document_id: UUID,
+        *,
+        user_id: UUID,
     ) -> Document:
         document = await self._require_document_in_conversation(
             conversation_id,
             document_id,
+            user_id=user_id,
         )
         await self.session.delete(document)
         await self.session.commit()
@@ -57,11 +62,17 @@ class DocumentStore:
         self,
         conversation_id: UUID,
         document_id: UUID,
-        name: str
+        name: str,
+        *,
+        user_id: UUID,
     ) -> str:
-        document = await self._require_document_in_conversation(conversation_id, document_id)
+        document = await self._require_document_in_conversation(
+            conversation_id,
+            document_id,
+            user_id=user_id,
+        )
 
-        if(not name):
+        if not name:
             raise ValueError("You have to define new name.")
 
         document.filename = name
@@ -129,8 +140,14 @@ class DocumentStore:
         self,
         conversation_id: UUID,
         document_id: UUID,
+        *,
+        user_id: UUID,
     ) -> DocumentReport:
-        await self._require_document_in_conversation(conversation_id, document_id)
+        await self._require_document_in_conversation(
+            conversation_id,
+            document_id,
+            user_id=user_id,
+        )
         report = await self.session.get(DocumentReport, document_id)
         if report is None:
             raise ValueError("Report not found")
@@ -140,10 +157,13 @@ class DocumentStore:
         self,
         conversation_id: UUID,
         document_id: UUID,
+        *,
+        user_id: UUID,
     ) -> Document:
         return await self._require_document_in_conversation(
             conversation_id,
             document_id,
+            user_id=user_id,
         )
 
     def _set_document_ready(
@@ -161,9 +181,21 @@ class DocumentStore:
         self,
         conversation_id: UUID,
         document_id: UUID,
+        *,
+        user_id: UUID,
     ) -> Document:
-        document = await self._get_document(document_id)
-        if document.conversation_id != conversation_id:
+        """Ownership travels through the conversation, so one query covers both."""
+        result = await self.session.execute(
+            select(Document)
+            .join(Conversation, Conversation.id == Document.conversation_id)
+            .where(
+                Document.id == document_id,
+                Document.conversation_id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+        document = result.scalar_one_or_none()
+        if document is None:
             raise ValueError("Document not found in conversation")
         return document
 
