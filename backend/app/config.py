@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     app_env: Literal["development", "production"] = "development"
     database_url: str | None = None
     database_password: str | None = None
+    supabase_url: str | None = None
+    cors_allow_origins: str = "http://localhost:5173"
 
     openai_api_key: str | None = None
     pinecone_api_key: str | None = None
@@ -36,6 +38,14 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.cors_allow_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache

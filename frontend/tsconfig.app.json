@@ -35,6 +35,7 @@
   "include": [
     "src",
     "components",
+    "contexts",
     "lib",
     "types",
     "hooks",

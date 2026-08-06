@@ -1,14 +1,16 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, File, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.auth.jwt import verify_auth_configuration
+from app.config import get_settings
 from app.routes.conversation_routes import conversation_router
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine, get_session
-from app.dependencies import DocumentIndexingServiceDep
+from app.dependencies import CurrentUserDep, DocumentIndexingServiceDep
 from app.schemas.source import (
     SourceReportResponse,
     SourceResponse,
@@ -24,6 +26,7 @@ from app.services.parser import ParseQualityError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    verify_auth_configuration()
     await check_db_connection()
     yield
     await dispose_engine()
@@ -38,8 +41,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
+    allow_origins=get_settings().cors_origins,
+    # Auth rides in the Authorization header, so cookies stay out of CORS.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,6 +55,7 @@ async def root():
 @app.post("/upload", response_model=UploadSourceResponse)
 async def upload(
     indexing_service: DocumentIndexingServiceDep,
+    current_user: CurrentUserDep,
     file: UploadFile = File(...),
     conversation_id: UUID = Query(
         ..., description="conversations.id for this chat"
@@ -60,9 +65,13 @@ async def upload(
     """Business outcomes always return HTTP 200; failures use source.status=failed or source=null."""
     conversation_store = ConversationStore(session)
     try:
-        await conversation_store.get_conversation(conversation_id)
+        await conversation_store.get_conversation(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
     except ValueError as exc:
-        return UploadSourceResponse(error=str(exc))
+        # Authorization failure, not a business outcome: same 404 as elsewhere.
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     filename = file.filename or "unknown"
     content_type = file.content_type
