@@ -1,5 +1,6 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { AuthContext, type AuthContextValue, type SignUpResult } from '@/contexts/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +9,8 @@ import { apiService } from '@/services/api/apiService'
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<Session | null>(null)
     const [loading, setLoading] = useState(true)
+    const queryClient = useQueryClient()
+    const previousUserIdRef = useRef<string | null>(null)
 
     useEffect(() => {
         apiService.setAuthHandlers({
@@ -35,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return
             }
             setSession(data.session)
+            previousUserIdRef.current = data.session?.user?.id ?? null
             apiService.setToken(data.session?.access_token ?? null)
             setLoading(false)
         }
@@ -43,7 +47,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        } = supabase.auth.onAuthStateChange((event, nextSession) => {
+            const nextUserId = nextSession?.user?.id ?? null
+            const previousUserId = previousUserIdRef.current
+
+            if (
+                event === 'SIGNED_OUT'
+                || (previousUserId != null && nextUserId != null && previousUserId !== nextUserId)
+            ) {
+                queryClient.clear()
+            }
+
+            previousUserIdRef.current = nextUserId
             setSession(nextSession)
             apiService.setToken(nextSession?.access_token ?? null)
             setLoading(false)
@@ -53,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             mounted = false
             subscription.unsubscribe()
         }
-    }, [])
+    }, [queryClient])
 
     const signIn = useCallback(async (email: string, password: string) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password })

@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { AuthContext, type AuthContextValue, type SignUpResult } from '@/contexts/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +9,7 @@ import { apiService } from '@/services/api/apiService'
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<Session | null>(null)
     const [loading, setLoading] = useState(true)
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         apiService.setAuthHandlers({
@@ -43,7 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        } = supabase.auth.onAuthStateChange((event, nextSession) => {
+            if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+                queryClient.clear(); // albo removeQueries() tylko dla user-scoped keys
+            }
             setSession(nextSession)
             apiService.setToken(nextSession?.access_token ?? null)
             setLoading(false)
