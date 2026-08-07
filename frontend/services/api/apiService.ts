@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig, isAxiosError } from 'axios'
 
-import type { CreateConversationResponse, DeleteSourceResponse, GetConversationResponse, GetSourcesResponse, SourceReportResponse, UploadSourceResponse } from './types'
+import type { CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetSourcesResponse, SourceReportResponse, UploadSourceResponse } from './types'
 
 export type AuthHandlers = {
     refreshToken: () => Promise<string | null>;
@@ -54,7 +54,6 @@ class ApiService {
     }
 
     private refreshToken = (): Promise<string | null> => {
-    // Parallel requests failing at once must not trigger parallel refreshes.
         this.refreshInFlight ??= this.requestRefreshedToken()
         return this.refreshInFlight
     }
@@ -91,6 +90,16 @@ class ApiService {
 
     createConversation = async (): Promise<CreateConversationResponse> => {
         const { data } = await this.client.post<CreateConversationResponse>('/conversations')
+        return data
+    }
+
+    deleteConversation = async (conversationId: string): Promise<DeleteConversationResponse> => {
+        const { data } = await this.client.delete<DeleteConversationResponse>(`/conversations/${conversationId}`)
+        return data
+    }
+
+    eidtConversationTitle = async (conversationId: string, title: string): Promise<string> => {
+        const { data } = await this.client.patch<string>(`/conversations/${conversationId}/title`, title)
         return data
     }
 

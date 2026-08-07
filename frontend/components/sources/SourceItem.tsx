@@ -1,11 +1,12 @@
 import { useState } from 'react'
 
+import { useEditSourceName } from '@/hooks/useEditSourceName'
 import { IconsMap } from '@/types/IconsMap'
 import type { Source } from '@/types/source'
 
 import { useSidebar } from '../ui/sidebar'
 import { Spinner } from '../ui/spinner'
-import SourceNameEditView from './SourceNameEditView'
+import EditValueView from '../utils/EditValueView'
 import SourceOptions from './SourceOptions'
 
 type SourceItemProps = {
@@ -16,12 +17,16 @@ type SourceItemProps = {
 const SourceItem = ({ source, conversationId }: SourceItemProps) => {
     const { filename, contentType, status, error } = source
     const { state } = useSidebar()
-
+    const { mutate: editSourceName } = useEditSourceName(conversationId)
     const [editMode, setEditMode] = useState(false)
 
     const isCollapsed = state === 'collapsed'
     const isPending = status === 'pending' || status === 'processing'
     const iconSrc = contentType ? IconsMap[contentType] : undefined
+
+    const handleNameChange = (newName: string) => {
+        editSourceName({ documentId: source.id, name: newName })
+    }
 
     return (
         <div
@@ -34,10 +39,9 @@ const SourceItem = ({ source, conversationId }: SourceItemProps) => {
                 {iconSrc ? <img src={iconSrc} width={25} alt={filename} /> : <div className="size-6.25 shrink-0 rounded bg-muted" aria-hidden />}
                 {!isCollapsed && editMode
                     ? (
-                            <SourceNameEditView
-                                filename={filename}
-                                conversationId={conversationId}
-                                sourceId={source.id}
+                            <EditValueView
+                                onEdit={handleNameChange}
+                                value={filename}
                                 setEditMode={setEditMode}
                             />
                         )

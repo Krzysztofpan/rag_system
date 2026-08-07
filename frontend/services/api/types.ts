@@ -11,6 +11,10 @@ export type CreateConversationResponse = {
     userId: string;
 }
 
+export type DeleteConversationResponse = {
+    deletedConversation: Conversation;
+}
+
 export type SourceResponse = Source
 
 export type GetSourcesResponse = {

@@ -14,7 +14,7 @@ class ConversationStore:
         self.session = session
 
     async def create_conversation(self, *, user_id: UUID) -> Conversation:
-        conversation = Conversation(user_id=user_id)
+        conversation = Conversation(user_id=user_id, conversation_title="New Conversation")
         self.session.add(conversation)
         await self.session.commit()
         await self.session.refresh(conversation)
@@ -54,8 +54,10 @@ class ConversationStore:
         user_id: UUID,
     ) -> Conversation:
         conversation = await self.get_conversation(conversation_id, user_id=user_id)
+
         await self.session.delete(conversation)
         await self.session.commit()
+
         return conversation
 
     async def change_conversation_title(

@@ -11,6 +11,7 @@ export const useEditSourceName = (conversationId: string) => {
             apiService.editSourceName(conversationId, documentId, name),
         onMutate: ({ documentId, name }) => {
             const previousName = editSourceName(documentId, name)
+
             return { previousName }
         },
         onError: (_err, { documentId }, context) => {
