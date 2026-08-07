@@ -29,7 +29,7 @@ class GetSourcesResponse(APIModel):
 
 
 class DeleteSourceResponse(APIModel):
-    deleted_document: Document
+    deleted_document: SourceResponse
 
 
 class UploadSourceResponse(APIModel):

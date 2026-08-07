@@ -28,8 +28,7 @@ class ConversationStore:
         )
 
         return list(result.scalars().all())
-        
-
+ 
     async def get_conversation(
         self,
         conversation_id: UUID,
@@ -43,10 +42,41 @@ class ConversationStore:
             )
         )
         conversation = result.scalar_one_or_none()
-        # Missing and foreign conversations look the same, so ids can't be probed.
+
         if conversation is None:
             raise ValueError(f"Conversation {conversation_id} not found")
         return conversation
+
+    async def delete_conversation(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> Conversation:
+        conversation = await self.get_conversation(conversation_id, user_id=user_id)
+        await self.session.delete(conversation)
+        await self.session.commit()
+        return conversation
+
+    async def change_conversation_title(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+        title: str
+    ):
+        conversation = await self.get_conversation(
+           conversation_id, 
+           user_id=user_id
+        )
+       
+        if not title:
+            raise ValueError("You have to define new title.")
+
+        conversation.conversation_title = title
+        await self.session.commit()
+        await self.session.refresh(conversation)
+        return conversation.conversation_title
 
     async def get_conversation_documents(
         self,
