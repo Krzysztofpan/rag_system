@@ -43,7 +43,7 @@ export const useConversationsClient = () => {
     }
 
     const editConversationTitle = (conversationId: string, updatedTitle: string) => {
-        let previousName: string | null
+        let previousName: string | null = null
 
         queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
             current.map((conversation) => {
