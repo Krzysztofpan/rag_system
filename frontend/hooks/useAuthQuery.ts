@@ -1,5 +1,4 @@
 import {
-    type QueryKey,
     useQuery,
     type UseQueryOptions,
     type UseQueryResult,

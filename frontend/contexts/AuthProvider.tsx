@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             mounted = false
             subscription.unsubscribe()
         }
-    }, [])
+    }, [queryClient])
 
     const signIn = useCallback(async (email: string, password: string) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
