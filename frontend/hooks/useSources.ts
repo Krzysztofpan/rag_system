@@ -18,14 +18,36 @@ export const useSources = (conversationId: string) => {
 
 export const useSourcesClient = (conversationId: string) => {
     const queryClient = useQueryClient()
-    const queryKey = useUserQueryKey(['conversation-sources', conversationId])
+    const queryKey = useUserQueryKey('conversation-sources', conversationId)
 
     const addSource = (source: Source) => {
         queryClient.setQueryData<Source[]>(queryKey, (current = []) => [...current, source])
     }
 
     const deleteSource = (sourceId: string) => {
-        queryClient.setQueryData<Source[]>(queryKey, (current = []) => current.filter((source) => source.id !== sourceId))
+        let fallbackObj
+
+        queryClient.setQueryData<Source[]>(queryKey, (current = []) =>
+            current.filter((source, i) => {
+                if (source.id !== sourceId) {
+                    return true
+                }
+
+                fallbackObj = { deletedSource: source, index: i }
+                return false
+            }),
+        )
+
+        return fallbackObj
+    }
+
+    const insertSourceInIndex = (fallbackObj: { deletedSource: Source; index: number }) => {
+        queryClient.setQueryData<Source[]>(queryKey, (current = []) => {
+            const next = [...current]
+            const clampedIndex = Math.max(0, Math.min(fallbackObj.index, next.length))
+            next.splice(clampedIndex, 0, fallbackObj.deletedSource)
+            return next
+        })
     }
 
     const replaceSource = (sourceId: string, nextSource: Source) => {
@@ -64,6 +86,7 @@ export const useSourcesClient = (conversationId: string) => {
     return {
         addSource,
         deleteSource,
+        insertSourceInIndex,
         replaceSource,
         uploadSource,
         editSourceName,

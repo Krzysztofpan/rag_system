@@ -10,7 +10,12 @@ export const useDeleteSource = (conversationId: string) => {
         mutationFn: (documentId: string) =>
             apiService.deleteSource(conversationId, documentId),
         onMutate: (documentId: string) => {
-            sourcesClient.deleteSource(documentId)
+            const fallbackObj = sourcesClient.deleteSource(documentId)
+            return fallbackObj
+        },
+        onError: (_err, _, fallbackObj) => {
+            if (fallbackObj == null) return
+            sourcesClient.insertSourceInIndex(fallbackObj)
         },
     })
 }
