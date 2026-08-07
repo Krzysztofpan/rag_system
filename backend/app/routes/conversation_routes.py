@@ -11,6 +11,7 @@ from app.schemas.conversation import (
     CreateConversationResponse,
     GetConversationsResponse,
     conversation_from_model,
+    DeleteConversationResponse
 )
 from app.schemas.source import (
     DeleteSourceResponse,
@@ -57,7 +58,39 @@ async def get_conversations(
         conversations=[conversation_from_model(c) for c in conversations],
     )
 
+@conversation_router.delete('/{conversation_id}', response_model=DeleteConversationResponse)
+async def delete_conversation(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    session: AsyncSession = Depends(get_session),
+) -> DeleteConversationResponse:
+    conversation_store = ConversationStore(session)
+    try:
+        deleted_conversation = await conversation_store.delete_conversation(conversation_id, user_id=current_user.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    return DeleteConversationResponse(
+        deleted_conversation=conversation_from_model(deleted_conversation),
+    )
+
+@conversation_router.patch('/{conversation_id}/title')
+async def change_conversation_title(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    title: str = Body(...),
+    session: AsyncSession = Depends(get_session)
+):
+    conversation_store = ConversationStore(session)
+    
+    try:
+        conversation_title = await conversation_store.change_conversation_title(conversation_id, user_id=current_user.user_id, title=title)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return conversation_title
+        
+    
 
 @conversation_router.get(
     "/{conversation_id}/sources",

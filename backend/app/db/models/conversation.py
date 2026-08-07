@@ -42,4 +42,7 @@ class Conversation(SQLModel, table=True):
         ),
     )
 
-    documents: list["Document"] = Relationship(back_populates="conversation")
+    documents: list["Document"] = Relationship(
+        back_populates="conversation",
+        sa_relationship_kwargs={"passive_deletes": True},
+    )

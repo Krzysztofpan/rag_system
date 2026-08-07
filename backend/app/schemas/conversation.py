@@ -18,6 +18,9 @@ class ConversationResponse(APIModel):
 class GetConversationsResponse(APIModel):
     conversations: list[ConversationResponse]
 
+class DeleteConversationResponse(APIModel):
+    deleted_conversation: ConversationResponse
+
 
 class CreateConversationResponse(APIModel):
     conversation_id: str
