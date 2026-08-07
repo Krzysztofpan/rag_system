@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig, isAxiosError } from 'axios'
 
-import type { CreateConversationResponse, DeleteSourceResponse, GetSourcesResponse, SourceReportResponse, UploadSourceResponse } from './types'
+import type { CreateConversationResponse, DeleteSourceResponse, GetConversationResponse, GetSourcesResponse, SourceReportResponse, UploadSourceResponse } from './types'
 
 export type AuthHandlers = {
     refreshToken: () => Promise<string | null>;
@@ -84,8 +84,13 @@ class ApiService {
         this.client = this.constructClient(token)
     }
 
+    getConversations = async (): Promise<GetConversationResponse> => {
+        const { data } = await this.client.get<GetConversationResponse>('/conversations')
+        return data
+    }
+
     createConversation = async (): Promise<CreateConversationResponse> => {
-        const { data } = await this.client.post<CreateConversationResponse>('/conversations/')
+        const { data } = await this.client.post<CreateConversationResponse>('/conversations')
         return data
     }
 

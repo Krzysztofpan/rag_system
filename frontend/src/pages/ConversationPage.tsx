@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useParams } from 'react-router'
 
-import SourceSection from '@/components/Sources/SourceSection'
+import SourceSection from '@/components/sources/SourceSection'
 import { SidebarProvider } from '@/components/ui/sidebar'
 
 const ConversationPage = () => {

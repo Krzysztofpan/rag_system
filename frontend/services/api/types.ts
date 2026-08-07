@@ -1,5 +1,10 @@
+import type { Conversation } from '@/types/conversation'
 import type { SourceReport } from '@/types/report'
 import type { Source } from '@/types/source'
+
+export type GetConversationResponse = {
+    conversations: Conversation[];
+}
 
 export type CreateConversationResponse = {
     conversationId: string;

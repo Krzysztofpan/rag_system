@@ -7,7 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import get_current_user
 from app.db.session import get_session
 from app.dependencies import CurrentUserDep
-from app.schemas.conversation import CreateConversationResponse
+from app.schemas.conversation import (
+    CreateConversationResponse,
+    GetConversationsResponse,
+    conversation_from_model,
+)
 from app.schemas.source import (
     DeleteSourceResponse,
     GetSourcesResponse,
@@ -41,15 +45,17 @@ async def create_conversation(
         user_id=str(conversation.user_id),
     )
 
-@conversation_router.get("/")
+@conversation_router.get("/", response_model=GetConversationsResponse)
 async def get_conversations(
     current_user: CurrentUserDep,
     session: AsyncSession = Depends(get_session),
-):
+) -> GetConversationsResponse:
     conversation_store = ConversationStore(session)
     conversations = await conversation_store.get_conversations(user_id=current_user.user_id)
 
-    return conversations
+    return GetConversationsResponse(
+        conversations=[conversation_from_model(c) for c in conversations],
+    )
 
 
 
