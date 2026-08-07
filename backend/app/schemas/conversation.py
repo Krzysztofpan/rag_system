@@ -12,7 +12,7 @@ class ConversationResponse(APIModel):
     updated_at: datetime
     user_id: str
     source_count: int
-    conversation_title: str | None = None
+    title: str | None = None
 
 
 class GetConversationsResponse(APIModel):
@@ -34,5 +34,5 @@ def conversation_from_model(conversation: Conversation) -> ConversationResponse:
         updated_at=conversation.updated_at,
         user_id=str(conversation.user_id),
         source_count=conversation.source_count,
-        conversation_title=conversation.conversation_title,
+        title=conversation.title,
     )

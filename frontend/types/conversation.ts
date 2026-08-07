@@ -4,5 +4,5 @@ export type Conversation = {
     updatedAt: string;
     userId: string;
     sourceCount: number;
-    conversationTitle: string;
+    title: string;
 }
