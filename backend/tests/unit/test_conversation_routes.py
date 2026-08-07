@@ -106,7 +106,7 @@ def test_get_conversations_returns_store_result(client, authenticated_user):
         response = client.get("/conversations/")
 
     assert response.status_code == 200
-    assert len(response.json()) == 2
+    assert len(response.json()['conversations']) == 2
 
 
 def test_get_sources_returns_documents(client, authenticated_user):
