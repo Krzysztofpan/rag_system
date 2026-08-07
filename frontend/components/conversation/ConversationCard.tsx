@@ -35,11 +35,11 @@ const ConversationCard = ({ conversation }: ConversationCardProps) => {
                     {editMode
                         ? (
                                 <div onClick={(e) => e.stopPropagation()}>
-                                    <EditValueView onEdit={handleEditConversationTitle} textarea setEditMode={setEditMode} value={conversation.conversationTitle} />
+                                    <EditValueView onEdit={handleEditConversationTitle} textarea setEditMode={setEditMode} value={conversation.title} />
                                 </div>
                             )
                         : (
-                                <CardHeader className="text-2xl line-clamp-2 px-0 text-wrap">{conversation.conversationTitle}</CardHeader>
+                                <CardHeader className="text-2xl line-clamp-2 px-0 text-wrap">{conversation.title}</CardHeader>
                             )}
 
                     <div className="flex items-center text-foreground/70">

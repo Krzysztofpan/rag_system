@@ -48,8 +48,8 @@ export const useConversationsClient = () => {
         queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
             current.map((conversation) => {
                 if (conversation.id !== conversationId) return conversation
-                previousName = conversation.conversationTitle
-                return { ...conversation, conversationTitle: updatedTitle }
+                previousName = conversation.title
+                return { ...conversation, title: updatedTitle }
             }),
         )
 

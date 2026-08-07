@@ -23,7 +23,7 @@ class Conversation(SQLModel, table=True):
             index=True,
         ),
     )
-    conversation_title: str | None = Field(default=None)
+    title: str | None = Field(default=None)
     source_count: int = Field(default=0)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

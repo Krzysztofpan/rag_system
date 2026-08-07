@@ -84,11 +84,11 @@ async def change_conversation_title(
     conversation_store = ConversationStore(session)
     
     try:
-        conversation_title = await conversation_store.change_conversation_title(conversation_id, user_id=current_user.user_id, title=title)
+        updated_title = await conversation_store.change_conversation_title(conversation_id, user_id=current_user.user_id, title=title)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    return conversation_title
+    return updated_title
         
     
 

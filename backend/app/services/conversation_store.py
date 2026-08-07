@@ -14,7 +14,7 @@ class ConversationStore:
         self.session = session
 
     async def create_conversation(self, *, user_id: UUID) -> Conversation:
-        conversation = Conversation(user_id=user_id, conversation_title="New Conversation")
+        conversation = Conversation(user_id=user_id, title="New Conversation")
         self.session.add(conversation)
         await self.session.commit()
         await self.session.refresh(conversation)
@@ -75,10 +75,10 @@ class ConversationStore:
         if not title:
             raise ValueError("You have to define new title.")
 
-        conversation.conversation_title = title
+        conversation.title = title
         await self.session.commit()
         await self.session.refresh(conversation)
-        return conversation.conversation_title
+        return conversation.title
 
     async def get_conversation_documents(
         self,
