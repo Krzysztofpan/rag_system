@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.services.doc_store import DocumentStore
@@ -18,6 +19,33 @@ def _session_with_document(document: Document | None) -> AsyncMock:
     result.scalar_one_or_none.return_value = document
     session.execute = AsyncMock(return_value=result)
     return session
+
+
+def _source_count_update_statement(execute_mock: AsyncMock, *, index: int = -1):
+    statement = execute_mock.await_args_list[index].args[0]
+    assert statement.is_update
+    return statement
+
+
+async def test_create_document_increments_source_count():
+    conversation_id = uuid4()
+    session = AsyncMock()
+    session.add = MagicMock()
+    store = DocumentStore(session)
+
+    document = await store.create_document(
+        conversation_id=conversation_id,
+        filename="note.md",
+        content_type="text/markdown",
+        file_size_bytes=12,
+    )
+
+    assert document.conversation_id == conversation_id
+    session.add.assert_called_once_with(document)
+    statement = _source_count_update_statement(session.execute)
+    assert statement.table.name == Conversation.__tablename__
+    session.commit.assert_awaited_once()
+    session.refresh.assert_awaited_once_with(document)
 
 
 async def test_delete_document_requires_ownership():
@@ -41,6 +69,9 @@ async def test_delete_document_requires_ownership():
 
     assert deleted is document
     session.delete.assert_called_once_with(document)
+    assert session.execute.await_count == 2
+    statement = _source_count_update_statement(session.execute)
+    assert statement.table.name == Conversation.__tablename__
     session.commit.assert_awaited_once()
 
 

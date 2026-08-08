@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.chunk import Chunk
@@ -32,6 +32,7 @@ class DocumentStore:
             status=DocumentStatus.pending,
         )
         self.session.add(document)
+        await self._adjust_source_count(conversation_id, 1)
         await self.session.commit()
         await self.session.refresh(document)
         return document
@@ -55,6 +56,7 @@ class DocumentStore:
             user_id=user_id,
         )
         await self.session.delete(document)
+        await self._adjust_source_count(conversation_id, -1)
         await self.session.commit()
         return document
 
@@ -204,3 +206,21 @@ class DocumentStore:
         if document is None:
             raise ValueError(f"Document {document_id} not found")
         return document
+
+    async def _adjust_source_count(self, conversation_id: UUID, delta: int) -> None:
+        """Keep denormalized conversations.source_count in sync with documents."""
+        if delta == 0:
+            return
+
+        expression = Conversation.source_count + delta
+        if delta < 0:
+            expression = func.greatest(0, expression)
+
+        await self.session.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation_id)
+            .values(
+                source_count=expression,
+                updated_at=datetime.now(UTC),
+            )
+        )
