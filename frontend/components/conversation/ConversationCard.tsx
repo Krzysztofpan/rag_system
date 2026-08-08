@@ -43,7 +43,7 @@ const ConversationCard = ({ conversation }: ConversationCardProps) => {
                             )}
 
                     <div className="flex items-center text-foreground/70">
-                        {new Date(conversation.updatedAt).toDateString()}
+                        {new Date(conversation.createdAt).toDateString()}
                         <Dot width={16} />
                         <span>
                             {conversation.sourceCount}
