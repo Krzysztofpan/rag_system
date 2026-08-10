@@ -2,9 +2,11 @@ from uuid import UUID
 
 from langchain_openai import OpenAIEmbeddings
 from pinecone import Pinecone, ServerlessSpec
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import get_settings
 from app.services.chunker import ChunkResult
+from app.services.vector_retriever import HydratedPineconeRetriever
 
 settings = get_settings()
 pc = Pinecone(api_key=settings.pinecone_api_key)
@@ -26,7 +28,7 @@ class VectorStore:
                     region="us-east-1"
                 )
             )
-        self.vector_index = pc.index(settings.pinecone_index)
+        self.vector_index = pc.Index(settings.pinecone_index)
         self.embedder = embedder or OpenAIEmbeddings(model=settings.embedding_model)
 
     def add_vectors(self, vectors, *, conversation_id: UUID):
@@ -78,3 +80,23 @@ class VectorStore:
                 }
             )
         return vectors
+
+    def get_retriever(
+        self,
+        conversation_id: str,
+        k: int,
+        *,
+        session_factory: async_sessionmaker[AsyncSession],
+        document_id: UUID | None = None,
+    ) -> HydratedPineconeRetriever:
+        return HydratedPineconeRetriever(
+            index=self.vector_index,
+            embedder=self.embedder,
+            session_factory=session_factory,
+            conversation_id=conversation_id,
+            k=k,
+            document_id=document_id,
+        )
+
+
+vector_store = VectorStore()
