@@ -23,11 +23,17 @@ class SearchDocumentsGraph:
         self,
         fts_retriever: PostgresFTSRetriever,
         vector_store_retriever: BaseRetriever,
-        llm_embedder: OpenAIEmbeddings = OpenAIEmbeddings(model=settings.embedding_model),
-        llm_evaluator = OpenAI(model=settings.evaluate_model),
+        llm_embedder: OpenAIEmbeddings | None = None,
+        llm_evaluator: OpenAI | None = None,
     ):
-        self.llm_evaluator = llm_evaluator
-        self.llm_embedder = llm_embedder
+        self.llm_evaluator = llm_evaluator or OpenAI(
+            model=settings.evaluate_model,
+            api_key=settings.openai_api_key,
+        )
+        self.llm_embedder = llm_embedder or OpenAIEmbeddings(
+            model=settings.embedding_model,
+            api_key=settings.openai_api_key,
+        )
         self.fts_retriever = fts_retriever
         self.vector_store_retriever = vector_store_retriever
 

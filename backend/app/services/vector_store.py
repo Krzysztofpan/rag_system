@@ -9,7 +9,6 @@ from app.services.chunker import ChunkResult
 from app.services.vector_retriever import HydratedPineconeRetriever
 
 settings = get_settings()
-pc = Pinecone(api_key=settings.pinecone_api_key)
 
 
 class VectorStore:
@@ -17,6 +16,7 @@ class VectorStore:
         self,
         embedder: OpenAIEmbeddings | None = None,
     ):
+        pc = Pinecone(api_key=settings.pinecone_api_key)
         if not pc.has_index(settings.pinecone_index):
             pc.create_index(
                 name=settings.pinecone_index,
@@ -29,7 +29,10 @@ class VectorStore:
                 )
             )
         self.vector_index = pc.Index(settings.pinecone_index)
-        self.embedder = embedder or OpenAIEmbeddings(model=settings.embedding_model)
+        self.embedder = embedder or OpenAIEmbeddings(
+            model=settings.embedding_model,
+            api_key=settings.openai_api_key,
+        )
 
     def add_vectors(self, vectors, *, conversation_id: UUID):
         self.vector_index.upsert(
@@ -97,6 +100,3 @@ class VectorStore:
             k=k,
             document_id=document_id,
         )
-
-
-vector_store = VectorStore()

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.services.fts_retriever import PostgresFTSRetriever
 from app.graphs.search_documents_graph import SearchDocumentsGraph
-from app.services.vector_store import vector_store
+from app.container import get_vector_store
 from app.db.session import get_session_factory
 
 """ 
@@ -25,7 +25,7 @@ def search_documents(query: str, top_k: int,conversation_id: str, doc_id: Option
         conversation_id=UUID(conversation_id),
         document_id=UUID(doc_id) if doc_id else None,
     )
-    vector_store_retriever = vector_store.get_retriever(
+    vector_store_retriever = get_vector_store().get_retriever(
         conversation_id=conversation_id,
         k=top_k,
         session_factory=session_factory,
