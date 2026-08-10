@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     parser_llm_repair: bool = True
 
     orchestrator_model: str = "gpt-4o"
-
+    evaluate_model: str = "gpt-5"
     # Reject the whole document only when this fraction of chunks is unusable.
     parser_max_rejected_chunk_ratio: float = 0.25
 

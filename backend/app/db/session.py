@@ -1,4 +1,6 @@
-from collections.abc import AsyncGenerator
+import asyncio
+from collections.abc import AsyncGenerator, Coroutine
+from typing import Any, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -6,6 +8,25 @@ from app.config import Settings, get_settings
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+
+T = TypeVar("T")
+
+
+def run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """Run a coroutine from sync code.
+
+    Disposes the shared async engine pool afterward so a later ``asyncio.run``
+    (new event loop) does not reuse connections bound to a closed loop.
+    """
+
+    async def _wrapped() -> T:
+        try:
+            return await coro
+        finally:
+            if _engine is not None:
+                await _engine.dispose()
+
+    return asyncio.run(_wrapped())
 
 
 def get_engine(settings: Settings | None = None) -> AsyncEngine:

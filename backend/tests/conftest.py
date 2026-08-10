@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -14,19 +13,6 @@ from tests.helpers import (
     FakeVectorStore,
     make_upload_file,
 )
-
-# VectorStore binds a Pinecone client at import time; keep that out of unit tests.
-_pinecone_patcher = patch("pinecone.Pinecone")
-_mock_pc_cls = _pinecone_patcher.start()
-_mock_pc = MagicMock()
-_mock_pc.has_index.return_value = True
-_mock_pc.index.return_value = MagicMock()
-_mock_pc_cls.return_value = _mock_pc
-
-
-def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001
-    _pinecone_patcher.stop()
-
 
 @pytest.fixture
 def conversation_id() -> UUID:
