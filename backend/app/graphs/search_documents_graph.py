@@ -14,16 +14,15 @@ settings = get_settings()
 class EvaluatorResponse(BaseModel):
     evaluate_result: bool = Field(description="evaluate result from comparing doc to question")
 
-def get_structured_llm(structure: BaseModel, model="gpt-4o-mini"):
-    return ChatOpenAI(model=model).with_structured_output(structure)
-
-
 class SearchDocumentsState(TypedDict):
     query: str
     search_retry_count: int
     reranked_docs: list
     relevant_docs: list
     documents_score: int
+    rewritten_query: str
+    context: str
+
 
 class SearchDocumentsGraph:
     def __init__(
@@ -32,6 +31,7 @@ class SearchDocumentsGraph:
         vector_store_retriever: BaseRetriever,
         llm_embedder: OpenAIEmbeddings | None = None,
         llm_evaluator: ChatOpenAI | None = None,
+        llm_query_rewriter: ChatOpenAI | None = None,
     ):
         self.llm_evaluator = llm_evaluator or ChatOpenAI(
             model=settings.evaluate_model,
@@ -40,6 +40,7 @@ class SearchDocumentsGraph:
             model=settings.embedding_model,
             api_key=settings.openai_api_key,
         )
+        self.llm_query_rewriter = llm_query_rewriter or ChatOpenAI(model="gpt-4o-mini", temperature=0.0, max_tokens=200)
         self.fts_retriever = fts_retriever
         self.vector_store_retriever = vector_store_retriever
 
@@ -49,14 +50,20 @@ class SearchDocumentsGraph:
         # nodes
         graph.add_node("get_info", self.get_info)
         graph.add_node("evaluate_docs", self.evaluate_docs)
-
+        graph.add_node("query_rewrite", self.query_rewrite)
+        graph.add_node("build_context", self.build_context)
+        graph.add_node("not_context_found", self.not_context_found)
         # edges
+        
         graph.add_edge("get_info", "evaluate_docs")
 
-        graph.add_conditional_edges("evaluate_docs", {
+        graph.add_conditional_edges("evaluate_docs", self.route_after_evaluate_docs, {
             "rewrite_query": "query_rewrite",
-            "build_context": "build_context"
+            "build_context": "build_context",
+            "search_failed_answer": "not_context_found"
         })
+
+        graph.add_edge("query_rewrite", "get_info")
 
         graph.set_entry_point("get_info")
 
@@ -74,7 +81,9 @@ class SearchDocumentsGraph:
             ],
         )
 
-        docs = run_async(ensemble.ainvoke(state["query"]))
+        query = state['rewritten_query'] if state['search_retry_count'] > 0 else state['query']
+        
+        docs = run_async(ensemble.ainvoke(query))
         
         return {
             "reranked_docs": docs
@@ -93,8 +102,8 @@ class SearchDocumentsGraph:
             """
 
             prompt = ChatPromptTemplate.from_template(template)
-            llm = get_structured_llm(EvaluatorResponse)
-            chain = prompt | llm
+            structured_evaluator = self.llm_evaluator.with_structured_output(EvaluatorResponse) 
+            chain = prompt | structured_evaluator
             res = chain.invoke({"doc": doc, "question": state['query']})
 
             if(res.evaluate_result):
@@ -106,8 +115,37 @@ class SearchDocumentsGraph:
             "relevant_docs": relevant_docs
         }
 
+    def query_rewrite(self, state: SearchDocumentsState):
+        # Using HYDE for rewrite query
+        template = """
+        Please write a scientific paper passage to answer the question.
+
+        question: {query}
+        """
+
+        prompt = ChatPromptTemplate.from_template(template)
+        chain = prompt | self.llm_query_rewriter
+
+        res = chain.invoke({"query": state['query']})
+        
+        return {
+            "rewritten_query": res.content,
+            "search_retry_count": state["search_retry_count"] + 1,
+        }
+        
+    def not_context_found(self, state: SearchDocumentsState):
+        return {
+            "context": "context not found"
+        }
+
+    def build_context(self, state: SearchDocumentsState):
+        pass
+
     def route_after_evaluate_docs(self, state: SearchDocumentsState):
         if(len(state['relevant_docs']) == 0):
+            if(state['search_retry_count'] > 0):
+                return "search_failed_answer"
+
             return "rewrite_query"
         
         return "build_context"

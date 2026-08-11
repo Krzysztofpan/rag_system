@@ -34,7 +34,8 @@ def search_documents(query: str, top_k: int,conversation_id: str, doc_id: Option
     search_documents_pipeline = SearchDocumentsGraph(fts_retriever=fts_retriever, vector_store_retriever=vector_store_retriever).build_graph()
 
     search_documents_pipeline.invoke({
-        "query": query,   
+        "query": query,
+        "search_retry_count": 0,
     })
 
 search_documents('jaki stack frontendowy jest używany?', 3, '392b5401-cf0e-4c4b-aaf1-be7cf64a8a67')
