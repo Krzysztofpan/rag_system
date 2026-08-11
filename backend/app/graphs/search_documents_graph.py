@@ -52,7 +52,11 @@ class SearchDocumentsGraph:
 
         # edges
         graph.add_edge("get_info", "evaluate_docs")
-        graph.add_edge("evaluate_docs", END)
+
+        graph.add_conditional_edges("evaluate_docs", {
+            "rewrite_query": "query_rewrite",
+            "build_context": "build_context"
+        })
 
         graph.set_entry_point("get_info")
 
@@ -101,3 +105,9 @@ class SearchDocumentsGraph:
         return {
             "relevant_docs": relevant_docs
         }
+
+    def route_after_evaluate_docs(self, state: SearchDocumentsState):
+        if(len(state['relevant_docs']) == 0):
+            return "rewrite_query"
+        
+        return "build_context"
