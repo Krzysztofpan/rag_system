@@ -116,7 +116,7 @@ class SearchDocumentsGraph:
         }
 
     def query_rewrite(self, state: SearchDocumentsState):
-        print(state['search_retry_count'])
+        # Using HYDE for rewrite query
         template = """
         Please write a scientific paper passage to answer the question.
 
@@ -134,7 +134,6 @@ class SearchDocumentsGraph:
         }
         
     def not_context_found(self, state: SearchDocumentsState):
-        print('no context founded')
         return {
             "context": "context not found"
         }
