@@ -30,7 +30,7 @@ const UploadFilePage = ({ handleSelectSource }: UploadFileBtn) => {
                 <Plus />
                 {!isCollapsed && 'Add source'}
             </Button>
-            <input type="file" accept=".pdf,.docxs,.txt,.md" className="hidden" ref={fileRef} onChange={handleSelectSource} />
+            <input type="file" accept=".pdf,.docx,.txt,.md" className="hidden" ref={fileRef} onChange={handleSelectSource} />
         </div>
     )
 }

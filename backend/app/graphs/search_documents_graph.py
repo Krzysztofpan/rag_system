@@ -1,15 +1,22 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
-from langchain_openai import OpenAIEmbeddings, OpenAI
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_classic.retrievers import EnsembleRetriever
-
+from pydantic import Field, BaseModel
 from langchain_core.retrievers import BaseRetriever
-
+from langchain_core.prompts import ChatPromptTemplate
 from app.db.session import run_async
 from app.services.fts_retriever import PostgresFTSRetriever
 from app.config import get_settings
 
 settings = get_settings()
+
+class EvaluatorResponse(BaseModel):
+    evaluate_result: bool = Field(description="evaluate result from comparing doc to question")
+
+def get_structured_llm(structure: BaseModel, model="gpt-4o-mini"):
+    return ChatOpenAI(model=model).with_structured_output(structure)
+
 
 class SearchDocumentsState(TypedDict):
     query: str
@@ -24,11 +31,10 @@ class SearchDocumentsGraph:
         fts_retriever: PostgresFTSRetriever,
         vector_store_retriever: BaseRetriever,
         llm_embedder: OpenAIEmbeddings | None = None,
-        llm_evaluator: OpenAI | None = None,
+        llm_evaluator: ChatOpenAI | None = None,
     ):
-        self.llm_evaluator = llm_evaluator or OpenAI(
+        self.llm_evaluator = llm_evaluator or ChatOpenAI(
             model=settings.evaluate_model,
-            api_key=settings.openai_api_key,
         )
         self.llm_embedder = llm_embedder or OpenAIEmbeddings(
             model=settings.embedding_model,
@@ -40,8 +46,14 @@ class SearchDocumentsGraph:
     def build_graph(self):
         graph = StateGraph(SearchDocumentsState)
 
+        # nodes
         graph.add_node("get_info", self.get_info)
-        graph.add_edge("get_info", END)
+        graph.add_node("evaluate_docs", self.evaluate_docs)
+
+        # edges
+        graph.add_edge("get_info", "evaluate_docs")
+        graph.add_edge("evaluate_docs", END)
+
         graph.set_entry_point("get_info")
 
         return graph.compile()
@@ -58,8 +70,34 @@ class SearchDocumentsGraph:
             ],
         )
 
-        # One event loop for both async retrievers (shared SQLAlchemy pool).
         docs = run_async(ensemble.ainvoke(state["query"]))
-        for doc in docs:
-            print(doc.page_content)
-            print("--------------------------------")
+        
+        return {
+            "reranked_docs": docs
+        }
+
+    def evaluate_docs(self, state: SearchDocumentsState):
+
+        relevant_docs = []
+
+        for doc in state['reranked_docs']:
+            template = """
+            evaluate that document is relevant to answer the question:
+            {doc}
+
+            question: {question}
+            """
+
+            prompt = ChatPromptTemplate.from_template(template)
+            llm = get_structured_llm(EvaluatorResponse)
+            chain = prompt | llm
+            res = chain.invoke({"doc": doc, "question": state['query']})
+
+            if(res.evaluate_result):
+                relevant_docs.append(doc)
+            else:
+                continue
+
+        return {
+            "relevant_docs": relevant_docs
+        }
