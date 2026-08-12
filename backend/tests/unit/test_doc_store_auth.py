@@ -21,6 +21,14 @@ def _session_with_document(document: Document | None) -> AsyncMock:
     return session
 
 
+def _session_with_documents(documents: list[Document]) -> AsyncMock:
+    session = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = documents
+    session.execute = AsyncMock(return_value=result)
+    return session
+
+
 def _source_count_update_statement(execute_mock: AsyncMock, *, index: int = -1):
     statement = execute_mock.await_args_list[index].args[0]
     assert statement.is_update
@@ -148,6 +156,45 @@ async def test_get_report_requires_document_in_conversation():
     )
 
     assert result is report
+
+
+async def test_get_documents_reports_returns_matching_rows_in_requested_order():
+    user_id = uuid4()
+    conversation_id = uuid4()
+    first = DocumentReport(
+        document_id=uuid4(),
+        parsed_content="first content",
+    )
+    second = DocumentReport(
+        document_id=uuid4(),
+        parsed_content="second content",
+    )
+    missing_id = uuid4()
+    session = _session_with_documents([second, first])
+    store = DocumentStore(session)
+
+    reports = await store.get_documents_reports(
+        conversation_id,
+        [first.document_id, missing_id, second.document_id],
+        user_id=user_id,
+    )
+
+    assert reports == [first, second]
+    statement = session.execute.await_args.args[0]
+    compiled = str(statement.compile()).lower()
+    assert "document_reports" in compiled
+    assert "conversations" in compiled
+    assert "user_id" in compiled
+
+
+async def test_get_documents_reports_returns_empty_list_without_query():
+    session = AsyncMock()
+    store = DocumentStore(session)
+
+    reports = await store.get_documents_reports(uuid4(), [], user_id=uuid4())
+
+    assert reports == []
+    session.execute.assert_not_awaited()
 
 
 async def test_get_report_raises_when_report_missing():

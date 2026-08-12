@@ -168,6 +168,33 @@ class DocumentStore:
             user_id=user_id,
         )
 
+    async def get_documents_reports(
+        self,
+        conversation_id: UUID,
+        document_ids: list[UUID],
+        *,
+        user_id: UUID,
+    ) -> list[DocumentReport]:
+        if not document_ids:
+            return []
+
+        result = await self.session.execute(
+            select(DocumentReport)
+            .join(Document, Document.id == DocumentReport.document_id)
+            .join(Conversation, Conversation.id == Document.conversation_id)
+            .where(
+                DocumentReport.document_id.in_(document_ids),
+                Document.conversation_id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+        by_id = {report.document_id: report for report in result.scalars().all()}
+        return [
+            by_id[document_id]
+            for document_id in document_ids
+            if document_id in by_id
+        ]
+
     def _set_document_ready(
         self,
         document: Document,

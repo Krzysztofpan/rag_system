@@ -14,7 +14,6 @@ def search_documents(
     query: str,
     top_k: int,
     runtime: ToolRuntime,
-    doc_id: Optional[UUID] = None,
 ) -> str:
     """
     Search info from documents in conversation context
@@ -22,8 +21,7 @@ def search_documents(
     Args:
     query: The search query. informations that user's looking for.
     top_k: Amount of chunks relevant to retrive to answer a user question, more complicated question more amount of chunks
-    doc_id: user can looking for info from only 1 document, if not specified leave empty
-
+ 
     Return Value:
     Context from documents with metadata, and source to context.
     """
@@ -33,13 +31,11 @@ def search_documents(
         session_factory=session_factory,
         k=top_k,
         conversation_id=conversation_id,
-        document_id=doc_id if doc_id else None,
     )
     vector_store_retriever = get_vector_store().get_retriever(
         conversation_id=str(conversation_id),
         k=top_k,
         session_factory=session_factory,
-        document_id=doc_id if doc_id else None,
     )
     search_documents_pipeline = SearchDocumentsGraph(
         fts_retriever=fts_retriever,
@@ -55,3 +51,4 @@ def search_documents(
         raise SystemError("Error during running graph")
 
     return graph_res["context"]
+

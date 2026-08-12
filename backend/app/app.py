@@ -136,7 +136,7 @@ async def chat(current_user: CurrentUserDep, body: ChatRequestBody, session: Asy
 
     agent_response = agent_orchestrator.invoke(
         {"messages": [HumanMessage(body.message)]},
-        context={"conversation_id": body.conversation_id},
+        context={"conversation_id": body.conversation_id, "user_id": current_user.user_id, "document_ids": body.document_ids},
     )
 
     return {
