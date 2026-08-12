@@ -1,15 +1,21 @@
-from langchain.tools import tool
 from typing import Optional
 from uuid import UUID
 
-from app.services.fts_retriever import PostgresFTSRetriever
-from app.graphs.search_documents_graph import SearchDocumentsGraph
+from langchain.tools import ToolRuntime, tool
+
 from app.container import get_vector_store
 from app.db.session import get_session_factory
+from app.graphs.search_documents_graph import SearchDocumentsGraph
+from app.services.fts_retriever import PostgresFTSRetriever
 
 
 @tool
-def search_documents(query: str, top_k: int,conversation_id: str, doc_id: Optional[str] = None) -> str:
+def search_documents(
+    query: str,
+    top_k: int,
+    runtime: ToolRuntime,
+    doc_id: Optional[UUID] = None,
+) -> str:
     """
     Search info from documents in conversation context
 
@@ -21,25 +27,31 @@ def search_documents(query: str, top_k: int,conversation_id: str, doc_id: Option
     Return Value:
     Context from documents with metadata, and source to context.
     """
+    conversation_id = runtime.context["conversation_id"]
     session_factory = get_session_factory()
     fts_retriever = PostgresFTSRetriever(
         session_factory=session_factory,
         k=top_k,
-        conversation_id=UUID(conversation_id),
-        document_id=UUID(doc_id) if doc_id else None,
+        conversation_id=conversation_id,
+        document_id=doc_id if doc_id else None,
     )
     vector_store_retriever = get_vector_store().get_retriever(
-        conversation_id=conversation_id,
+        conversation_id=str(conversation_id),
         k=top_k,
         session_factory=session_factory,
-        document_id=UUID(doc_id) if doc_id else None,
+        document_id=doc_id if doc_id else None,
     )
-    search_documents_pipeline = SearchDocumentsGraph(fts_retriever=fts_retriever, vector_store_retriever=vector_store_retriever).build_graph()
+    search_documents_pipeline = SearchDocumentsGraph(
+        fts_retriever=fts_retriever,
+        vector_store_retriever=vector_store_retriever,
+    ).build_graph()
 
-    graph_res = search_documents_pipeline.invoke({
-        "query": query,
-        "search_retry_count": 0,
-    })
+    try:
+        graph_res = search_documents_pipeline.invoke({
+            "query": query,
+            "search_retry_count": 0,
+        })
+    except Exception:
+        raise SystemError("Error during running graph")
 
-    return graph_res['context']
-    
+    return graph_res["context"]

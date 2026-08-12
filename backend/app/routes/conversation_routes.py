@@ -36,9 +36,9 @@ async def create_conversation(
     session: AsyncSession = Depends(get_session),
 ) -> CreateConversationResponse:
     """Create a conversation for the authenticated Supabase Auth user."""
-    store = ConversationStore(session)
+    conversation_store = ConversationStore(session)
     try:
-        conversation = await store.create_conversation(user_id=current_user.user_id)
+        conversation = await conversation_store.create_conversation(user_id=current_user.user_id)
     except IntegrityError as exc:
         raise HTTPException(status_code=400, detail="Unknown user") from exc
     return CreateConversationResponse(
@@ -89,8 +89,6 @@ async def change_conversation_title(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return updated_title
-        
-    
 
 @conversation_router.get(
     "/{conversation_id}/sources",
