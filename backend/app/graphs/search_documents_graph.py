@@ -142,6 +142,7 @@ class SearchDocumentsGraph:
             }
 
         parts: list[str] = []
+        
         for i, doc in enumerate(state["relevant_docs"], start=1):
             meta = getattr(doc, "metadata", None) or {}
             section = meta.get("context")
