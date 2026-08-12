@@ -7,8 +7,8 @@ from app.graphs.search_documents_graph import SearchDocumentsGraph
 from app.container import get_vector_store
 from app.db.session import get_session_factory
 
-""" 
-@tool """
+
+@tool
 def search_documents(query: str, top_k: int,conversation_id: str, doc_id: Optional[str] = None) -> str:
     """
     Search info from documents in conversation context
@@ -17,6 +17,9 @@ def search_documents(query: str, top_k: int,conversation_id: str, doc_id: Option
     query: The search query. informations that user's looking for.
     top_k: Amount of chunks relevant to retrive to answer a user question, more complicated question more amount of chunks
     doc_id: user can looking for info from only 1 document, if not specified leave empty
+
+    Return Value:
+    Context from documents with metadata, and source to context.
     """
     session_factory = get_session_factory()
     fts_retriever = PostgresFTSRetriever(
@@ -33,10 +36,10 @@ def search_documents(query: str, top_k: int,conversation_id: str, doc_id: Option
     )
     search_documents_pipeline = SearchDocumentsGraph(fts_retriever=fts_retriever, vector_store_retriever=vector_store_retriever).build_graph()
 
-    search_documents_pipeline.invoke({
+    graph_res = search_documents_pipeline.invoke({
         "query": query,
         "search_retry_count": 0,
     })
 
-search_documents('jaki stack frontendowy jest używany?', 3, '392b5401-cf0e-4c4b-aaf1-be7cf64a8a67')
+    return graph_res['context']
     
