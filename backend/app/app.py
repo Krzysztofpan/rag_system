@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
-
+from langchain_core.messages import HumanMessage
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,7 +22,8 @@ from app.schemas.upload import (
 )
 from app.services.conversation_store import ConversationStore
 from app.services.parser import ParseQualityError
-
+from app.schemas.chat import ChatRequestBody
+from app.agent.agent_orchestrator import agent_orchestrator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -124,6 +125,23 @@ async def upload(
         ),
         error=None,
     )
+
+
+
+@app.post("/chat")
+async def chat(current_user: CurrentUserDep, body: ChatRequestBody, session: AsyncSession = Depends(get_session)):
+    conversation_store = ConversationStore(session)
+
+    await conversation_store.get_conversation(body.conversation_id, user_id=current_user.user_id)
+
+    agent_response = agent_orchestrator.invoke(
+        {"messages": [HumanMessage(body.message)]},
+        context={"conversation_id": body.conversation_id},
+    )
+
+    return {
+        "response": agent_response
+    }
 
 
 @app.get("/health/db")
