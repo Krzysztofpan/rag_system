@@ -48,11 +48,12 @@ class SearchDocumentsGraph:
         graph = StateGraph(SearchDocumentsState)
 
         # nodes
+
         graph.add_node("get_info", self.get_info)
         graph.add_node("evaluate_docs", self.evaluate_docs)
         graph.add_node("query_rewrite", self.query_rewrite)
         graph.add_node("build_context", self.build_context)
-        graph.add_node("not_context_found", self.not_context_found)
+
         # edges
         
         graph.add_edge("get_info", "evaluate_docs")
@@ -60,10 +61,11 @@ class SearchDocumentsGraph:
         graph.add_conditional_edges("evaluate_docs", self.route_after_evaluate_docs, {
             "rewrite_query": "query_rewrite",
             "build_context": "build_context",
-            "search_failed_answer": "not_context_found"
         })
 
         graph.add_edge("query_rewrite", "get_info")
+
+        graph.add_edge("build_context", END)
 
         graph.set_entry_point("get_info")
 
@@ -132,19 +134,46 @@ class SearchDocumentsGraph:
             "rewritten_query": res.content,
             "search_retry_count": state["search_retry_count"] + 1,
         }
-        
-    def not_context_found(self, state: SearchDocumentsState):
-        return {
-            "context": "context not found"
-        }
 
     def build_context(self, state: SearchDocumentsState):
-        pass
+        if len(state["relevant_docs"]) < 1:
+            return {
+                "context": "no context founded"
+            }
+
+        parts: list[str] = []
+        for i, doc in enumerate(state["relevant_docs"], start=1):
+            meta = getattr(doc, "metadata", None) or {}
+            section = meta.get("context")
+            pages = meta.get("pages")
+            document_id = meta.get("document_id")
+            chunk_id = meta.get("chunk_id")
+            chunk_index = meta.get("chunk_index")
+
+            header_bits = [f"Source {i}"]
+            if document_id:
+                header_bits.append(f"document_id={document_id}")
+            if chunk_id:
+                header_bits.append(f"chunk_id={chunk_id}")
+            if chunk_index is not None:
+                header_bits.append(f"chunk_index={chunk_index}")
+            if pages:
+                header_bits.append(f"pages={pages}")
+
+            lines = [" | ".join(header_bits)]
+            if section:
+                lines.append(f"Section: {section}")
+            lines.append(doc.page_content.strip())
+            parts.append("\n".join(lines))
+
+        return {
+            "context": "\n\n---\n\n".join(parts)
+        }
 
     def route_after_evaluate_docs(self, state: SearchDocumentsState):
         if(len(state['relevant_docs']) == 0):
             if(state['search_retry_count'] > 0):
-                return "search_failed_answer"
+                return "build_context"
 
             return "rewrite_query"
         
