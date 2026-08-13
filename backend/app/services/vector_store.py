@@ -90,7 +90,7 @@ class VectorStore:
         k: int,
         *,
         session_factory: async_sessionmaker[AsyncSession],
-        document_id: UUID | None = None,
+        document_ids: list[UUID] | None = None,
     ) -> HydratedPineconeRetriever:
         return HydratedPineconeRetriever(
             index=self.vector_index,
@@ -98,5 +98,5 @@ class VectorStore:
             session_factory=session_factory,
             conversation_id=conversation_id,
             k=k,
-            document_id=document_id,
+            document_ids=document_ids,
         )

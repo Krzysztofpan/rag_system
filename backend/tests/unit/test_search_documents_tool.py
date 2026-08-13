@@ -1,47 +1,155 @@
+import asyncio
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from app.agent.tools import search_documents
+import pytest
+
+from app.tools.search_documents import search_documents
 
 
-def test_llm_schema_hides_runtime_and_conversation_id():
+def _runtime(*, conversation_id=None, user_id=None, document_ids=None):
+    return SimpleNamespace(
+        context={
+            "conversation_id": conversation_id or uuid4(),
+            "user_id": user_id or uuid4(),
+            "document_ids": document_ids if document_ids is not None else [uuid4()],
+        }
+    )
+
+
+def _run_async(coro):
+    return asyncio.run(coro)
+
+
+def _session_factory():
+    session = MagicMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=session)
+    session_cm.__aexit__ = AsyncMock(return_value=False)
+    return MagicMock(return_value=session_cm)
+
+
+def test_llm_schema_hides_runtime_and_scoped_ids():
     schema = search_documents.tool_call_schema.model_json_schema()
     properties = schema.get("properties", {})
 
     assert "conversation_id" not in properties
+    assert "user_id" not in properties
+    assert "document_ids" not in properties
     assert "runtime" not in properties
     assert "query" in properties
     assert "top_k" in properties
-    assert "doc_id" in properties
 
 
-def test_search_documents_reads_conversation_id_from_runtime_context():
+@patch("app.tools.search_documents.run_async", side_effect=_run_async)
+@patch("app.tools.search_documents.DocumentStore")
+@patch("app.tools.search_documents.get_session_factory")
+@patch("app.tools.search_documents.PostgresFTSRetriever")
+@patch("app.tools.search_documents.get_vector_store")
+@patch("app.tools.search_documents.SearchDocumentsGraph")
+def test_search_documents_scopes_to_owned_document_ids(
+    graph_cls,
+    get_vector_store,
+    fts_cls,
+    get_session_factory,
+    store_cls,
+    run_async,
+):
     conversation_id = uuid4()
-    runtime = SimpleNamespace(context={"conversation_id": conversation_id})
-    retriever = MagicMock()
+    user_id = uuid4()
+    document_ids = [uuid4(), uuid4()]
+    runtime = _runtime(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        document_ids=document_ids,
+    )
+    get_session_factory.return_value = _session_factory()
+    store = MagicMock()
+    store.require_documents_in_conversation = AsyncMock()
+    store_cls.return_value = store
+    get_vector_store.return_value.get_retriever.return_value = MagicMock()
+    graph_cls.return_value.build_graph.return_value.invoke.return_value = {
+        "context": "found stack"
+    }
 
-    with (
-        patch("app.agent.tools.get_session_factory", return_value=MagicMock()),
-        patch("app.agent.tools.PostgresFTSRetriever") as fts_cls,
-        patch("app.agent.tools.get_vector_store") as get_vector_store,
-        patch("app.agent.tools.SearchDocumentsGraph") as graph_cls,
-    ):
-        get_vector_store.return_value.get_retriever.return_value = retriever
-        graph_cls.return_value.build_graph.return_value.invoke.return_value = {
-            "context": "found stack"
-        }
-
-        result = search_documents.func(
-            query="frontend stack",
-            top_k=5,
-            runtime=runtime,
-        )
+    result = search_documents.func(
+        query="frontend stack",
+        top_k=5,
+        runtime=runtime,
+    )
 
     assert result == "found stack"
-    fts_cls.assert_called_once()
+    store.require_documents_in_conversation.assert_awaited_once_with(
+        conversation_id,
+        document_ids,
+        user_id=user_id,
+    )
     assert fts_cls.call_args.kwargs["conversation_id"] == conversation_id
-    get_vector_store.return_value.get_retriever.assert_called_once()
-    assert get_vector_store.return_value.get_retriever.call_args.kwargs[
-        "conversation_id"
-    ] == str(conversation_id)
+    assert fts_cls.call_args.kwargs["document_ids"] == document_ids
+    retriever_kwargs = get_vector_store.return_value.get_retriever.call_args.kwargs
+    assert retriever_kwargs["conversation_id"] == str(conversation_id)
+    assert retriever_kwargs["document_ids"] == document_ids
+
+
+@patch("app.tools.search_documents.run_async", side_effect=_run_async)
+@patch("app.tools.search_documents.DocumentStore")
+@patch("app.tools.search_documents.get_session_factory")
+@patch("app.tools.search_documents.PostgresFTSRetriever")
+@patch("app.tools.search_documents.get_vector_store")
+@patch("app.tools.search_documents.SearchDocumentsGraph")
+def test_search_documents_skips_search_when_no_document_ids(
+    graph_cls,
+    get_vector_store,
+    fts_cls,
+    get_session_factory,
+    store_cls,
+    run_async,
+):
+    conversation_id = uuid4()
+    user_id = uuid4()
+    runtime = _runtime(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        document_ids=[],
+    )
+    get_session_factory.return_value = _session_factory()
+    store = MagicMock()
+    store.require_documents_in_conversation = AsyncMock()
+    store_cls.return_value = store
+
+    result = search_documents.func(query="frontend stack", top_k=5, runtime=runtime)
+
+    assert result == "no context founded"
+    store.require_documents_in_conversation.assert_awaited_once_with(
+        conversation_id,
+        [],
+        user_id=user_id,
+    )
+    fts_cls.assert_not_called()
+    get_vector_store.return_value.get_retriever.assert_not_called()
+    graph_cls.assert_not_called()
+
+
+@patch("app.tools.search_documents.run_async", side_effect=_run_async)
+@patch("app.tools.search_documents.DocumentStore")
+@patch("app.tools.search_documents.get_session_factory")
+@patch("app.tools.search_documents.SearchDocumentsGraph")
+def test_search_documents_rejects_unowned_conversation(
+    graph_cls,
+    get_session_factory,
+    store_cls,
+    run_async,
+):
+    runtime = _runtime()
+    get_session_factory.return_value = _session_factory()
+    store = MagicMock()
+    store.require_documents_in_conversation = AsyncMock(
+        side_effect=ValueError("Conversation missing not found")
+    )
+    store_cls.return_value = store
+
+    with pytest.raises(ValueError, match="not found"):
+        search_documents.func(query="frontend stack", top_k=5, runtime=runtime)
+
+    graph_cls.assert_not_called()

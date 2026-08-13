@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from app.services.vector_store import VectorStore
@@ -56,4 +56,32 @@ def test_add_vectors_upserts_into_conversation_namespace():
     store.vector_index.upsert.assert_called_once_with(
         vectors=vectors,
         namespace=str(conversation_id),
+    )
+
+
+def test_get_retriever_passes_document_ids():
+    store = VectorStore.__new__(VectorStore)
+    store.vector_index = MagicMock()
+    store.embedder = MagicMock()
+    conversation_id = uuid4()
+    document_ids = [uuid4(), uuid4()]
+    session_factory = MagicMock()
+
+    with patch(
+        "app.services.vector_store.HydratedPineconeRetriever"
+    ) as retriever_cls:
+        store.get_retriever(
+            str(conversation_id),
+            k=7,
+            session_factory=session_factory,
+            document_ids=document_ids,
+        )
+
+    retriever_cls.assert_called_once_with(
+        index=store.vector_index,
+        embedder=store.embedder,
+        session_factory=session_factory,
+        conversation_id=str(conversation_id),
+        k=7,
+        document_ids=document_ids,
     )
