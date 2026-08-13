@@ -168,6 +168,40 @@ class DocumentStore:
             user_id=user_id,
         )
 
+    async def require_documents_in_conversation(
+        self,
+        conversation_id: UUID,
+        document_ids: list[UUID],
+        *,
+        user_id: UUID,
+    ) -> list[Document]:
+        """Ensure the conversation is owned by user_id and every document belongs to it."""
+        result = await self.session.execute(
+            select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+        conversation = result.scalar_one_or_none()
+        if conversation is None:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        if not document_ids:
+            return []
+
+        unique_ids = list(dict.fromkeys(document_ids))
+        docs_result = await self.session.execute(
+            select(Document).where(
+                Document.id.in_(unique_ids),
+                Document.conversation_id == conversation_id,
+            )
+        )
+        documents = list(docs_result.scalars().all())
+        found_ids = {document.id for document in documents}
+        if found_ids != set(unique_ids):
+            raise ValueError("Document not found in conversation")
+        return documents
+
     async def get_documents_reports(
         self,
         conversation_id: UUID,

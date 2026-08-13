@@ -28,7 +28,7 @@ class HydratedPineconeRetriever(BaseRetriever):
     session_factory: async_sessionmaker[AsyncSession]
     conversation_id: str
     k: int
-    document_id: UUID | None = None
+    document_ids: list[UUID] | None = None
 
     def _get_relevant_documents(
         self,
@@ -47,15 +47,13 @@ class HydratedPineconeRetriever(BaseRetriever):
         return await self._search(query)
 
     async def _search(self, query: str) -> list[Document]:
-        if not query.strip():
+        if not query.strip() or not self.document_ids:
             return []
 
         embedding = await self.embedder.aembed_query(query)
-        filter = (
-            {"document_id": {"$eq": str(self.document_id)}}
-            if self.document_id is not None
-            else None
-        )
+        filter = {
+            "document_id": {"$in": [str(document_id) for document_id in self.document_ids]}
+        }
         results = self.index.query(
             vector=embedding,
             top_k=self.k,

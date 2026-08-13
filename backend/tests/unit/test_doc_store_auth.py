@@ -158,6 +158,94 @@ async def test_get_report_requires_document_in_conversation():
     assert result is report
 
 
+def _session_for_require(*, conversation, documents=None) -> AsyncMock:
+    session = AsyncMock()
+    conversation_result = MagicMock()
+    conversation_result.scalar_one_or_none.return_value = conversation
+    if documents is None:
+        session.execute = AsyncMock(return_value=conversation_result)
+        return session
+
+    documents_result = MagicMock()
+    documents_result.scalars.return_value.all.return_value = documents
+    session.execute = AsyncMock(side_effect=[conversation_result, documents_result])
+    return session
+
+
+async def test_require_documents_in_conversation_checks_owner_and_membership():
+    user_id = uuid4()
+    conversation = Conversation(user_id=user_id)
+    first = Document(
+        conversation_id=conversation.id,
+        filename="a.md",
+        status=DocumentStatus.ready,
+    )
+    second = Document(
+        conversation_id=conversation.id,
+        filename="b.md",
+        status=DocumentStatus.ready,
+    )
+    session = _session_for_require(conversation=conversation, documents=[first, second])
+    store = DocumentStore(session)
+
+    documents = await store.require_documents_in_conversation(
+        conversation.id,
+        [first.id, second.id],
+        user_id=user_id,
+    )
+
+    assert documents == [first, second]
+    assert session.execute.await_count == 2
+
+
+async def test_require_documents_in_conversation_raises_when_conversation_not_owned():
+    conversation_id = uuid4()
+    session = _session_for_require(conversation=None)
+    store = DocumentStore(session)
+
+    with pytest.raises(ValueError, match=f"Conversation {conversation_id} not found"):
+        await store.require_documents_in_conversation(
+            conversation_id,
+            [uuid4()],
+            user_id=uuid4(),
+        )
+
+
+async def test_require_documents_in_conversation_raises_when_document_is_foreign():
+    user_id = uuid4()
+    conversation = Conversation(user_id=user_id)
+    owned = Document(
+        conversation_id=conversation.id,
+        filename="owned.md",
+        status=DocumentStatus.ready,
+    )
+    session = _session_for_require(conversation=conversation, documents=[owned])
+    store = DocumentStore(session)
+
+    with pytest.raises(ValueError, match="Document not found in conversation"):
+        await store.require_documents_in_conversation(
+            conversation.id,
+            [owned.id, uuid4()],
+            user_id=user_id,
+        )
+
+
+async def test_require_documents_in_conversation_allows_empty_document_ids():
+    user_id = uuid4()
+    conversation = Conversation(user_id=user_id)
+    session = _session_for_require(conversation=conversation)
+    store = DocumentStore(session)
+
+    documents = await store.require_documents_in_conversation(
+        conversation.id,
+        [],
+        user_id=user_id,
+    )
+
+    assert documents == []
+    session.execute.assert_awaited_once()
+
+
 async def test_get_documents_reports_returns_matching_rows_in_requested_order():
     user_id = uuid4()
     conversation_id = uuid4()

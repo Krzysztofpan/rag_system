@@ -11,13 +11,12 @@ from app.agent.types import AgentContext
 @tool
 def summarize_context(runtime: ToolRuntime[AgentContext]) -> list[dict[str, str]]:
     """
-    Summarize context of documents
+    Summarize the documents already selected for this conversation.
 
-    Args:
-    document_ids: list of document ids to summarize
-    conversation_id: id of conversation
-    user_id: id of user
+    Call this when the user wants a summary, overview, or recap.
+    Selected document IDs are provided by the application — do not ask the user for them.
     """
+    
     document_ids = runtime.context["document_ids"]
     conversation_id = runtime.context["conversation_id"]
     user_id = runtime.context["user_id"]

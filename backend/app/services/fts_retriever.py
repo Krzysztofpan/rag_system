@@ -25,7 +25,7 @@ class PostgresFTSRetriever(BaseRetriever):
     session_factory: async_sessionmaker[AsyncSession]
     k: int
     conversation_id: UUID | None = None
-    document_id: UUID | None = None
+    document_ids: list[UUID] | None = None
 
     def _get_relevant_documents(
         self,
@@ -45,7 +45,7 @@ class PostgresFTSRetriever(BaseRetriever):
         return await self._search(query)
 
     async def _search(self, query: str) -> list[Document]:
-        if not query.strip():
+        if not query.strip() or not self.document_ids:
             return []
 
         ts_query = func.plainto_tsquery("simple", query)
@@ -53,15 +53,16 @@ class PostgresFTSRetriever(BaseRetriever):
         stmt = (
             select(Chunk, rank.label("rank"))
             .join(DbDocument, DbDocument.id == Chunk.document_id)
-            .where(Chunk.search_vector.op("@@")(ts_query))
+            .where(
+                Chunk.search_vector.op("@@")(ts_query),
+                Chunk.document_id.in_(self.document_ids),
+            )
             .order_by(rank.desc())
             .limit(self.k)
         )
 
         if self.conversation_id is not None:
             stmt = stmt.where(DbDocument.conversation_id == self.conversation_id)
-        if self.document_id is not None:
-            stmt = stmt.where(Chunk.document_id == self.document_id)
 
         async with self.session_factory() as session:
             rows = (await session.execute(stmt)).all()
