@@ -1,11 +1,11 @@
+from functools import lru_cache
+
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelRequest, dynamic_prompt
 
 from app.agent.types import AgentContext
 from app.config import get_settings
 from app.tools import search_documents, summarize_context
-
-settings = get_settings()
 
 
 def build_system_prompt(document_count: int) -> str:
@@ -36,9 +36,11 @@ def agent_system_prompt(request: ModelRequest) -> str:
     return build_system_prompt(len(document_ids))
 
 
-agent_orchestrator = create_agent(
-    model=settings.orchestrator_model,
-    tools=[search_documents, summarize_context],
-    middleware=[dynamic_prompt(agent_system_prompt)],
-    context_schema=AgentContext,
-)
+@lru_cache(maxsize=1)
+def get_agent_orchestrator():
+    return create_agent(
+        model=get_settings().orchestrator_model,
+        tools=[search_documents, summarize_context],
+        middleware=[dynamic_prompt(agent_system_prompt)],
+        context_schema=AgentContext,
+    )
