@@ -59,6 +59,52 @@ def test_add_vectors_upserts_into_conversation_namespace():
     )
 
 
+def test_delete_namespace_deletes_all_in_conversation():
+    store = VectorStore.__new__(VectorStore)
+    store.vector_index = MagicMock()
+    conversation_id = uuid4()
+
+    store.delete_namespace(conversation_id)
+
+    store.vector_index.delete.assert_called_once_with(
+        delete_all=True,
+        namespace=str(conversation_id),
+    )
+
+
+def test_delete_document_vectors_filters_by_document_id():
+    store = VectorStore.__new__(VectorStore)
+    store.vector_index = MagicMock()
+    conversation_id = uuid4()
+    document_id = uuid4()
+
+    store.delete_document_vectors(conversation_id, document_id)
+
+    store.vector_index.delete.assert_called_once_with(
+        namespace=str(conversation_id),
+        filter={"document_id": {"$eq": str(document_id)}},
+    )
+
+
+def test_update_document_source_filename_filters_by_document_id():
+    store = VectorStore.__new__(VectorStore)
+    store.vector_index = MagicMock()
+    conversation_id = uuid4()
+    document_id = uuid4()
+
+    store.update_document_source_filename(
+        conversation_id,
+        document_id,
+        "renamed.pdf",
+    )
+
+    store.vector_index.update.assert_called_once_with(
+        namespace=str(conversation_id),
+        filter={"document_id": {"$eq": str(document_id)}},
+        set_metadata={"source_filename": "renamed.pdf"},
+    )
+
+
 def test_get_retriever_passes_document_ids():
     store = VectorStore.__new__(VectorStore)
     store.vector_index = MagicMock()

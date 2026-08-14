@@ -6,7 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import get_current_user
 from app.db.session import get_session
-from app.dependencies import CurrentUserDep
+from app.dependencies import (
+    ConversationServiceDep,
+    CurrentUserDep,
+)
 from app.schemas.conversation import (
     CreateConversationResponse,
     GetConversationsResponse,
@@ -20,7 +23,6 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
-from app.services.conversation_store import ConversationStore
 from app.services.doc_store import DocumentStore
 
 conversation_router = APIRouter(
@@ -33,12 +35,11 @@ conversation_router = APIRouter(
 @conversation_router.post("/", response_model=CreateConversationResponse)
 async def create_conversation(
     current_user: CurrentUserDep,
-    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationServiceDep,
 ) -> CreateConversationResponse:
     """Create a conversation for the authenticated Supabase Auth user."""
-    conversation_store = ConversationStore(session)
     try:
-        conversation = await conversation_store.create_conversation(user_id=current_user.user_id)
+        conversation = await conversation_service.create_conversation(user_id=current_user.user_id)
     except IntegrityError as exc:
         raise HTTPException(status_code=400, detail="Unknown user") from exc
     return CreateConversationResponse(
@@ -49,10 +50,9 @@ async def create_conversation(
 @conversation_router.get("/", response_model=GetConversationsResponse)
 async def get_conversations(
     current_user: CurrentUserDep,
-    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationServiceDep,
 ) -> GetConversationsResponse:
-    conversation_store = ConversationStore(session)
-    conversations = await conversation_store.get_conversations(user_id=current_user.user_id)
+    conversations = await conversation_service.get_conversations(user_id=current_user.user_id)
 
     return GetConversationsResponse(
         conversations=[conversation_from_model(c) for c in conversations],
@@ -62,11 +62,13 @@ async def get_conversations(
 async def delete_conversation(
     conversation_id: UUID,
     current_user: CurrentUserDep,
-    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationServiceDep,
 ) -> DeleteConversationResponse:
-    conversation_store = ConversationStore(session)
     try:
-        deleted_conversation = await conversation_store.delete_conversation(conversation_id, user_id=current_user.user_id)
+        deleted_conversation = await conversation_service.delete_conversation(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -78,13 +80,15 @@ async def delete_conversation(
 async def change_conversation_title(
     conversation_id: UUID,
     current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
     title: str = Body(...),
-    session: AsyncSession = Depends(get_session)
 ):
-    conversation_store = ConversationStore(session)
-    
     try:
-        updated_title = await conversation_store.change_conversation_title(conversation_id, user_id=current_user.user_id, title=title)
+        updated_title = await conversation_service.change_conversation_title(
+            conversation_id,
+            user_id=current_user.user_id,
+            title=title,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -97,11 +101,10 @@ async def change_conversation_title(
 async def get_sources(
     conversation_id: UUID,
     current_user: CurrentUserDep,
-    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationServiceDep,
 ) -> GetSourcesResponse:
-    conversation_store = ConversationStore(session)
     try:
-        documents = await conversation_store.get_conversation_documents(
+        documents = await conversation_service.get_conversation_documents(
             conversation_id,
             user_id=current_user.user_id,
         )
@@ -121,11 +124,10 @@ async def delete_source(
     conversation_id: UUID,
     document_id: UUID,
     current_user: CurrentUserDep,
-    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationServiceDep,
 ):
-    document_store = DocumentStore(session)
     try:
-        deleted_document = await document_store.delete_document(
+        deleted_document = await conversation_service.delete_document(
             conversation_id,
             document_id,
             user_id=current_user.user_id,
@@ -141,12 +143,11 @@ async def change_source_name(
     conversation_id: UUID,
     document_id: UUID,
     current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
     name: str = Body(...),
-    session: AsyncSession = Depends(get_session),
 ):
-    document_store = DocumentStore(session)
     try:
-        updated_name = await document_store.change_document_name(
+        updated_name = await conversation_service.change_document_name(
             conversation_id,
             document_id,
             name,

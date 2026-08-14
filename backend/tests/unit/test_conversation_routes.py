@@ -11,11 +11,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
 from app.auth.deps import AuthenticatedUser, get_current_user
+from app.container import get_vector_store
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.db.session import get_session
 from app.routes.conversation_routes import conversation_router
+from tests.helpers import FakeVectorStore
 
 
 @pytest.fixture
@@ -51,6 +53,7 @@ def client(authenticated_user, mock_session):
 
     app.dependency_overrides[get_current_user] = lambda: authenticated_user
     app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
 
     with TestClient(app) as test_client:
         yield test_client
@@ -71,7 +74,7 @@ def test_create_conversation_returns_ids(client, authenticated_user):
     conversation = Conversation(user_id=authenticated_user.user_id)
 
     with patch(
-        "app.routes.conversation_routes.ConversationStore.create_conversation",
+        "app.services.conversation_service.ConversationService.create_conversation",
         new=AsyncMock(return_value=conversation),
     ):
         response = client.post("/conversations/")
@@ -84,7 +87,7 @@ def test_create_conversation_returns_ids(client, authenticated_user):
 
 def test_create_conversation_unknown_user_returns_400(client):
     with patch(
-        "app.routes.conversation_routes.ConversationStore.create_conversation",
+        "app.services.conversation_service.ConversationService.create_conversation",
         new=AsyncMock(side_effect=IntegrityError("", {}, Exception())),
     ):
         response = client.post("/conversations/")
@@ -93,14 +96,14 @@ def test_create_conversation_unknown_user_returns_400(client):
     assert response.json()["detail"] == "Unknown user"
 
 
-def test_get_conversations_returns_store_result(client, authenticated_user):
+def test_get_conversations_returns_service_result(client, authenticated_user):
     conversations = [
         Conversation(user_id=authenticated_user.user_id),
         Conversation(user_id=authenticated_user.user_id),
     ]
 
     with patch(
-        "app.routes.conversation_routes.ConversationStore.get_conversations",
+        "app.services.conversation_service.ConversationService.get_conversations",
         new=AsyncMock(return_value=conversations),
     ):
         response = client.get("/conversations/")
@@ -122,7 +125,7 @@ def test_get_sources_returns_documents(client, authenticated_user):
     ]
 
     with patch(
-        "app.routes.conversation_routes.ConversationStore.get_conversation_documents",
+        "app.services.conversation_service.ConversationService.get_conversation_documents",
         new=AsyncMock(return_value=documents),
     ):
         response = client.get(f"/conversations/{conversation_id}/sources")
@@ -138,7 +141,7 @@ def test_get_sources_not_found_returns_404(client):
     conversation_id = uuid4()
 
     with patch(
-        "app.routes.conversation_routes.ConversationStore.get_conversation_documents",
+        "app.services.conversation_service.ConversationService.get_conversation_documents",
         new=AsyncMock(side_effect=ValueError("Conversation missing")),
     ):
         response = client.get(f"/conversations/{conversation_id}/sources")
@@ -156,7 +159,7 @@ def test_delete_source_returns_deleted_document(client):
     )
 
     with patch(
-        "app.routes.conversation_routes.DocumentStore.delete_document",
+        "app.services.conversation_service.ConversationService.delete_document",
         new=AsyncMock(return_value=document),
     ):
         response = client.delete(
@@ -172,7 +175,7 @@ def test_change_source_name_returns_updated_name(client):
     document_id = uuid4()
 
     with patch(
-        "app.routes.conversation_routes.DocumentStore.change_document_name",
+        "app.services.conversation_service.ConversationService.change_document_name",
         new=AsyncMock(return_value="renamed.md"),
     ):
         response = client.patch(
@@ -217,3 +220,16 @@ def test_get_source_report_returns_report_payload(client):
     assert payload["documentId"] == str(document_id)
     assert payload["parsedContent"] == "# Doc"
     assert payload["quality"]["parseReport"]["ok"] is True
+
+
+def test_delete_conversation_returns_deleted_conversation(client, authenticated_user):
+    conversation = Conversation(user_id=authenticated_user.user_id)
+
+    with patch(
+        "app.services.conversation_service.ConversationService.delete_conversation",
+        new=AsyncMock(return_value=conversation),
+    ):
+        response = client.delete(f"/conversations/{conversation.id}")
+
+    assert response.status_code == 200
+    assert response.json()["deletedConversation"]["id"] == str(conversation.id)

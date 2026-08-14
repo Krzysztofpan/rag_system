@@ -40,6 +40,34 @@ class VectorStore:
             namespace=str(conversation_id),
         )
 
+    def delete_namespace(self, conversation_id: UUID) -> None:
+        self.vector_index.delete(
+            delete_all=True,
+            namespace=str(conversation_id),
+        )
+
+    def delete_document_vectors(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> None:
+        self.vector_index.delete(
+            namespace=str(conversation_id),
+            filter={"document_id": {"$eq": str(document_id)}},
+        )
+
+    def update_document_source_filename(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        source_filename: str,
+    ) -> None:
+        self.vector_index.update(
+            namespace=str(conversation_id),
+            filter={"document_id": {"$eq": str(document_id)}},
+            set_metadata={"source_filename": source_filename},
+        )
+
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         return self.embedder.embed_documents(texts)
 

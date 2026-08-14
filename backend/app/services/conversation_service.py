@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from sqlalchemy import select
@@ -5,13 +6,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document
+from app.services.doc_store import DocumentStore
+from app.services.vector_store import VectorStore
 from typing import List
 
-class ConversationStore:
+logger = logging.getLogger(__name__)
+
+class ConversationService:
     """Every lookup is scoped to the owning user; `user_id` is never optional."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        vector_store: VectorStore,
+        doc_store: DocumentStore,
+    ):
         self.session = session
+        self.vector_store = vector_store
+        self.doc_store = doc_store
 
     async def create_conversation(self, *, user_id: UUID) -> Conversation:
         conversation = Conversation(user_id=user_id, title="New Conversation")
@@ -58,6 +70,14 @@ class ConversationStore:
         await self.session.delete(conversation)
         await self.session.commit()
 
+        try:
+            self.vector_store.delete_namespace(conversation_id)
+        except Exception:
+            logger.exception(
+                "Pinecone namespace leftover after conversation delete: %s",
+                conversation_id,
+            )
+
         return conversation
 
     async def change_conversation_title(
@@ -91,3 +111,51 @@ class ConversationStore:
             select(Document).where(Document.conversation_id == conversation_id)
         )
         return list(result.scalars().all())
+
+    async def delete_document(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> Document:
+        deleted = await self.doc_store.delete_document(
+            conversation_id,
+            document_id,
+            user_id=user_id,
+        )
+        try:
+            self.vector_store.delete_document_vectors(conversation_id, document_id)
+        except Exception:
+            logger.exception(
+                "Pinecone vectors leftover after document delete: %s",
+                document_id,
+            )
+        return deleted
+
+    async def change_document_name(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        name: str,
+        *,
+        user_id: UUID,
+    ) -> str:
+        updated_name = await self.doc_store.change_document_name(
+            conversation_id,
+            document_id,
+            name,
+            user_id=user_id,
+        )
+        try:
+            self.vector_store.update_document_source_filename(
+                conversation_id,
+                document_id,
+                updated_name,
+            )
+        except Exception:
+            logger.exception(
+                "Pinecone source_filename leftover after document rename: %s",
+                document_id,
+            )
+        return updated_name
