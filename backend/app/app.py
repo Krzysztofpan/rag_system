@@ -1,16 +1,15 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
 from langchain_core.messages import HumanMessage
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.jwt import verify_auth_configuration
 from app.config import get_settings
 from app.routes.conversation_routes import conversation_router
 from app.db.health import check_db_connection
-from app.db.session import dispose_engine, get_session
-from app.dependencies import CurrentUserDep, DocumentIndexingServiceDep
+from app.db.session import dispose_engine
+from app.dependencies import ConversationServiceDep, CurrentUserDep, DocumentIndexingServiceDep
 from app.schemas.source import (
     SourceReportResponse,
     SourceResponse,
@@ -20,7 +19,6 @@ from app.schemas.upload import (
     build_upload_quality,
     quality_from_rejected_report,
 )
-from app.services.conversation_store import ConversationStore
 from app.services.parser import ParseQualityError
 from app.schemas.chat import ChatRequestBody
 from app.agent.agent_orchestrator import get_agent_orchestrator
@@ -57,16 +55,15 @@ async def root():
 async def upload(
     indexing_service: DocumentIndexingServiceDep,
     current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
     file: UploadFile = File(...),
     conversation_id: UUID = Query(
         ..., description="conversations.id for this chat"
     ),
-    session: AsyncSession = Depends(get_session),
 ) -> UploadSourceResponse:
     """Business outcomes always return HTTP 200; failures use source.status=failed or source=null."""
-    conversation_store = ConversationStore(session)
     try:
-        await conversation_store.get_conversation(
+        await conversation_service.get_conversation(
             conversation_id,
             user_id=current_user.user_id,
         )
@@ -129,10 +126,12 @@ async def upload(
 
 
 @app.post("/chat")
-async def chat(current_user: CurrentUserDep, body: ChatRequestBody, session: AsyncSession = Depends(get_session)):
-    conversation_store = ConversationStore(session)
-
-    await conversation_store.get_conversation(body.conversation_id, user_id=current_user.user_id)
+async def chat(
+    current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
+    body: ChatRequestBody,
+):
+    await conversation_service.get_conversation(body.conversation_id, user_id=current_user.user_id)
     agent = get_agent_orchestrator()
     agent_response = agent.invoke(
         {"messages": [HumanMessage(body.message)]},

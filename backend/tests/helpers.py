@@ -160,11 +160,40 @@ class FakeDocumentStore:
             "quality": quality,
         }
 
+    async def delete_document(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> Document:
+        document = self.documents.pop(document_id)
+        self.events.append(("delete", document_id, conversation_id))
+        return document
+
+    async def change_document_name(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        name: str,
+        *,
+        user_id: UUID,
+    ) -> str:
+        if not name:
+            raise ValueError("You have to define new name.")
+        document = self.documents[document_id]
+        document.filename = name
+        self.events.append(("rename", document_id, name))
+        return document.filename
+
 
 @dataclass
 class FakeVectorStore:
     vectors: list[dict] = field(default_factory=list)
     added: list[tuple[list[dict], UUID]] = field(default_factory=list)
+    deleted_namespaces: list[UUID] = field(default_factory=list)
+    deleted_documents: list[tuple[UUID, UUID]] = field(default_factory=list)
+    updated_source_filenames: list[tuple[UUID, UUID, str]] = field(default_factory=list)
 
     def construct_vectors(
         self,
@@ -190,3 +219,23 @@ class FakeVectorStore:
 
     def add_vectors(self, vectors, *, conversation_id: UUID) -> None:
         self.added.append((list(vectors), conversation_id))
+
+    def delete_namespace(self, conversation_id: UUID) -> None:
+        self.deleted_namespaces.append(conversation_id)
+
+    def delete_document_vectors(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> None:
+        self.deleted_documents.append((conversation_id, document_id))
+
+    def update_document_source_filename(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        source_filename: str,
+    ) -> None:
+        self.updated_source_filenames.append(
+            (conversation_id, document_id, source_filename)
+        )

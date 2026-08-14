@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.services.chunker.factory import ChunkerFactory
+from app.services.conversation_service import ConversationService
 from app.services.doc_store import DocumentStore
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser.factory import ParserFactory
@@ -18,16 +19,27 @@ def get_vector_store() -> VectorStore:
     return _vector_store
 
 
-def create_indexing_service(session: AsyncSession) -> DocumentIndexingService:
+def create_indexing_service(
+    session: AsyncSession,
+    vector_store: VectorStore | None = None,
+) -> DocumentIndexingService:
     return DocumentIndexingService(
         parser_factory=ParserFactory(),
         chunker_factory=ChunkerFactory(),
         doc_store=DocumentStore(session),
-        vector_store=get_vector_store(),
+        vector_store=vector_store or get_vector_store(),
     )
 
 
 def get_document_indexing_service(
     session: AsyncSession = Depends(get_session),
+    vector_store: VectorStore = Depends(get_vector_store),
 ) -> DocumentIndexingService:
-    return create_indexing_service(session)
+    return create_indexing_service(session, vector_store)
+
+
+def get_conversation_service(
+    session: AsyncSession = Depends(get_session),
+    vector_store: VectorStore = Depends(get_vector_store),
+) -> ConversationService:
+    return ConversationService(session, vector_store, DocumentStore(session))

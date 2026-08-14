@@ -39,17 +39,20 @@ class DocumentIndexingService:
     def create_chunker(self, file: UploadFile) -> Chunker:
         return self.chunker_factory.create_chunker(file.content_type)
 
+    def _require_stores(self) -> tuple[DocumentStore, VectorStore]:
+        if self.doc_store is None:
+            raise RuntimeError("DocumentStore is required")
+        if self.vector_store is None:
+            raise RuntimeError("VectorStore is required")
+        return self.doc_store, self.vector_store
+
     async def ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
         self.parser = self.create_parser(file)
         self.chunker = self.create_chunker(file)
 
-        if self.doc_store is None:
-            raise RuntimeError("DocumentStore is required for ingest")
+        doc_store, vector_store = self._require_stores()
 
-        if self.vector_store is None:
-            raise RuntimeError("VectorStore is required for ingest")
-
-        document = await self.doc_store.create_document(
+        document = await doc_store.create_document(
             conversation_id=conversation_id,
             filename=file.filename or "unknown",
             content_type=file.content_type,
@@ -57,7 +60,7 @@ class DocumentIndexingService:
         )
 
         document_id = document.id
-        await self.doc_store.mark_processing(document_id)
+        await doc_store.mark_processing(document_id)
         parsed_markdown: str | None = None
 
         try:
@@ -71,15 +74,15 @@ class DocumentIndexingService:
                 parse_report=parsed.report,
             )
 
-            stored = await self.doc_store.save_chunks(document_id, kept)
+            stored = await doc_store.save_chunks(document_id, kept)
 
-            vectors = self.vector_store.construct_vectors(
+            vectors = vector_store.construct_vectors(
                 stored,
                 document_id=document_id,
                 source_filename=file.filename or "unknown",
             )
 
-            self.vector_store.add_vectors(
+            vector_store.add_vectors(
                 vectors,
                 conversation_id=conversation_id,
             )
@@ -88,7 +91,7 @@ class DocumentIndexingService:
                 parse_report=parsed.report,
                 chunk_quality=chunk_quality,
             )
-            await self.doc_store.upsert_report(
+            await doc_store.upsert_report(
                 document_id,
                 parsed_content=parsed.markdown,
                 quality=quality.model_dump(mode="json"),
@@ -102,9 +105,9 @@ class DocumentIndexingService:
                 chunk_quality=chunk_quality,
             )
         except ParseQualityError as exc:
-            await self.doc_store.mark_failed(document_id, str(exc))
+            await doc_store.mark_failed(document_id, str(exc))
             quality = quality_from_rejected_report(exc.report)
-            await self.doc_store.upsert_report(
+            await doc_store.upsert_report(
                 document_id,
                 parsed_content=parsed_markdown,
                 quality=quality.model_dump(mode="json") if quality is not None else None,
@@ -116,5 +119,5 @@ class DocumentIndexingService:
                 parsed_content=parsed_markdown,
             ) from exc
         except Exception as exc:
-            await self.doc_store.mark_failed(document_id, str(exc))
+            await doc_store.mark_failed(document_id, str(exc))
             raise
