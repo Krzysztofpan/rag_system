@@ -97,7 +97,7 @@ class FakeChunkerFactory:
 
 
 @dataclass
-class FakeDocumentStore:
+class FakeDocumentService:
     documents: dict[UUID, Document] = field(default_factory=dict)
     saved_chunks: dict[UUID, list[ChunkResult]] = field(default_factory=dict)
     reports: dict[UUID, dict] = field(default_factory=dict)

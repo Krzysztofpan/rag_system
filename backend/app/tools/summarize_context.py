@@ -1,6 +1,6 @@
 
 from langchain.tools import ToolRuntime, tool
-from app.services.doc_store import DocumentStore
+from app.services.document_service import DocumentService
 from app.db.session import get_session_factory
 from app.db.session import run_async
 from langchain_openai import ChatOpenAI
@@ -24,8 +24,8 @@ def summarize_context(runtime: ToolRuntime[AgentContext]) -> list[dict[str, str]
     async def _load():
         session_factory = get_session_factory()
         async with session_factory() as session:
-            store = DocumentStore(session)
-            return await store.get_documents_reports(
+            store = DocumentService(session)
+            return await store.get_document_reports(
                 conversation_id,
                 document_ids,
                 user_id=user_id,

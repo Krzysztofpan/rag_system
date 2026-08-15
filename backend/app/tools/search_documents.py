@@ -4,7 +4,7 @@ from app.agent.types import AgentContext
 from app.container import get_vector_store
 from app.db.session import get_session_factory, run_async
 from app.graphs.search_documents_graph import SearchDocumentsGraph
-from app.services.doc_store import DocumentStore
+from app.services.document_service import DocumentService
 from app.services.fts_retriever import PostgresFTSRetriever
 
 
@@ -34,8 +34,8 @@ def search_documents(
 
     async def _authorize() -> None:
         async with session_factory() as session:
-            store = DocumentStore(session)
-            await store.require_documents_in_conversation(
+            store = DocumentService(session)
+            await store.get_documents(
                 conversation_id,
                 document_ids,
                 user_id=user_id,

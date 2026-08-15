@@ -6,7 +6,7 @@ from fastapi import UploadFile
 from app.db.session import get_session_factory
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
-from app.services.doc_store import DocumentStore
+from app.services.document_service import DocumentService
 from app.services.parser import ParseQualityError, ParserFactory, Parser
 from app.services.parser.complex.quality_audit import ensure_chunk_quality
 from app.services.vector_store import VectorStore
@@ -29,10 +29,10 @@ class DocumentIndexingService:
         self,
         parser_factory: ParserFactory,
         chunker_factory: ChunkerFactory,
-        doc_store: DocumentStore | None = None,
+        document_service: DocumentService | None = None,
         vector_store: VectorStore | None = None,
     ):
-        self.doc_store = doc_store
+        self.document_service = document_service
         self.vector_store = vector_store
         self.parser_factory = parser_factory
         self.chunker_factory = chunker_factory
@@ -60,7 +60,7 @@ class DocumentIndexingService:
 
         session_factory = get_session_factory()
         async with session_factory() as session:
-            store = DocumentStore(session)
+            store = DocumentService(session)
             await store.add_summary_to_report(
                 summary,
                 conversation_id,
@@ -76,20 +76,20 @@ class DocumentIndexingService:
     def create_chunker(self, file: UploadFile) -> Chunker:
         return self.chunker_factory.create_chunker(file.content_type)
 
-    def _require_stores(self) -> tuple[DocumentStore, VectorStore]:
-        if self.doc_store is None:
-            raise RuntimeError("DocumentStore is required")
+    def _require_services(self) -> tuple[DocumentService, VectorStore]:
+        if self.document_service is None:
+            raise RuntimeError("DocumentService is required")
         if self.vector_store is None:
             raise RuntimeError("VectorStore is required")
-        return self.doc_store, self.vector_store
+        return self.document_service, self.vector_store
 
     async def ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
         self.parser = self.create_parser(file)
         self.chunker = self.create_chunker(file)
 
-        doc_store, vector_store = self._require_stores()
+        document_service, vector_store = self._require_services()
 
-        document = await doc_store.create_document(
+        document = await document_service.create_document(
             conversation_id=conversation_id,
             filename=file.filename or "unknown",
             content_type=file.content_type,
@@ -97,7 +97,7 @@ class DocumentIndexingService:
         )
 
         document_id = document.id
-        await doc_store.mark_processing(document_id)
+        await document_service.mark_processing(document_id)
         parsed_markdown: str | None = None
 
         try:
@@ -111,7 +111,7 @@ class DocumentIndexingService:
                 parse_report=parsed.report,
             )
 
-            stored = await doc_store.save_chunks(document_id, kept)
+            stored = await document_service.save_chunks(document_id, kept)
 
             vectors = vector_store.construct_vectors(
                 stored,
@@ -128,7 +128,7 @@ class DocumentIndexingService:
                 parse_report=parsed.report,
                 chunk_quality=chunk_quality,
             )
-            await doc_store.upsert_report(
+            await document_service.upsert_report(
                 document_id,
                 parsed_content=parsed.markdown,
                 quality=quality.model_dump(mode="json"),
@@ -142,9 +142,9 @@ class DocumentIndexingService:
                 chunk_quality=chunk_quality,
             )
         except ParseQualityError as exc:
-            await doc_store.mark_failed(document_id, str(exc))
+            await document_service.mark_failed(document_id, str(exc))
             quality = quality_from_rejected_report(exc.report)
-            await doc_store.upsert_report(
+            await document_service.upsert_report(
                 document_id,
                 parsed_content=parsed_markdown,
                 quality=quality.model_dump(mode="json") if quality is not None else None,
@@ -156,5 +156,5 @@ class DocumentIndexingService:
                 parsed_content=parsed_markdown,
             ) from exc
         except Exception as exc:
-            await doc_store.mark_failed(document_id, str(exc))
+            await document_service.mark_failed(document_id, str(exc))
             raise

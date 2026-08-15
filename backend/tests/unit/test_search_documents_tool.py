@@ -43,7 +43,7 @@ def test_llm_schema_hides_runtime_and_scoped_ids():
 
 
 @patch("app.tools.search_documents.run_async", side_effect=_run_async)
-@patch("app.tools.search_documents.DocumentStore")
+@patch("app.tools.search_documents.DocumentService")
 @patch("app.tools.search_documents.get_session_factory")
 @patch("app.tools.search_documents.PostgresFTSRetriever")
 @patch("app.tools.search_documents.get_vector_store")
@@ -66,7 +66,7 @@ def test_search_documents_scopes_to_owned_document_ids(
     )
     get_session_factory.return_value = _session_factory()
     store = MagicMock()
-    store.require_documents_in_conversation = AsyncMock()
+    store.get_documents = AsyncMock()
     store_cls.return_value = store
     get_vector_store.return_value.get_retriever.return_value = MagicMock()
     graph_cls.return_value.build_graph.return_value.invoke.return_value = {
@@ -80,7 +80,7 @@ def test_search_documents_scopes_to_owned_document_ids(
     )
 
     assert result == "found stack"
-    store.require_documents_in_conversation.assert_awaited_once_with(
+    store.get_documents.assert_awaited_once_with(
         conversation_id,
         document_ids,
         user_id=user_id,
@@ -93,7 +93,7 @@ def test_search_documents_scopes_to_owned_document_ids(
 
 
 @patch("app.tools.search_documents.run_async", side_effect=_run_async)
-@patch("app.tools.search_documents.DocumentStore")
+@patch("app.tools.search_documents.DocumentService")
 @patch("app.tools.search_documents.get_session_factory")
 @patch("app.tools.search_documents.PostgresFTSRetriever")
 @patch("app.tools.search_documents.get_vector_store")
@@ -115,13 +115,13 @@ def test_search_documents_skips_search_when_no_document_ids(
     )
     get_session_factory.return_value = _session_factory()
     store = MagicMock()
-    store.require_documents_in_conversation = AsyncMock()
+    store.get_documents = AsyncMock()
     store_cls.return_value = store
 
     result = search_documents.func(query="frontend stack", top_k=5, runtime=runtime)
 
     assert result == "no context founded"
-    store.require_documents_in_conversation.assert_awaited_once_with(
+    store.get_documents.assert_awaited_once_with(
         conversation_id,
         [],
         user_id=user_id,
@@ -132,7 +132,7 @@ def test_search_documents_skips_search_when_no_document_ids(
 
 
 @patch("app.tools.search_documents.run_async", side_effect=_run_async)
-@patch("app.tools.search_documents.DocumentStore")
+@patch("app.tools.search_documents.DocumentService")
 @patch("app.tools.search_documents.get_session_factory")
 @patch("app.tools.search_documents.SearchDocumentsGraph")
 def test_search_documents_rejects_unowned_conversation(
@@ -144,7 +144,7 @@ def test_search_documents_rejects_unowned_conversation(
     runtime = _runtime()
     get_session_factory.return_value = _session_factory()
     store = MagicMock()
-    store.require_documents_in_conversation = AsyncMock(
+    store.get_documents = AsyncMock(
         side_effect=ValueError("Conversation missing not found")
     )
     store_cls.return_value = store
