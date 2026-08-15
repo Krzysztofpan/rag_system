@@ -155,6 +155,28 @@ class DocumentStore:
             raise ValueError("Report not found")
         return report
 
+    async def add_summary_to_report(
+        self,
+        summary: str, 
+        conversation_id: UUID,
+        document_id: UUID,
+        *,
+        user_id: UUID
+    ):
+        await self._require_document_in_conversation(
+            conversation_id,
+            document_id,
+            user_id=user_id,
+        )
+        report = await self.session.get(DocumentReport, document_id)
+        if report is None:
+            raise ValueError("Report not found")
+        report.summary = summary
+        report.updated_at = datetime.now(UTC)
+        await self.session.commit()
+        await self.session.refresh(report)
+        return report
+
     async def get_document(
         self,
         conversation_id: UUID,

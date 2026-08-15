@@ -160,6 +160,18 @@ class FakeDocumentStore:
             "quality": quality,
         }
 
+    async def add_summary_to_report(
+        self,
+        summary: str,
+        conversation_id: UUID,
+        document_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> None:
+        self.events.append(("add_summary", document_id, summary))
+        report = self.reports.setdefault(document_id, {})
+        report["summary"] = summary
+
     async def delete_document(
         self,
         conversation_id: UUID,
