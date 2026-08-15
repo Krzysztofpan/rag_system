@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -10,11 +11,19 @@ from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.services.chunker import ChunkResult
+from app.services.vector_store import VectorStore
+
+logger = logging.getLogger(__name__)
 
 
-class DocumentStore:
-    def __init__(self, session: AsyncSession):
+class DocumentService:
+    def __init__(
+        self,
+        session: AsyncSession,
+        vector_store: VectorStore | None = None,
+    ):
         self.session = session
+        self.vector_store = vector_store
 
     async def create_document(
         self,
@@ -38,10 +47,30 @@ class DocumentStore:
         return document
 
     async def mark_processing(self, document_id: UUID) -> None:
-        document = await self._get_document(document_id)
+        document = await self._get_by_id(document_id)
         document.status = DocumentStatus.processing
         document.updated_at = datetime.now(UTC)
         await self.session.commit()
+
+    async def get_conversation_documents(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> list[Document]:
+        result = await self.session.execute(
+            select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        docs_result = await self.session.execute(
+            select(Document).where(Document.conversation_id == conversation_id)
+        )
+        return list(docs_result.scalars().all())
 
     async def delete_document(
         self,
@@ -50,7 +79,7 @@ class DocumentStore:
         *,
         user_id: UUID,
     ) -> Document:
-        document = await self._require_document_in_conversation(
+        document = await self.get_document(
             conversation_id,
             document_id,
             user_id=user_id,
@@ -58,6 +87,7 @@ class DocumentStore:
         await self.session.delete(document)
         await self._adjust_source_count(conversation_id, -1)
         await self.session.commit()
+        self._delete_document_vectors(conversation_id, document_id)
         return document
 
     async def change_document_name(
@@ -68,7 +98,7 @@ class DocumentStore:
         *,
         user_id: UUID,
     ) -> str:
-        document = await self._require_document_in_conversation(
+        document = await self.get_document(
             conversation_id,
             document_id,
             user_id=user_id,
@@ -80,6 +110,11 @@ class DocumentStore:
         document.filename = name
         await self.session.commit()
         await self.session.refresh(document)
+        self._update_document_source_filename(
+            conversation_id,
+            document_id,
+            document.filename,
+        )
         return document.filename
 
     async def save_chunks(
@@ -87,7 +122,7 @@ class DocumentStore:
         document_id: UUID,
         chunks: list[ChunkResult],
     ) -> list[tuple[UUID, ChunkResult]]:
-        document = await self._get_document(document_id)
+        document = await self._get_by_id(document_id)
 
         stored: list[tuple[UUID, ChunkResult]] = []
         db_chunks: list[Chunk] = []
@@ -113,7 +148,7 @@ class DocumentStore:
 
     async def mark_failed(self, document_id: UUID, message: str) -> None:
         await self.session.rollback()
-        document = await self._get_document(document_id)
+        document = await self._get_by_id(document_id)
         document.status = DocumentStatus.failed
         document.error_message = message
         document.updated_at = datetime.now(UTC)
@@ -145,32 +180,25 @@ class DocumentStore:
         *,
         user_id: UUID,
     ) -> DocumentReport:
-        await self._require_document_in_conversation(
+        return await self._require_report(
             conversation_id,
             document_id,
             user_id=user_id,
         )
-        report = await self.session.get(DocumentReport, document_id)
-        if report is None:
-            raise ValueError("Report not found")
-        return report
 
     async def add_summary_to_report(
         self,
-        summary: str, 
+        summary: str,
         conversation_id: UUID,
         document_id: UUID,
         *,
-        user_id: UUID
-    ):
-        await self._require_document_in_conversation(
+        user_id: UUID,
+    ) -> DocumentReport:
+        report = await self._require_report(
             conversation_id,
             document_id,
             user_id=user_id,
         )
-        report = await self.session.get(DocumentReport, document_id)
-        if report is None:
-            raise ValueError("Report not found")
         report.summary = summary
         report.updated_at = datetime.now(UTC)
         await self.session.commit()
@@ -184,47 +212,47 @@ class DocumentStore:
         *,
         user_id: UUID,
     ) -> Document:
-        return await self._require_document_in_conversation(
+        documents = await self.get_documents(
             conversation_id,
-            document_id,
+            [document_id],
             user_id=user_id,
         )
+        return documents[0]
 
-    async def require_documents_in_conversation(
+    async def get_documents(
         self,
         conversation_id: UUID,
         document_ids: list[UUID],
         *,
         user_id: UUID,
     ) -> list[Document]:
-        """Ensure the conversation is owned by user_id and every document belongs to it."""
-        result = await self.session.execute(
-            select(Conversation).where(
-                Conversation.id == conversation_id,
-                Conversation.user_id == user_id,
-            )
-        )
-        conversation = result.scalar_one_or_none()
-        if conversation is None:
-            raise ValueError(f"Conversation {conversation_id} not found")
-
         if not document_ids:
+            result = await self.session.execute(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.user_id == user_id,
+                )
+            )
+            if result.scalar_one_or_none() is None:
+                raise ValueError(f"Conversation {conversation_id} not found")
             return []
 
         unique_ids = list(dict.fromkeys(document_ids))
-        docs_result = await self.session.execute(
-            select(Document).where(
+        result = await self.session.execute(
+            select(Document)
+            .join(Conversation, Conversation.id == Document.conversation_id)
+            .where(
                 Document.id.in_(unique_ids),
                 Document.conversation_id == conversation_id,
+                Conversation.user_id == user_id,
             )
         )
-        documents = list(docs_result.scalars().all())
-        found_ids = {document.id for document in documents}
-        if found_ids != set(unique_ids):
+        by_id = {document.id: document for document in result.scalars().all()}
+        if set(by_id) != set(unique_ids):
             raise ValueError("Document not found in conversation")
-        return documents
+        return [by_id[document_id] for document_id in unique_ids]
 
-    async def get_documents_reports(
+    async def get_document_reports(
         self,
         conversation_id: UUID,
         document_ids: list[UUID],
@@ -262,29 +290,24 @@ class DocumentStore:
         document.token_count = sum(token_counts) if token_counts else None
         document.updated_at = datetime.now(UTC)
 
-    async def _require_document_in_conversation(
+    async def _require_report(
         self,
         conversation_id: UUID,
         document_id: UUID,
         *,
         user_id: UUID,
-    ) -> Document:
-        """Ownership travels through the conversation, so one query covers both."""
-        result = await self.session.execute(
-            select(Document)
-            .join(Conversation, Conversation.id == Document.conversation_id)
-            .where(
-                Document.id == document_id,
-                Document.conversation_id == conversation_id,
-                Conversation.user_id == user_id,
-            )
+    ) -> DocumentReport:
+        await self.get_document(
+            conversation_id,
+            document_id,
+            user_id=user_id,
         )
-        document = result.scalar_one_or_none()
-        if document is None:
-            raise ValueError("Document not found in conversation")
-        return document
+        report = await self.session.get(DocumentReport, document_id)
+        if report is None:
+            raise ValueError("Report not found")
+        return report
 
-    async def _get_document(self, document_id: UUID) -> Document:
+    async def _get_by_id(self, document_id: UUID) -> Document:
         document = await self.session.get(Document, document_id)
         if document is None:
             raise ValueError(f"Document {document_id} not found")
@@ -307,3 +330,38 @@ class DocumentStore:
                 updated_at=datetime.now(UTC),
             )
         )
+
+    def _delete_document_vectors(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> None:
+        if self.vector_store is None:
+            return
+        try:
+            self.vector_store.delete_document_vectors(conversation_id, document_id)
+        except Exception:
+            logger.exception(
+                "Pinecone vectors leftover after document delete: %s",
+                document_id,
+            )
+
+    def _update_document_source_filename(
+        self,
+        conversation_id: UUID,
+        document_id: UUID,
+        source_filename: str,
+    ) -> None:
+        if self.vector_store is None:
+            return
+        try:
+            self.vector_store.update_document_source_filename(
+                conversation_id,
+                document_id,
+                source_filename,
+            )
+        except Exception:
+            logger.exception(
+                "Pinecone source_filename leftover after document rename: %s",
+                document_id,
+            )

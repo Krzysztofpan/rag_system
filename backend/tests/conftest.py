@@ -9,7 +9,7 @@ from fastapi import UploadFile
 
 from app.types import FileTypes
 from tests.helpers import (
-    FakeDocumentStore,
+    FakeDocumentService,
     FakeVectorStore,
     make_upload_file,
 )
@@ -20,8 +20,8 @@ def conversation_id() -> UUID:
 
 
 @pytest.fixture
-def fake_doc_store() -> FakeDocumentStore:
-    return FakeDocumentStore()
+def fake_document_service() -> FakeDocumentService:
+    return FakeDocumentService()
 
 
 @pytest.fixture

@@ -2,13 +2,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import get_current_user
-from app.db.session import get_session
 from app.dependencies import (
     ConversationServiceDep,
     CurrentUserDep,
+    DocumentServiceDep,
 )
 from app.schemas.conversation import (
     CreateConversationResponse,
@@ -23,7 +22,6 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
-from app.services.doc_store import DocumentStore
 
 conversation_router = APIRouter(
     prefix="/conversations",
@@ -101,10 +99,10 @@ async def change_conversation_title(
 async def get_sources(
     conversation_id: UUID,
     current_user: CurrentUserDep,
-    conversation_service: ConversationServiceDep,
+    document_service: DocumentServiceDep,
 ) -> GetSourcesResponse:
     try:
-        documents = await conversation_service.get_conversation_documents(
+        documents = await document_service.get_conversation_documents(
             conversation_id,
             user_id=current_user.user_id,
         )
@@ -124,10 +122,10 @@ async def delete_source(
     conversation_id: UUID,
     document_id: UUID,
     current_user: CurrentUserDep,
-    conversation_service: ConversationServiceDep,
+    document_service: DocumentServiceDep,
 ):
     try:
-        deleted_document = await conversation_service.delete_document(
+        deleted_document = await document_service.delete_document(
             conversation_id,
             document_id,
             user_id=current_user.user_id,
@@ -143,11 +141,11 @@ async def change_source_name(
     conversation_id: UUID,
     document_id: UUID,
     current_user: CurrentUserDep,
-    conversation_service: ConversationServiceDep,
+    document_service: DocumentServiceDep,
     name: str = Body(...),
 ):
     try:
-        updated_name = await conversation_service.change_document_name(
+        updated_name = await document_service.change_document_name(
             conversation_id,
             document_id,
             name,
@@ -167,11 +165,10 @@ async def get_source_report(
     conversation_id: UUID,
     document_id: UUID,
     current_user: CurrentUserDep,
-    session: AsyncSession = Depends(get_session),
+    document_service: DocumentServiceDep,
 ) -> SourceReportResponse:
-    document_store = DocumentStore(session)
     try:
-        report = await document_store.get_report(
+        report = await document_service.get_report(
             conversation_id,
             document_id,
             user_id=current_user.user_id,

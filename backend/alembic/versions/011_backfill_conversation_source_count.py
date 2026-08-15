@@ -5,7 +5,7 @@ Revises: 010_rename_conv_title
 Create Date: 2026-08-08
 
 Repairs denormalized source_count after it drifted from the real
-document counts. Ongoing updates are handled in DocumentStore.
+document counts. Ongoing updates are handled in DocumentService.
 """
 
 from typing import Sequence, Union

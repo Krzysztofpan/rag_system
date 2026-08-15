@@ -125,7 +125,7 @@ def test_get_sources_returns_documents(client, authenticated_user):
     ]
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversation_documents",
+        "app.services.document_service.DocumentService.get_conversation_documents",
         new=AsyncMock(return_value=documents),
     ):
         response = client.get(f"/conversations/{conversation_id}/sources")
@@ -141,7 +141,7 @@ def test_get_sources_not_found_returns_404(client):
     conversation_id = uuid4()
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversation_documents",
+        "app.services.document_service.DocumentService.get_conversation_documents",
         new=AsyncMock(side_effect=ValueError("Conversation missing")),
     ):
         response = client.get(f"/conversations/{conversation_id}/sources")
@@ -159,7 +159,7 @@ def test_delete_source_returns_deleted_document(client):
     )
 
     with patch(
-        "app.services.conversation_service.ConversationService.delete_document",
+        "app.services.document_service.DocumentService.delete_document",
         new=AsyncMock(return_value=document),
     ):
         response = client.delete(
@@ -175,7 +175,7 @@ def test_change_source_name_returns_updated_name(client):
     document_id = uuid4()
 
     with patch(
-        "app.services.conversation_service.ConversationService.change_document_name",
+        "app.services.document_service.DocumentService.change_document_name",
         new=AsyncMock(return_value="renamed.md"),
     ):
         response = client.patch(
@@ -209,7 +209,7 @@ def test_get_source_report_returns_report_payload(client):
     )
 
     with patch(
-        "app.routes.conversation_routes.DocumentStore.get_report",
+        "app.services.document_service.DocumentService.get_report",
         new=AsyncMock(return_value=report),
     ):
         response = client.get(
