@@ -38,8 +38,19 @@ def get_document_indexing_service(
     return create_indexing_service(session, vector_store)
 
 
+def create_conversation_service(
+    session: AsyncSession,
+    vector_store: VectorStore | None = None,
+) -> ConversationService:
+    return ConversationService(
+        session,
+        vector_store or get_vector_store(),
+        DocumentStore(session),
+    )
+
+
 def get_conversation_service(
     session: AsyncSession = Depends(get_session),
     vector_store: VectorStore = Depends(get_vector_store),
 ) -> ConversationService:
-    return ConversationService(session, vector_store, DocumentStore(session))
+    return create_conversation_service(session, vector_store)
