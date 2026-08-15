@@ -33,24 +33,6 @@ def summarize_context(runtime: ToolRuntime[AgentContext]) -> list[dict[str, str]
 
     reports = run_async(_load())
 
-    template = """
-    Summarize document based on content:
 
-    {document_content} 
-    """
-
-    prompt = ChatPromptTemplate.from_template(template)
-    
-    sumarization_llm = ChatOpenAI(model="gpt-4o-mini")
-
-    summaries = []
-    
-    for report in reports:
-        summary_chain = prompt | sumarization_llm | StrOutputParser()
-
-        summary = summary_chain.invoke({"document_content": report.parsed_content})
-      
-        summaries.append({"document_id": report.document_id, "summary": summary})
-
-    return summaries
+    return [report.summary for report in reports]
   
