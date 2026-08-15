@@ -18,6 +18,14 @@ from app.db.models.chunk import Chunk
 from app.db.session import run_async
 
 
+def _field(obj: Any, name: str) -> Any:
+    """Read a Pinecone 8.x response field from an object or a dict."""
+    value = getattr(obj, name, None)
+    if value is None and hasattr(obj, "get"):
+        value = obj.get(name)
+    return value
+
+
 class HydratedPineconeRetriever(BaseRetriever):
     """Pinecone similarity search with chunk text loaded from Postgres."""
 
@@ -61,7 +69,7 @@ class HydratedPineconeRetriever(BaseRetriever):
             namespace=self.conversation_id,
             filter=filter,
         )
-        matches = results.get("matches") or []
+        matches = _field(results, "matches") or []
         if not matches:
             return []
 
@@ -69,7 +77,7 @@ class HydratedPineconeRetriever(BaseRetriever):
         ordered_ids: list[str] = []
         scores: dict[str, float | None] = {}
         for match in matches:
-            match_id = match.get("id")
+            match_id = _field(match, "id")
             if not match_id:
                 continue
             try:
@@ -77,7 +85,7 @@ class HydratedPineconeRetriever(BaseRetriever):
             except ValueError:
                 continue
             ordered_ids.append(match_id)
-            score = match.get("score")
+            score = _field(match, "score")
             scores[match_id] = float(score) if score is not None else None
 
         if not chunk_ids:
