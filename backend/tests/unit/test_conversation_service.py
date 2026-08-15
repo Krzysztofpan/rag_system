@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -281,3 +281,36 @@ async def test_change_document_name_skips_pinecone_when_sql_fails(
         )
 
     assert fake_vector_store.updated_source_filenames == []
+
+
+async def test_generate_conversation_title_updates_owned_conversation():
+    user_id = uuid4()
+    conversation = Conversation(user_id=user_id, title="New Conversation")
+    session = _mock_session(scalar_one_or_none=conversation)
+    service = _service(session)
+
+    chain = MagicMock()
+    chain.__or__.return_value = chain
+    chain.ainvoke = AsyncMock(return_value="Contracts and invoices")
+
+    with (
+        patch(
+            "app.services.conversation_service.ChatPromptTemplate.from_template",
+            return_value=chain,
+        ),
+        patch("app.services.conversation_service.ChatOpenAI"),
+    ):
+        await service.generate_conversation_title(
+            conversation.id,
+            "A summary of invoices",
+            user_id=user_id,
+        )
+
+    chain.ainvoke.assert_awaited_once_with(
+        {
+            "doc_summary": "A summary of invoices",
+            "conversation_title": "New Conversation",
+        }
+    )
+    assert conversation.title == "Contracts and invoices"
+    session.commit.assert_awaited_once()

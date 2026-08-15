@@ -43,7 +43,7 @@ class DocumentIndexingService:
             conversation_id: UUID, 
             document_id: UUID, 
             user_id: UUID
-    ):
+    ) -> str:
         template = """
         Summarize document based on content:
 
@@ -67,6 +67,8 @@ class DocumentIndexingService:
                 document_id,
                 user_id=user_id,
             )
+        
+        return summary
 
     def create_parser(self, file: UploadFile) -> Parser:
         return self.parser_factory.create_parser(file)

@@ -28,6 +28,7 @@ from app.schemas.upload import (
     quality_from_rejected_report,
 )
 from app.services.parser import ParseQualityError
+from app.background_tasks import summarize_document_and_update_title
 from app.schemas.chat import ChatRequestBody
 from app.agent.agent_orchestrator import get_agent_orchestrator
 
@@ -117,11 +118,11 @@ async def upload(
     )
 
     background_tasks.add_task(
-        indexing_service.summarize_document,
+        summarize_document_and_update_title,
         result.parsed_content,
         conversation_id,
         result.document_id,
-        current_user.user_id
+        current_user.user_id,
     )
 
     return UploadSourceResponse(

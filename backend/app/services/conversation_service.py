@@ -9,8 +9,14 @@ from app.db.models.document import Document
 from app.services.doc_store import DocumentStore
 from app.services.vector_store import VectorStore
 from typing import List
-
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
+
+class ConversationTitle(BaseModel):
+    title: str = Field(description="Conversation title")
 
 class ConversationService:
     """Every lookup is scoped to the owning user; `user_id` is never optional."""
@@ -99,6 +105,29 @@ class ConversationService:
         await self.session.commit()
         await self.session.refresh(conversation)
         return conversation.title
+
+    async def generate_conversation_title(self, conversation_id: UUID, doc_summary: str, *, user_id: UUID):
+        template = """
+        Based on actual title and new document summary you have to create new conversation title.
+        Title should be general and short, it's just for user to know what is about:
+
+        document summary: {doc_summary}
+
+        current_title: {conversation_title}
+        """
+
+        prompt = ChatPromptTemplate.from_template(template)
+        
+        conversation = await self.get_conversation(conversation_id, user_id=user_id)
+
+        summarization_llm = ChatOpenAI(model="gpt-4o-mini").with_structured_output(ConversationTitle)
+  
+        summary_chain = prompt | summarization_llm
+
+        
+        result = await summary_chain.ainvoke({"doc_summary": doc_summary, "conversation_title": conversation.title})
+
+        await self.change_conversation_title(conversation_id, user_id=user_id, title=result.title)
 
     async def get_conversation_documents(
         self,
