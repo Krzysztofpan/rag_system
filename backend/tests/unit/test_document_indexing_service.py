@@ -292,6 +292,7 @@ async def test_summarize_document_writes_with_a_fresh_session(fake_doc_store):
             "app.services.document_indexing_service.ChatPromptTemplate.from_template",
             return_value=chain,
         ),
+        patch("app.services.document_indexing_service.ChatOpenAI"),
         patch(
             "app.services.document_indexing_service.get_session_factory",
             return_value=session_factory,
