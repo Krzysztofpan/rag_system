@@ -20,6 +20,7 @@ class SourceResponse(APIModel):
 class SourceReportResponse(APIModel):
     document_id: str
     parsed_content: str | None = None
+    summary: str | None = None
     quality: UploadQuality | None = None
 
 
@@ -57,5 +58,6 @@ def report_from_document_report(report: DocumentReport) -> SourceReportResponse:
     return SourceReportResponse(
         document_id=str(report.document_id),
         parsed_content=report.parsed_content,
+        summary=report.summary,
         quality=quality,
     )

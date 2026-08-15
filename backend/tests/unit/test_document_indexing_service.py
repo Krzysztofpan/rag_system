@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -264,3 +265,55 @@ async def test_create_parser_and_chunker_delegate_to_factories(markdown_upload):
     service = _service()
     assert isinstance(service.create_parser(markdown_upload), SimpleParser)
     assert isinstance(service.create_chunker(markdown_upload), SimpleChunker)
+
+
+async def test_summarize_document_writes_with_a_fresh_session(fake_doc_store):
+    conversation_id = uuid4()
+    document_id = uuid4()
+    user_id = uuid4()
+
+    chain = MagicMock()
+    chain.__or__.return_value = chain
+    chain.ainvoke = AsyncMock(return_value="A short summary")
+
+    session = MagicMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=session)
+    session_cm.__aexit__ = AsyncMock(return_value=False)
+    session_factory = MagicMock(return_value=session_cm)
+
+    store = MagicMock()
+    store.add_summary_to_report = AsyncMock()
+
+    service = _service(doc_store=fake_doc_store)
+
+    with (
+        patch(
+            "app.services.document_indexing_service.ChatPromptTemplate.from_template",
+            return_value=chain,
+        ),
+        patch(
+            "app.services.document_indexing_service.get_session_factory",
+            return_value=session_factory,
+        ),
+        patch(
+            "app.services.document_indexing_service.DocumentStore",
+            return_value=store,
+        ) as store_cls,
+    ):
+        await service.summarize_document(
+            "# Doc",
+            conversation_id,
+            document_id,
+            user_id,
+        )
+
+    chain.ainvoke.assert_awaited_once_with({"document_content": "# Doc"})
+    store_cls.assert_called_once_with(session)
+    store.add_summary_to_report.assert_awaited_once_with(
+        "A short summary",
+        conversation_id,
+        document_id,
+        user_id=user_id,
+    )
+    assert not any(event[0] == "add_summary" for event in fake_doc_store.events)

@@ -3,12 +3,16 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
+from app.db.session import get_session_factory
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
 from app.services.doc_store import DocumentStore
 from app.services.parser import ParseQualityError, ParserFactory, Parser
 from app.services.parser.complex.quality_audit import ensure_chunk_quality
 from app.services.vector_store import VectorStore
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 
 @dataclass(frozen=True)
@@ -32,6 +36,37 @@ class DocumentIndexingService:
         self.vector_store = vector_store
         self.parser_factory = parser_factory
         self.chunker_factory = chunker_factory
+
+    async def summarize_document(
+            self, 
+            document_parsed_content: str,
+            conversation_id: UUID, 
+            document_id: UUID, 
+            user_id: UUID
+    ):
+        template = """
+        Summarize document based on content:
+
+        {document_content} 
+        """
+
+        prompt = ChatPromptTemplate.from_template(template)
+        
+        summarization_llm = ChatOpenAI(model="gpt-4o-mini")
+  
+        summary_chain = prompt | summarization_llm | StrOutputParser()
+
+        summary = await summary_chain.ainvoke({"document_content": document_parsed_content})
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            store = DocumentStore(session)
+            await store.add_summary_to_report(
+                summary,
+                conversation_id,
+                document_id,
+                user_id=user_id,
+            )
 
     def create_parser(self, file: UploadFile) -> Parser:
         return self.parser_factory.create_parser(file)

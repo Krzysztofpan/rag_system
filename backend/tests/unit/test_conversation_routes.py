@@ -193,6 +193,7 @@ def test_get_source_report_returns_report_payload(client):
     report = DocumentReport(
         document_id=document_id,
         parsed_content="# Doc",
+        summary="Doc overview",
         quality={
             "parse_report": {"ok": True, "counts": {}, "issues": []},
             "chunk_quality": {
@@ -219,6 +220,7 @@ def test_get_source_report_returns_report_payload(client):
     payload = response.json()
     assert payload["documentId"] == str(document_id)
     assert payload["parsedContent"] == "# Doc"
+    assert payload["summary"] == "Doc overview"
     assert payload["quality"]["parseReport"]["ok"] is True
 
 

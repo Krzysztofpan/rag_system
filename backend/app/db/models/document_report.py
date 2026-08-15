@@ -25,6 +25,10 @@ class DocumentReport(SQLModel, table=True):
         default=None,
         sa_column=Column(sa.Text(), nullable=True),
     )
+    summary: str | None = Field(
+        default=None,
+        sa_column=Column(sa.Text(), nullable=True),
+    )
     quality: Optional[dict[str, Any]] = Field(
         default=None,
         sa_column=Column(JSONB, nullable=True),

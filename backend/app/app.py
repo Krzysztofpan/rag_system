@@ -1,7 +1,15 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
 from langchain_core.messages import HumanMessage
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import (
+    FastAPI, 
+    File, 
+    HTTPException, 
+    Query, 
+    UploadFile, 
+    BackgroundTasks
+)
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.auth.jwt import verify_auth_configuration
@@ -56,6 +64,7 @@ async def upload(
     indexing_service: DocumentIndexingServiceDep,
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     conversation_id: UUID = Query(
         ..., description="conversations.id for this chat"
@@ -106,6 +115,15 @@ async def upload(
         parse_report=result.parse_report,
         chunk_quality=result.chunk_quality,
     )
+
+    background_tasks.add_task(
+        indexing_service.summarize_document,
+        result.parsed_content,
+        conversation_id,
+        result.document_id,
+        current_user.user_id
+    )
+
     return UploadSourceResponse(
         source=SourceResponse(
             id=str(result.document_id),
