@@ -9,7 +9,7 @@ import pytest
 
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
-from app.services.conversation_service import ConversationService
+from app.services.conversation_service import ConversationService, ConversationTitle
 from tests.helpers import FakeDocumentStore, FakeVectorStore
 
 
@@ -291,7 +291,9 @@ async def test_generate_conversation_title_updates_owned_conversation():
 
     chain = MagicMock()
     chain.__or__.return_value = chain
-    chain.ainvoke = AsyncMock(return_value="Contracts and invoices")
+    chain.ainvoke = AsyncMock(
+        return_value=ConversationTitle(title="Contracts and invoices")
+    )
 
     with (
         patch(
