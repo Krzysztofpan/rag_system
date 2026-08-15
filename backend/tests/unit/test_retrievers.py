@@ -1,6 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+from pinecone.core.openapi.db_data.model.scored_vector import ScoredVector
+from pinecone.db_data.dataclasses.query_response import QueryResponse
+
 from app.services.fts_retriever import PostgresFTSRetriever
 from app.services.vector_retriever import HydratedPineconeRetriever
 
@@ -89,3 +92,45 @@ async def test_vector_retriever_filters_pinecone_query_by_document_ids():
         namespace=str(conversation_id),
         filter={"document_id": {"$in": [str(document_ids[0]), str(document_ids[1])]}},
     )
+
+
+async def test_vector_retriever_reads_sdk_query_response_objects():
+    chunk_id = uuid4()
+    document_id = uuid4()
+    embedder = MagicMock()
+    embedder.aembed_query = AsyncMock(return_value=[0.1, 0.2])
+    index = MagicMock()
+    index.query.return_value = QueryResponse(
+        matches=[ScoredVector(id=str(chunk_id), score=0.91)],
+        namespace="ns",
+    )
+    chunk = MagicMock()
+    chunk.id = chunk_id
+    chunk.document_id = document_id
+    chunk.chunk_index = 0
+    chunk.content = "body"
+    chunk.context = None
+    chunk.pages = None
+    session = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = [chunk]
+    session.execute = AsyncMock(return_value=result)
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=session)
+    session_cm.__aexit__ = AsyncMock(return_value=False)
+
+    retriever = HydratedPineconeRetriever.model_construct(
+        index=index,
+        embedder=embedder,
+        session_factory=MagicMock(return_value=session_cm),
+        conversation_id=str(uuid4()),
+        k=5,
+        document_ids=[document_id],
+    )
+
+    docs = await retriever._search("frontend stack")
+
+    assert len(docs) == 1
+    assert docs[0].page_content == "body"
+    assert docs[0].metadata["chunk_id"] == str(chunk_id)
+    assert docs[0].metadata["score"] == 0.91
