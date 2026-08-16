@@ -1,4 +1,3 @@
-import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -16,10 +15,6 @@ def _runtime(*, conversation_id=None, user_id=None, document_ids=None):
             "document_ids": document_ids if document_ids is not None else [uuid4()],
         }
     )
-
-
-def _run_async(coro):
-    return asyncio.run(coro)
 
 
 def _session_factory():
@@ -42,19 +37,17 @@ def test_llm_schema_hides_runtime_and_scoped_ids():
     assert "top_k" in properties
 
 
-@patch("app.tools.search_documents.run_async", side_effect=_run_async)
 @patch("app.tools.search_documents.DocumentService")
 @patch("app.tools.search_documents.get_session_factory")
 @patch("app.tools.search_documents.PostgresFTSRetriever")
 @patch("app.tools.search_documents.get_vector_store")
 @patch("app.tools.search_documents.SearchDocumentsGraph")
-def test_search_documents_scopes_to_owned_document_ids(
+async def test_search_documents_scopes_to_owned_document_ids(
     graph_cls,
     get_vector_store,
     fts_cls,
     get_session_factory,
     store_cls,
-    run_async,
 ):
     conversation_id = uuid4()
     user_id = uuid4()
@@ -69,11 +62,11 @@ def test_search_documents_scopes_to_owned_document_ids(
     store.get_documents = AsyncMock()
     store_cls.return_value = store
     get_vector_store.return_value.get_retriever.return_value = MagicMock()
-    graph_cls.return_value.build_graph.return_value.invoke.return_value = {
-        "context": "found stack"
-    }
+    graph_cls.return_value.build_graph.return_value.ainvoke = AsyncMock(
+        return_value={"context": "found stack"}
+    )
 
-    result = search_documents.func(
+    result = await search_documents.coroutine(
         query="frontend stack",
         top_k=5,
         runtime=runtime,
@@ -92,19 +85,17 @@ def test_search_documents_scopes_to_owned_document_ids(
     assert retriever_kwargs["document_ids"] == document_ids
 
 
-@patch("app.tools.search_documents.run_async", side_effect=_run_async)
 @patch("app.tools.search_documents.DocumentService")
 @patch("app.tools.search_documents.get_session_factory")
 @patch("app.tools.search_documents.PostgresFTSRetriever")
 @patch("app.tools.search_documents.get_vector_store")
 @patch("app.tools.search_documents.SearchDocumentsGraph")
-def test_search_documents_skips_search_when_no_document_ids(
+async def test_search_documents_skips_search_when_no_document_ids(
     graph_cls,
     get_vector_store,
     fts_cls,
     get_session_factory,
     store_cls,
-    run_async,
 ):
     conversation_id = uuid4()
     user_id = uuid4()
@@ -118,7 +109,9 @@ def test_search_documents_skips_search_when_no_document_ids(
     store.get_documents = AsyncMock()
     store_cls.return_value = store
 
-    result = search_documents.func(query="frontend stack", top_k=5, runtime=runtime)
+    result = await search_documents.coroutine(
+        query="frontend stack", top_k=5, runtime=runtime
+    )
 
     assert result == "no context founded"
     store.get_documents.assert_awaited_once_with(
@@ -131,15 +124,13 @@ def test_search_documents_skips_search_when_no_document_ids(
     graph_cls.assert_not_called()
 
 
-@patch("app.tools.search_documents.run_async", side_effect=_run_async)
 @patch("app.tools.search_documents.DocumentService")
 @patch("app.tools.search_documents.get_session_factory")
 @patch("app.tools.search_documents.SearchDocumentsGraph")
-def test_search_documents_rejects_unowned_conversation(
+async def test_search_documents_rejects_unowned_conversation(
     graph_cls,
     get_session_factory,
     store_cls,
-    run_async,
 ):
     runtime = _runtime()
     get_session_factory.return_value = _session_factory()
@@ -150,6 +141,8 @@ def test_search_documents_rejects_unowned_conversation(
     store_cls.return_value = store
 
     with pytest.raises(ValueError, match="not found"):
-        search_documents.func(query="frontend stack", top_k=5, runtime=runtime)
+        await search_documents.coroutine(
+            query="frontend stack", top_k=5, runtime=runtime
+        )
 
     graph_cls.assert_not_called()

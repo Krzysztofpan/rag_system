@@ -5,7 +5,6 @@ from langchain_classic.retrievers import EnsembleRetriever
 from pydantic import Field, BaseModel
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.prompts import ChatPromptTemplate
-from app.db.session import run_async
 from app.services.fts_retriever import PostgresFTSRetriever
 from app.config import get_settings
 
@@ -71,7 +70,7 @@ class SearchDocumentsGraph:
 
         return graph.compile()
 
-    def get_info(self, state: SearchDocumentsState):
+    async def get_info(self, state: SearchDocumentsState):
         ensemble = EnsembleRetriever(
             retrievers=[
                 self.vector_store_retriever,
@@ -84,9 +83,9 @@ class SearchDocumentsGraph:
         )
 
         query = state['rewritten_query'] if state['search_retry_count'] > 0 else state['query']
-        
-        docs = run_async(ensemble.ainvoke(query))
-        
+
+        docs = await ensemble.ainvoke(query)
+
         return {
             "reranked_docs": docs
         }

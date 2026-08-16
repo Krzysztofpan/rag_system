@@ -2,14 +2,14 @@ from langchain.tools import ToolRuntime, tool
 
 from app.agent.types import AgentContext
 from app.container import get_vector_store
-from app.db.session import get_session_factory, run_async
+from app.db.session import get_session_factory
 from app.graphs.search_documents_graph import SearchDocumentsGraph
 from app.services.document_service import DocumentService
 from app.services.fts_retriever import PostgresFTSRetriever
 
 
 @tool
-def search_documents(
+async def search_documents(
     query: str,
     top_k: int,
     runtime: ToolRuntime[AgentContext],
@@ -32,16 +32,13 @@ def search_documents(
 
     session_factory = get_session_factory()
 
-    async def _authorize() -> None:
-        async with session_factory() as session:
-            store = DocumentService(session)
-            await store.get_documents(
-                conversation_id,
-                document_ids,
-                user_id=user_id,
-            )
-
-    run_async(_authorize())
+    async with session_factory() as session:
+        store = DocumentService(session)
+        await store.get_documents(
+            conversation_id,
+            document_ids,
+            user_id=user_id,
+        )
 
     if not document_ids:
         return "no context founded"
@@ -66,7 +63,7 @@ def search_documents(
     ).build_graph()
 
     try:
-        graph_res = search_documents_pipeline.invoke({
+        graph_res = await search_documents_pipeline.ainvoke({
             "query": query,
             "search_retry_count": 0,
         })

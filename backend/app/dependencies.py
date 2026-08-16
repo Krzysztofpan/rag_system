@@ -11,6 +11,8 @@ from app.container import (
 from app.services.conversation_service import ConversationService
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.document_service import DocumentService
+from app.services.message_service import MessageService
+from app.container import get_message_service
 
 DocumentIndexingServiceDep = Annotated[
     DocumentIndexingService, Depends(get_document_indexing_service)
@@ -20,6 +22,9 @@ ConversationServiceDep = Annotated[
 ]
 DocumentServiceDep = Annotated[
     DocumentService, Depends(get_document_service)
+]
+MessageServiceDep = Annotated[
+    MessageService, Depends(get_message_service)
 ]
 CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
 
