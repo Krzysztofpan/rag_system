@@ -17,7 +17,13 @@ from app.config import get_settings
 from app.routes.conversation_routes import conversation_router
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
-from app.dependencies import ConversationServiceDep, CurrentUserDep, DocumentIndexingServiceDep
+from app.dependencies import (
+    ConversationServiceDep, 
+    CurrentUserDep, 
+    DocumentIndexingServiceDep, 
+    MessageServiceDep
+)
+
 from app.schemas.source import (
     SourceReportResponse,
     SourceResponse,
@@ -31,9 +37,7 @@ from app.services.parser import ParseQualityError
 from app.background_tasks import summarize_document_and_update_title
 from app.schemas.chat import ChatRequestBody
 from app.agent.agent_orchestrator import get_agent_orchestrator
-from app.services.message_service import MessageService
 from app.db.models import Message
-from app.dependencies import MessageServiceDep
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -2,12 +2,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
+from typing import Annotated
+from fastapi import Query
+from app.schemas.message import GetConversationMessagesResponse
 
 from app.auth.deps import get_current_user
 from app.dependencies import (
     ConversationServiceDep,
     CurrentUserDep,
     DocumentServiceDep,
+    MessageServiceDep
 )
 from app.schemas.conversation import (
     CreateConversationResponse,
@@ -79,6 +83,7 @@ async def change_conversation_title(
     conversation_id: UUID,
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
+    message_service: MessageServiceDep,
     title: str = Body(...),
 ):
     try:
@@ -91,6 +96,28 @@ async def change_conversation_title(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return updated_title
+
+
+@conversation_router.get(
+    "/{conversation_id}/messages",
+    response_model=GetConversationMessagesResponse,
+)
+async def get_conversation_messages(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
+    message_service: MessageServiceDep,
+    limit: Annotated[int, Query(ge=1)] = 20,
+    before_id: UUID | None = None,
+):
+    await conversation_service.get_conversation(conversation_id, user_id=current_user.user_id)
+    message_page = await message_service.get_messages(conversation_id, user_id=current_user.user_id, limit=limit, before_id=before_id)
+    
+    return GetConversationMessagesResponse(
+        messages=message_page.messages, 
+        has_more=message_page.has_more
+    )
+   
 
 @conversation_router.get(
     "/{conversation_id}/sources",
