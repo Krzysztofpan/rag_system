@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
+
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useSources, useSourcesClient } from '@/hooks/useSources'
 
+import { Checkbox } from '../ui/checkbox'
 import { Separator } from '../ui/separator'
 import { Skeleton } from '../ui/skeleton'
 import SourceItem from './SourceItem'
@@ -23,6 +26,9 @@ function SourceSection({ conversationId }: { conversationId: string }) {
     const { state } = useSidebar()
     const { data: sources = [], isLoading, error } = useSources(conversationId)
     const { uploadSource } = useSourcesClient(conversationId)
+    const [unselectedIds, setUnselectedIds] = useState<string[]>([])
+
+    const selectedSources = sources.map((source) => source.id).filter((id) => !unselectedIds.includes(id))
 
     const isCollapsed = state === 'collapsed'
 
@@ -30,6 +36,19 @@ function SourceSection({ conversationId }: { conversationId: string }) {
         const file = e.target.files?.[0]
         if (!file) return
         void uploadSource(file)
+    }
+
+    const handleToogleSelectAllSources = (checked: boolean) => {
+        if (checked) {
+            setUnselectedIds([])
+            return
+        }
+
+        setUnselectedIds(sources.map((source) => source.id))
+    }
+
+    const handleToogleSelectSource = (sourceId: string) => {
+        setUnselectedIds((prev) => (prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId]))
     }
 
     return (
@@ -41,7 +60,13 @@ function SourceSection({ conversationId }: { conversationId: string }) {
             <Separator />
             <div className={`min-h-0 flex-1 overflow-y-auto flex flex-col py-4 ${isCollapsed ? 'items-center gap-2' : 'px-7 gap-6'}`}>
                 <UploadFilePage handleSelectSource={handleSelectSource} />
+
                 <div>
+                    <div className="flex justify-end text-sm gap-6 px-3">
+                        Select all
+                        {' '}
+                        <Checkbox checked={!unselectedIds.length} onCheckedChange={handleToogleSelectAllSources} />
+                    </div>
                     <div className={`flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
                         {isLoading && Array.from({ length: SKELETON_COUNT }, (_, i) => <SourceItemSkeleton key={i} isCollapsed={isCollapsed} />)}
                         {error && !isCollapsed && <p className="px-3 py-4 text-sm text-muted-foreground">Failed to load sources. Please try again later.</p>}
@@ -50,6 +75,8 @@ function SourceSection({ conversationId }: { conversationId: string }) {
                                 key={source.id}
                                 source={source}
                                 conversationId={conversationId}
+                                selectedSources={selectedSources}
+                                toogleSelectSource={handleToogleSelectSource}
                             />
                         ))}
                     </div>

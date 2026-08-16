@@ -12,9 +12,11 @@ import SourceOptions from './SourceOptions'
 type SourceItemProps = {
     source: Source;
     conversationId: string;
+    selectedSources: string[];
+    toogleSelectSource: (sourceId: string) => void;
 }
 
-const SourceItem = ({ source, conversationId }: SourceItemProps) => {
+const SourceItem = ({ source, conversationId, selectedSources, toogleSelectSource }: SourceItemProps) => {
     const { filename, contentType, status, error } = source
     const { state } = useSidebar()
     const { mutate: editSourceName } = useEditSourceName(conversationId)
@@ -55,6 +57,8 @@ const SourceItem = ({ source, conversationId }: SourceItemProps) => {
                             editMode={editMode}
                             setEditMode={setEditMode}
                             sourceId={source.id}
+                            selectedSources={selectedSources}
+                            toogleSelectSource={toogleSelectSource}
                         />
                     )}
         </div>
