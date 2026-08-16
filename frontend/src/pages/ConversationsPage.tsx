@@ -1,4 +1,4 @@
-import ConversationsView from '@/components/conversation/ConversationsView'
+import ConversationsView from '@/components/conversations/ConversationsView'
 
 const ConversationsPage = () => {
     return (
