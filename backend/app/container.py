@@ -8,6 +8,7 @@ from app.services.document_service import DocumentService
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser.factory import ParserFactory
 from app.services.vector_store import VectorStore
+from app.services.message_service import MessageService
 
 _vector_store: VectorStore | None = None
 
@@ -70,3 +71,13 @@ def get_conversation_service(
     vector_store: VectorStore = Depends(get_vector_store),
 ) -> ConversationService:
     return create_conversation_service(session, vector_store)
+
+def create_message_service(
+    session: AsyncSession,
+) -> MessageService:
+    return MessageService(session)
+
+def get_message_service(
+    session: AsyncSession = Depends(get_session),
+) -> MessageService:
+    return create_message_service(session)

@@ -31,6 +31,9 @@ from app.services.parser import ParseQualityError
 from app.background_tasks import summarize_document_and_update_title
 from app.schemas.chat import ChatRequestBody
 from app.agent.agent_orchestrator import get_agent_orchestrator
+from app.services.message_service import MessageService
+from app.db.models import Message
+from app.dependencies import MessageServiceDep
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -148,17 +151,22 @@ async def upload(
 async def chat(
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
+    message_service: MessageServiceDep,
     body: ChatRequestBody,
 ):
     await conversation_service.get_conversation(body.conversation_id, user_id=current_user.user_id)
+    await message_service.create_message(Message(conversation_id=body.conversation_id, text=body.message, role="user"))
     agent = get_agent_orchestrator()
-    agent_response = agent.invoke(
+    agent_response = await agent.ainvoke(
         {"messages": [HumanMessage(body.message)]},
         context={"conversation_id": body.conversation_id, "user_id": current_user.user_id, "document_ids": body.document_ids},
     )
+    print(agent_response)
+    print(agent_response['messages'][-1].content)
+    created_message = await message_service.create_message(Message(conversation_id=body.conversation_id, text=agent_response['messages'][-1].content, role="assistant"))
 
     return {
-        "response": agent_response
+        "response": created_message
     }
 
 
