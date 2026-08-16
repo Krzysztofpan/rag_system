@@ -29,7 +29,7 @@ const ConversationPage = () => {
             }
         >
             <header className="flex h-14 shrink-0 items-center px-4">
-                <h1 className="text-xl font-medium">{conversation.title}</h1>
+                <h1 className="text-xl font-medium">{conversation ? conversation.title : 'Default title'}</h1>
             </header>
             <div className="flex min-h-0 flex-1 gap-2 pt-0">
                 <SourceSection conversationId={conversationId} />
