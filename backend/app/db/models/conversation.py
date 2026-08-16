@@ -9,6 +9,7 @@ from app.db.models.auth_user import AuthUser  # noqa: F401
 
 if TYPE_CHECKING:
     from app.db.models.document import Document
+    from app.db.models.message import Message
 
 
 class Conversation(SQLModel, table=True):
@@ -43,6 +44,10 @@ class Conversation(SQLModel, table=True):
     )
 
     documents: list["Document"] = Relationship(
+        back_populates="conversation",
+        sa_relationship_kwargs={"passive_deletes": True},
+    )
+    messages: list["Message"] = Relationship(
         back_populates="conversation",
         sa_relationship_kwargs={"passive_deletes": True},
     )

@@ -3,6 +3,7 @@ from app.db.models.chunk import Chunk
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
+from app.db.models.message import Message, MessageRole
 
 __all__ = [
     "AuthUser",
@@ -11,4 +12,6 @@ __all__ = [
     "Document",
     "DocumentReport",
     "DocumentStatus",
+    "Message",
+    "MessageRole",
 ]
