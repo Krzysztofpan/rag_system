@@ -13,9 +13,11 @@ type SourceOptionsProps = {
     setEditMode: Dispatch<SetStateAction<boolean>>;
     conversationId: string;
     sourceId: string;
+    selectedSources: string[];
+    toogleSelectSource: (sourceId: string) => void;
 }
 
-const SourceOptions = ({ editMode, setEditMode, conversationId, sourceId }: SourceOptionsProps) => {
+const SourceOptions = ({ editMode, setEditMode, conversationId, sourceId, selectedSources, toogleSelectSource }: SourceOptionsProps) => {
     const [isOpen, setIsOpen] = useState(false)
     const { mutate: deleteSource } = useDeleteSource(conversationId)
     const { state } = useSidebar()
@@ -45,7 +47,7 @@ const SourceOptions = ({ editMode, setEditMode, conversationId, sourceId }: Sour
                     </Button>
                 </PopoverContent>
             </Popover>
-            {!isCollapsed && !editMode && <Checkbox />}
+            {!isCollapsed && !editMode && <Checkbox checked={selectedSources.includes(sourceId)} onClick={() => toogleSelectSource(sourceId)} />}
         </div>
     );
 }
