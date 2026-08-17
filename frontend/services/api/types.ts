@@ -1,4 +1,5 @@
 import type { Conversation } from '@/types/conversation'
+import type { Message } from '@/types/Message';
 import type { SourceReport } from '@/types/report'
 import type { Source } from '@/types/source'
 
@@ -32,4 +33,9 @@ export type UploadSourceResponse = {
     source: SourceResponse | null;
     report: SourceReportResponse | null;
     error: string | null;
+}
+
+export type GetMessagesResponse = {
+    messages: Message[];
+    hasMore: boolean;
 }
