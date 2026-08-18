@@ -1,5 +1,6 @@
+import { ArrowLeftFromLine } from 'lucide-react'
 import type { CSSProperties } from 'react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 
 import ConversationWindow from '@/components/conversationView/ConversationWindow'
 import SourceSection from '@/components/sources/SourceSection'
@@ -30,7 +31,10 @@ const ConversationPage = () => {
                 } as CSSProperties
             }
         >
-            <header className="flex h-14 shrink-0 items-center px-4">
+            <header className="flex h-14 shrink-0 items-center px-4 gap-4">
+                <Link to="/conversations">
+                    <ArrowLeftFromLine />
+                </Link>
                 <h1 className="text-xl font-medium">{conversation ? conversation.title : 'Default title'}</h1>
             </header>
             <ConversationProvider>
