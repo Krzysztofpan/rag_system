@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useEditSourceName } from '@/hooks/useEditSourceName'
 import { IconsMap } from '@/types/IconsMap'
 import type { Source } from '@/types/source'
@@ -11,14 +12,15 @@ import SourceOptions from './SourceOptions'
 
 type SourceItemProps = {
     source: Source;
-    conversationId: string;
-    selectedSources: string[];
-    toogleSelectSource: (sourceId: string) => void;
 }
 
-const SourceItem = ({ source, conversationId, selectedSources, toogleSelectSource }: SourceItemProps) => {
+const SourceItem = ({ source }: SourceItemProps) => {
     const { filename, contentType, status, error } = source
     const { state } = useSidebar()
+    const {
+        conversationId,
+    } = useConversationContext()
+
     const { mutate: editSourceName } = useEditSourceName(conversationId)
     const [editMode, setEditMode] = useState(false)
 
@@ -53,12 +55,9 @@ const SourceItem = ({ source, conversationId, selectedSources, toogleSelectSourc
                 ? <Spinner />
                 : (
                         <SourceOptions
-                            conversationId={conversationId}
                             editMode={editMode}
                             setEditMode={setEditMode}
                             sourceId={source.id}
-                            selectedSources={selectedSources}
-                            toogleSelectSource={toogleSelectSource}
                         />
                     )}
         </div>

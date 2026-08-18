@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useState } from 'react'
 import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
 
+import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useDeleteSource } from '@/hooks/useDeleteSource'
 
 import { Button } from '../ui/button'
@@ -11,14 +12,16 @@ import { useSidebar } from '../ui/sidebar'
 type SourceOptionsProps = {
     editMode: boolean;
     setEditMode: Dispatch<SetStateAction<boolean>>;
-    conversationId: string;
     sourceId: string;
-    selectedSources: string[];
-    toogleSelectSource: (sourceId: string) => void;
 }
 
-const SourceOptions = ({ editMode, setEditMode, conversationId, sourceId, selectedSources, toogleSelectSource }: SourceOptionsProps) => {
+const SourceOptions = ({ editMode, setEditMode, sourceId }: SourceOptionsProps) => {
     const [isOpen, setIsOpen] = useState(false)
+    const {
+        conversationId,
+        selectedSources,
+        handleToogleSelectSource: toogleSelectSource,
+    } = useConversationContext()
     const { mutate: deleteSource } = useDeleteSource(conversationId)
     const { state } = useSidebar()
     const isCollapsed = state === 'collapsed'
