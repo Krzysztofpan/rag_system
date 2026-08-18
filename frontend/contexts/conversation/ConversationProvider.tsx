@@ -9,7 +9,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     const { conversationId } = useParams<{ conversationId?: string }>()
 
     const [isPendingMessage, setIsPendingMessage] = useState(false)
-    const sourcesResponseObject = useSources(conversationId)
+    const sourcesResponseObject = useSources(conversationId || null)
     const { data: sources = [] } = sourcesResponseObject
     const [unselectedSourcesIds, setUnselectedSourcesIds] = useState<string[]>([])
 
