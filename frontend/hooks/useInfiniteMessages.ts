@@ -1,11 +1,11 @@
 'use client'
 
 import { type RefObject, useEffect, useRef } from 'react'
-import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query'
+import { type InfiniteData, infiniteQueryOptions, QueryClient, useInfiniteQuery } from '@tanstack/react-query'
 
 import { apiService } from '@/services/api/apiService'
 import type { GetMessagesResponse } from '@/services/api/types'
-import type { MessagesParams } from '@/types/Message'
+import type { Message, MessagesParams } from '@/types/Message'
 
 export type MessagesCursor = Pick<MessagesParams, 'before_id'>
 
@@ -118,4 +118,30 @@ function messagesInfiniteQueryOptions(conversationId: string, limit = 10) {
 
 export function useInfiniteMessages(conversationId: string, limit = 10) {
     return useInfiniteQuery(messagesInfiniteQueryOptions(conversationId, limit))
+}
+
+export const useInfiniteMessagesClient = (queryClient: QueryClient, conversationId: string, limit: number) => {
+    const addNewMessage = (newMessage: Message) => {
+        queryClient.setQueryData<InfiniteData<GetMessagesResponse>>(['messages', conversationId, limit], (messages) => {
+            if (!messages?.pages.length) {
+                const messages = [newMessage]
+                return {
+                    pages: [{ messages, hasMore: false }],
+                    pageParams: [undefined],
+                }
+            }
+            const pages = [...messages.pages]
+            const firstPage = pages[0]
+
+            pages[0] = {
+                ...firstPage,
+                messages: [...firstPage.messages, newMessage],
+            }
+
+            return { ...messages, pages }
+        })
+    }
+
+
+    return { addNewMessage }
 }

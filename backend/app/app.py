@@ -35,7 +35,7 @@ from app.schemas.upload import (
 )
 from app.services.parser import ParseQualityError
 from app.background_tasks import summarize_document_and_update_title
-from app.schemas.chat import ChatRequestBody
+from app.schemas.chat import ChatRequestBody, ChatResponseModel
 from app.agent.agent_orchestrator import get_agent_orchestrator
 from app.db.models import Message
 
@@ -151,13 +151,13 @@ async def upload(
 
 
 
-@app.post("/chat")
+@app.post("/chat", response_model=ChatResponseModel)
 async def chat(
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
     message_service: MessageServiceDep,
     body: ChatRequestBody,
-):
+) -> ChatResponseModel:
     await conversation_service.get_conversation(body.conversation_id, user_id=current_user.user_id)
     await message_service.create_message(Message(conversation_id=body.conversation_id, text=body.message, role="user"))
     agent = get_agent_orchestrator()

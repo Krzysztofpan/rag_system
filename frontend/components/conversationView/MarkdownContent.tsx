@@ -1,7 +1,12 @@
 import Markdown from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 
+import { normalizeMathMarkdown } from '@/lib/normalizeMathMarkdown'
 import { cn } from '@/lib/utils'
+
+import 'katex/dist/katex.min.css'
 
 type MarkdownContentProps = {
     content: string;
@@ -12,7 +17,8 @@ const MarkdownContent = ({ content, className }: MarkdownContentProps) => {
     return (
         <div className={cn('prose-chat max-w-none wrap-break-word', className)}>
             <Markdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkMath, remarkGfm]}
+                rehypePlugins={[[rehypeKatex, { strict: 'ignore' }]]}
                 components={{
                     p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
                     ul: ({ children }) => <ul className="mb-4 list-disc space-y-1 pl-6 last:mb-0">{children}</ul>,
@@ -64,7 +70,7 @@ const MarkdownContent = ({ content, className }: MarkdownContentProps) => {
                     td: ({ children }) => <td className="border border-mist-400 px-3 py-2">{children}</td>,
                 }}
             >
-                {content}
+                {normalizeMathMarkdown(content)}
             </Markdown>
         </div>
     )

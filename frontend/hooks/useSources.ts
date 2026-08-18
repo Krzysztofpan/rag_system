@@ -6,13 +6,14 @@ import { applyUploadResponse, createPendingSource, rejectSource } from '@/lib/so
 import { apiService } from '@/services/api/apiService'
 import type { Source } from '@/types/source'
 
-export const useSources = (conversationId: string) => {
+export const useSources = (conversationId: string | null) => {
     return useAuthQuery({
         queryKey: ['conversation-sources', conversationId],
         queryFn: async (): Promise<Source[]> => {
-            const response = await apiService.getSources(conversationId)
+            const response = await apiService.getSources(conversationId as string)
             return response.conversationSources
         },
+        enabled: !!conversationId,
     })
 }
 
