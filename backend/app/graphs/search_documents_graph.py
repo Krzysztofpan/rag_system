@@ -1,3 +1,4 @@
+import asyncio
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
@@ -90,31 +91,32 @@ class SearchDocumentsGraph:
             "reranked_docs": docs
         }
 
-    def evaluate_docs(self, state: SearchDocumentsState):
+    async def evaluate_docs(self, state: SearchDocumentsState):
+        docs = state["reranked_docs"]
+        if not docs:
+            return {"relevant_docs": []}
 
-        relevant_docs = []
-
-        for doc in state['reranked_docs']:
-            template = """
+        template = """
             evaluate that document is relevant to answer the question:
             {doc}
 
             question: {question}
             """
+        prompt = ChatPromptTemplate.from_template(template)
+        structured_evaluator = self.llm_evaluator.with_structured_output(EvaluatorResponse)
+        chain = prompt | structured_evaluator
 
-            prompt = ChatPromptTemplate.from_template(template)
-            structured_evaluator = self.llm_evaluator.with_structured_output(EvaluatorResponse) 
-            chain = prompt | structured_evaluator
-            res = chain.invoke({"doc": doc, "question": state['query']})
+        results = await asyncio.gather(
+            *[
+                chain.ainvoke({"doc": doc, "question": state["query"]})
+                for doc in docs
+            ]
+        )
 
-            if(res.evaluate_result):
-                relevant_docs.append(doc)
-            else:
-                continue
-
-        return {
-            "relevant_docs": relevant_docs
-        }
+        relevant_docs = [
+            doc for doc, res in zip(docs, results) if res.evaluate_result
+        ]
+        return {"relevant_docs": relevant_docs}
 
     def query_rewrite(self, state: SearchDocumentsState):
         # Using HYDE for rewrite query
