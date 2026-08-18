@@ -25,6 +25,10 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     pinecone_api_key: str | None = None
+    langsmith_tracing: bool = False
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_api_key: str | None = None
+    langsmith_project: str | None = None
     parser_llm_model: str = "gpt-4o-mini"
     parser_ocr_repair: bool = True
     parser_llm_repair: bool = True
