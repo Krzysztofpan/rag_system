@@ -34,8 +34,8 @@ const ConversationPage = () => {
             </header>
             <div className="flex min-h-0 flex-1 gap-2 pt-0 mb-5">
                 <SourceSection conversationId={conversationId} />
-                <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-xl ring-1 ring-sidebar-border">
-                    <ConversationWindow />
+                <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-xl ring-1 ring-sidebar-border">
+                    <ConversationWindow conversationId={conversationId} />
                 </main>
             </div>
         </SidebarProvider>

@@ -1,6 +1,9 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig, isAxiosError } from 'axios'
+import qs from 'qs'
 
-import type { CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetSourcesResponse, SourceReportResponse, UploadSourceResponse } from './types'
+import type { MessagesParams } from '@/types/Message';
+
+import type { CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetSourcesResponse, SourceReportResponse, UploadSourceResponse } from './types'
 
 export type AuthHandlers = {
     refreshToken: () => Promise<string | null>;
@@ -10,6 +13,16 @@ export type AuthHandlers = {
 type RetriedRequestConfig = InternalAxiosRequestConfig & {
     retriedAfterRefresh?: boolean;
 }
+
+const queryStringOptions: qs.IStringifyOptions = {
+    addQueryPrefix: true,
+    skipNulls: true,
+}
+
+function toQueryString(params?: object) {
+    return qs.stringify(params ?? {}, queryStringOptions)
+}
+
 
 class ApiService {
     private apiHost = import.meta.env.BACKEND_URL
@@ -100,6 +113,12 @@ class ApiService {
 
     eidtConversationTitle = async (conversationId: string, title: string): Promise<string> => {
         const { data } = await this.client.patch<string>(`/conversations/${conversationId}/title`, title)
+        return data
+    }
+
+    getMessages = async (conversationId: string, params?: MessagesParams): Promise<GetMessagesResponse> => {
+        const query = toQueryString(params)
+        const { data } = await this.client.get<GetMessagesResponse>(`/conversations/${conversationId}/messages${query}`)
         return data
     }
 
