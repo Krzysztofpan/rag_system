@@ -27,7 +27,7 @@ function SourceSection() {
         conversationId,
         handleToogleSelectAllSources,
         unselectedSourcesIds: unselectedIds,
-        sourcesResponseObject: { data: sources, isLoading, error } } = useConversationContext()
+        sourcesResponseObject: { data: sources = [], isLoading, error } } = useConversationContext()
     const { uploadSource } = useSourcesClient(conversationId)
 
     const isCollapsed = state === 'collapsed'
