@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
-import { useSources, useSourcesClient } from '@/hooks/useSources'
+import { useConversationContext } from '@/contexts/conversation/ConversationContext'
+import { useSourcesClient } from '@/hooks/useSources'
 
 import { Checkbox } from '../ui/checkbox'
 import { Separator } from '../ui/separator'
@@ -22,13 +21,14 @@ function SourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
     )
 }
 
-function SourceSection({ conversationId }: { conversationId: string }) {
+function SourceSection() {
     const { state } = useSidebar()
-    const { data: sources = [], isLoading, error } = useSources(conversationId)
+    const {
+        conversationId,
+        handleToogleSelectAllSources,
+        unselectedSourcesIds: unselectedIds,
+        sourcesResponseObject: { data: sources = [], isLoading, error } } = useConversationContext()
     const { uploadSource } = useSourcesClient(conversationId)
-    const [unselectedIds, setUnselectedIds] = useState<string[]>([])
-
-    const selectedSources = sources.map((source) => source.id).filter((id) => !unselectedIds.includes(id))
 
     const isCollapsed = state === 'collapsed'
 
@@ -38,18 +38,6 @@ function SourceSection({ conversationId }: { conversationId: string }) {
         void uploadSource(file)
     }
 
-    const handleToogleSelectAllSources = (checked: boolean) => {
-        if (checked) {
-            setUnselectedIds([])
-            return
-        }
-
-        setUnselectedIds(sources.map((source) => source.id))
-    }
-
-    const handleToogleSelectSource = (sourceId: string) => {
-        setUnselectedIds((prev) => (prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId]))
-    }
 
     return (
         <aside className={`flex h-full shrink-0 flex-col overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground ring-1 ring-sidebar-border transition-[width] duration-200 ease-linear ${isCollapsed ? 'w-(--sidebar-width-icon)' : 'w-(--sidebar-width)'}`}>
@@ -74,9 +62,6 @@ function SourceSection({ conversationId }: { conversationId: string }) {
                             <SourceItem
                                 key={source.id}
                                 source={source}
-                                conversationId={conversationId}
-                                selectedSources={selectedSources}
-                                toogleSelectSource={handleToogleSelectSource}
                             />
                         ))}
                     </div>

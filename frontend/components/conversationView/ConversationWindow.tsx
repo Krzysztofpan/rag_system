@@ -1,8 +1,12 @@
+import { useConversationContext } from '@/contexts/conversation/ConversationContext'
+
 import { Separator } from '../ui/separator'
 import InputMessage from './InputMessage'
 import MessagesView from './MessagesView'
 
-const ConversationWindow = ({ conversationId }: { conversationId: string }) => {
+const ConversationWindow = () => {
+    const { conversationId } = useConversationContext()
+
     return (
         <div className="flex h-full flex-col">
             <div className="shrink-0 p-3">Chat</div>
