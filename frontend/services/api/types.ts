@@ -39,3 +39,7 @@ export type GetMessagesResponse = {
     messages: Message[];
     hasMore: boolean;
 }
+
+export type SendMessageResponse = {
+    response: Message;
+}

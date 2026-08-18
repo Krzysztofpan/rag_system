@@ -3,7 +3,7 @@ import qs from 'qs'
 
 import type { MessagesParams } from '@/types/Message';
 
-import type { CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetSourcesResponse, SourceReportResponse, UploadSourceResponse } from './types'
+import type { CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetSourcesResponse, SendMessageResponse, SourceReportResponse, UploadSourceResponse } from './types'
 
 export type AuthHandlers = {
     refreshToken: () => Promise<string | null>;
@@ -145,6 +145,12 @@ class ApiService {
 
     uploadSource = async (conversationId: string, formData: FormData): Promise<UploadSourceResponse> => {
         const { data } = await this.client.post<UploadSourceResponse>(`/upload?conversation_id=${encodeURIComponent(conversationId)}`, formData)
+        return data
+    }
+
+    sendMessage = async (conversation_id: string, document_ids: string[], message: string): Promise<SendMessageResponse> => {
+        const { data } = await this.client.post<SendMessageResponse>(`/chat`, { conversation_id, document_ids, message })
+
         return data
     }
 }

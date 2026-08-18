@@ -1,8 +1,10 @@
+import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { flattenMessagePages, useInfiniteMessages, useInfiniteScrollSentinel } from '@/hooks/useInfiniteMessages'
 import { useMessageListScroll } from '@/hooks/useMessageListScroll'
 
 import { Skeleton } from '../ui/skeleton'
 import MessageItem from './MessageItem'
+import TypingIndicator from './TypingIndicator'
 
 const MessagesView = ({ conversationId }: { conversationId: string }) => {
     const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteMessages(conversationId, 5)
@@ -12,6 +14,7 @@ const MessagesView = ({ conversationId }: { conversationId: string }) => {
         messages,
         isFetchingNextPage,
     })
+    const { isPendingMessage } = useConversationContext()
 
     const topSentinelRef = useInfiniteScrollSentinel({
         fetchNextPage,
@@ -37,6 +40,12 @@ const MessagesView = ({ conversationId }: { conversationId: string }) => {
                         <MessageItem message={message} />
                     </div>
                 ))}
+                {isPendingMessage
+                    && (
+                        <div key="pending" data-message-id="pending" className="scroll-mt-4">
+                            <TypingIndicator />
+                        </div>
+                    )}
                 <div ref={bottomRef} aria-hidden className="h-px shrink-0 scroll-mb-32" />
             </div>
         </div>

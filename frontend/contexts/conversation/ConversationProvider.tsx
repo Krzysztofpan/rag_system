@@ -8,13 +8,14 @@ import { ConversationContext, type ConversationContextValue } from './Conversati
 export function ConversationProvider({ children }: { children: ReactNode }) {
     const { conversationId } = useParams<{ conversationId?: string }>()
 
-    if (!conversationId) {
-        throw new Error('ConversationProvider only can be used in Conversation route')
-    }
-
+    const [isPendingMessage, setIsPendingMessage] = useState(false)
     const sourcesResponseObject = useSources(conversationId)
     const { data: sources = [] } = sourcesResponseObject
     const [unselectedSourcesIds, setUnselectedSourcesIds] = useState<string[]>([])
+
+    if (!conversationId) {
+        throw new Error('ConversationProvider only can be used in Conversation route')
+    }
 
     const selectedSources = sources.map((source) => source.id).filter((id) => !unselectedSourcesIds.includes(id))
 
@@ -39,6 +40,8 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         setUnselectedSourcesIds,
         sourcesResponseObject,
         unselectedSourcesIds,
+        isPendingMessage,
+        setIsPendingMessage,
     }
 
     return <ConversationContext.Provider value={conversationContextObj}>{children}</ConversationContext.Provider>

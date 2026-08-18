@@ -11,6 +11,8 @@ export type ConversationContextValue = {
     selectedSources: string[];
     handleToogleSelectAllSources: (checked: boolean) => void;
     handleToogleSelectSource: (sourceId: string) => void;
+    isPendingMessage: boolean;
+    setIsPendingMessage: Dispatch<SetStateAction<boolean>>;
 }
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null)
