@@ -34,13 +34,16 @@ class Settings(BaseSettings):
     parser_llm_repair: bool = True
 
     orchestrator_model: str = "gpt-4o"
-    evaluate_model: str = "gpt-4o-mini"
     # Reject the whole document only when this fraction of chunks is unusable.
     parser_max_rejected_chunk_ratio: float = 0.25
 
     embedding_model: str = "text-embedding-3-small"
     embedding_model_max_tokens: int = 512
     pinecone_index: str = "rag-system"
+
+    cohere_api_key: str | None = None
+    cohere_rerank_model: str = "rerank-v4.0-fast"
+    rerank_min_score: float = 0
 
     @property
     def is_production(self) -> bool:
