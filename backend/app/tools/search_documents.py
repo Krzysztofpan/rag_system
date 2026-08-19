@@ -1,3 +1,5 @@
+import logging
+
 from langchain.tools import ToolRuntime, tool
 
 from app.agent.types import AgentContext
@@ -6,6 +8,8 @@ from app.db.session import get_session_factory
 from app.graphs.search_documents_graph import SearchDocumentsGraph
 from app.services.document_service import DocumentService
 from app.services.fts_retriever import PostgresFTSRetriever
+
+logger = logging.getLogger(__name__)
 
 
 @tool
@@ -68,6 +72,7 @@ async def search_documents(
             "search_retry_count": 0,
         })
     except Exception:
-        raise SystemError("Error during running graph")
+        logger.exception("search_documents graph failed")
+        raise
 
     return graph_res["context"]

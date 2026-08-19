@@ -146,3 +146,31 @@ async def test_search_documents_rejects_unowned_conversation(
         )
 
     graph_cls.assert_not_called()
+
+
+@patch("app.tools.search_documents.DocumentService")
+@patch("app.tools.search_documents.get_session_factory")
+@patch("app.tools.search_documents.PostgresFTSRetriever")
+@patch("app.tools.search_documents.get_vector_store")
+@patch("app.tools.search_documents.SearchDocumentsGraph")
+async def test_search_documents_propagates_graph_errors(
+    graph_cls,
+    get_vector_store,
+    fts_cls,
+    get_session_factory,
+    store_cls,
+):
+    runtime = _runtime()
+    get_session_factory.return_value = _session_factory()
+    store = MagicMock()
+    store.get_documents = AsyncMock()
+    store_cls.return_value = store
+    get_vector_store.return_value.get_retriever.return_value = MagicMock()
+    graph_cls.return_value.build_graph.return_value.ainvoke = AsyncMock(
+        side_effect=RuntimeError("COHERE_API_KEY is not configured")
+    )
+
+    with pytest.raises(RuntimeError, match="COHERE_API_KEY"):
+        await search_documents.coroutine(
+            query="frontend stack", top_k=5, runtime=runtime
+        )

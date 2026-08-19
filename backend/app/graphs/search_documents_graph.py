@@ -1,25 +1,21 @@
-import asyncio
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_classic.retrievers import EnsembleRetriever
-from pydantic import Field, BaseModel
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from app.services.fts_retriever import PostgresFTSRetriever
 from app.config import get_settings
-
+from app.lib.cohere import get_cohere_client
 settings = get_settings()
-
-class EvaluatorResponse(BaseModel):
-    evaluate_result: bool = Field(description="evaluate result from comparing doc to question")
 
 class SearchDocumentsState(TypedDict):
     query: str
     search_retry_count: int
-    reranked_docs: list
+    retrieved_docs: list
     relevant_docs: list
-    documents_score: int
+    doc_scores: list
+    max_score: float
     rewritten_query: str
     context: str
 
@@ -29,17 +25,8 @@ class SearchDocumentsGraph:
         self,
         fts_retriever: PostgresFTSRetriever,
         vector_store_retriever: BaseRetriever,
-        llm_embedder: OpenAIEmbeddings | None = None,
-        llm_evaluator: ChatOpenAI | None = None,
         llm_query_rewriter: ChatOpenAI | None = None,
     ):
-        self.llm_evaluator = llm_evaluator or ChatOpenAI(
-            model=settings.evaluate_model,
-        )
-        self.llm_embedder = llm_embedder or OpenAIEmbeddings(
-            model=settings.embedding_model,
-            api_key=settings.openai_api_key,
-        )
         self.llm_query_rewriter = llm_query_rewriter or ChatOpenAI(model="gpt-4o-mini", temperature=0.0, max_tokens=200)
         self.fts_retriever = fts_retriever
         self.vector_store_retriever = vector_store_retriever
@@ -50,15 +37,15 @@ class SearchDocumentsGraph:
         # nodes
 
         graph.add_node("get_info", self.get_info)
-        graph.add_node("evaluate_docs", self.evaluate_docs)
+        graph.add_node("rerank_docs", self.rerank_docs)
         graph.add_node("query_rewrite", self.query_rewrite)
         graph.add_node("build_context", self.build_context)
 
         # edges
         
-        graph.add_edge("get_info", "evaluate_docs")
+        graph.add_edge("get_info", "rerank_docs")
 
-        graph.add_conditional_edges("evaluate_docs", self.route_after_evaluate_docs, {
+        graph.add_conditional_edges("rerank_docs", self.route_after_rerank_docs, {
             "rewrite_query": "query_rewrite",
             "build_context": "build_context",
         })
@@ -88,37 +75,43 @@ class SearchDocumentsGraph:
         docs = await ensemble.ainvoke(query)
 
         return {
-            "reranked_docs": docs
+            "retrieved_docs": docs
         }
 
-    async def evaluate_docs(self, state: SearchDocumentsState):
-        docs = state["reranked_docs"]
+    async def rerank_docs(self, state: SearchDocumentsState):
+        docs = state["retrieved_docs"]
         if not docs:
-            return {"relevant_docs": []}
+            return {
+                "relevant_docs": [],
+                "doc_scores": [],
+                "max_score": 0.0,
+            }
 
-        template = """
-            evaluate that document is relevant to answer the question:
-            {doc}
-
-            question: {question}
-            """
-        prompt = ChatPromptTemplate.from_template(template)
-        structured_evaluator = self.llm_evaluator.with_structured_output(EvaluatorResponse)
-        chain = prompt | structured_evaluator
-
-        results = await asyncio.gather(
-            *[
-                chain.ainvoke({"doc": doc, "question": state["query"]})
-                for doc in docs
-            ]
+        response = await get_cohere_client().rerank(
+            model=settings.cohere_rerank_model,
+            query=state["query"],
+            documents=[doc.page_content for doc in docs],
         )
 
-        relevant_docs = [
-            doc for doc, res in zip(docs, results) if res.evaluate_result
-        ]
-        return {"relevant_docs": relevant_docs}
+        hits = response.results
+        max_score = hits[0].relevance_score if hits else 0.0
+        min_score = settings.rerank_min_score
 
-    def query_rewrite(self, state: SearchDocumentsState):
+        relevant_docs = []
+        doc_scores = []
+        for hit in hits:
+            if hit.relevance_score < min_score:
+                continue
+            relevant_docs.append(docs[hit.index])
+            doc_scores.append(hit.relevance_score)
+
+        return {
+            "relevant_docs": relevant_docs,
+            "doc_scores": doc_scores,
+            "max_score": max_score,
+        }
+
+    async def query_rewrite(self, state: SearchDocumentsState):
         # Using HYDE for rewrite query
         template = """
         Please write a scientific paper passage to answer the question.
@@ -129,7 +122,7 @@ class SearchDocumentsGraph:
         prompt = ChatPromptTemplate.from_template(template)
         chain = prompt | self.llm_query_rewriter
 
-        res = chain.invoke({"query": state['query']})
+        res = await chain.ainvoke({"query": state['query']})
         
         return {
             "rewritten_query": res.content,
@@ -172,7 +165,7 @@ class SearchDocumentsGraph:
             "context": "\n\n---\n\n".join(parts)
         }
 
-    def route_after_evaluate_docs(self, state: SearchDocumentsState):
+    def route_after_rerank_docs(self, state: SearchDocumentsState):
         if(len(state['relevant_docs']) == 0):
             if(state['search_retry_count'] > 0):
                 return "build_context"
