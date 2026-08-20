@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.services.chunker.factory import ChunkerFactory
 from app.services.conversation_service import ConversationService
+from app.services.conversation_memory_service import ConversationMemoryService
 from app.services.document_service import DocumentService
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser.factory import ParserFactory
@@ -81,3 +82,27 @@ def get_message_service(
     session: AsyncSession = Depends(get_session),
 ) -> MessageService:
     return create_message_service(session)
+
+
+def create_conversation_memory_service(
+    session: AsyncSession,
+    conversation_service: ConversationService | None = None,
+    message_service: MessageService | None = None,
+) -> ConversationMemoryService:
+    return ConversationMemoryService(
+        session,
+        conversation_service or create_conversation_service(session),
+        message_service or create_message_service(session),
+    )
+
+
+def get_conversation_memory_service(
+    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationService = Depends(get_conversation_service),
+    message_service: MessageService = Depends(get_message_service),
+) -> ConversationMemoryService:
+    return create_conversation_memory_service(
+        session,
+        conversation_service,
+        message_service,
+    )

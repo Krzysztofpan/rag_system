@@ -4,11 +4,13 @@ from fastapi import Depends
 
 from app.auth.deps import AuthenticatedUser, get_current_user
 from app.container import (
+    get_conversation_memory_service,
     get_conversation_service,
     get_document_indexing_service,
     get_document_service,
 )
 from app.services.conversation_service import ConversationService
+from app.services.conversation_memory_service import ConversationMemoryService
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.document_service import DocumentService
 from app.services.message_service import MessageService
@@ -19,6 +21,9 @@ DocumentIndexingServiceDep = Annotated[
 ]
 ConversationServiceDep = Annotated[
     ConversationService, Depends(get_conversation_service)
+]
+ConversationMemoryServiceDep = Annotated[
+    ConversationMemoryService, Depends(get_conversation_memory_service)
 ]
 DocumentServiceDep = Annotated[
     DocumentService, Depends(get_document_service)
@@ -31,6 +36,7 @@ CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
 __all__ = [
     "AuthenticatedUser",
     "ConversationServiceDep",
+    "ConversationMemoryServiceDep",
     "CurrentUserDep",
     "DocumentIndexingServiceDep",
     "DocumentServiceDep",

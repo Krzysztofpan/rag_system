@@ -1,33 +1,24 @@
-from types import SimpleNamespace
-
-from app.agent.agent_orchestrator import agent_system_prompt, build_system_prompt
+from app.agent.agent_orchestrator import build_system_prompt
 from app.tools.summarize_context import summarize_context
 
 
-def test_prompt_tells_model_selected_documents_are_already_attached():
-    prompt = build_system_prompt(2)
+def test_system_prompt_keeps_document_runtime_context_out_of_prefix():
+    prompt = build_system_prompt()
 
-    assert "already selected 2 document" in prompt
+    assert "injected into tools automatically" in prompt
     assert "Never ask for document IDs" in prompt
     assert "call summarize_context immediately" in prompt
 
 
-def test_prompt_tells_model_when_no_documents_are_selected():
-    prompt = build_system_prompt(0)
+def test_system_prompt_explains_missing_document_results():
+    prompt = build_system_prompt()
 
-    assert "No documents are currently selected" in prompt
-    assert "select documents first" in prompt
+    assert "no information was found" in prompt
+    assert "select documents" in prompt
 
 
-def test_dynamic_prompt_reads_document_ids_from_runtime_context():
-    document_ids = ["a", "b", "c"]
-    request = SimpleNamespace(
-        runtime=SimpleNamespace(context={"document_ids": document_ids})
-    )
-
-    prompt = agent_system_prompt(request)
-
-    assert "already selected 3 document" in prompt
+def test_system_prompt_is_stable():
+    assert build_system_prompt() == build_system_prompt()
 
 
 def test_summarize_context_schema_does_not_ask_llm_for_ids():
