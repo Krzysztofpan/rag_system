@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import UploadFile
 
 from app.db.session import get_session_factory
+from app.prompts import DOCUMENT_SUMMARY_TEMPLATE
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
 from app.services.document_service import DocumentService
@@ -44,13 +45,7 @@ class DocumentIndexingService:
             document_id: UUID, 
             user_id: UUID
     ) -> str:
-        template = """
-        Summarize document based on content:
-
-        {document_content} 
-        """
-
-        prompt = ChatPromptTemplate.from_template(template)
+        prompt = ChatPromptTemplate.from_template(DOCUMENT_SUMMARY_TEMPLATE)
         
         summarization_llm = ChatOpenAI(model="gpt-4o-mini")
   

@@ -5,6 +5,10 @@ from langchain_openai import ChatOpenAI
 
 from app.config import Settings, get_settings
 from app.db.models.message import MessageRole
+from app.prompts import (
+    MEMORY_COMPACTION_SYSTEM_PROMPT,
+    memory_compaction_human_message,
+)
 from app.schemas.conversation_memory import ConversationMemorySummary
 
 
@@ -38,22 +42,9 @@ class ConversationMemoryCompactor:
         )
         response = await self.model.ainvoke(
             [
-                SystemMessage(
-                    content=(
-                        "Maintain a compact, factual memory of a conversation. "
-                        "Merge the previous memory with the new turns. Preserve only "
-                        "goals, established conversational facts, user preferences, "
-                        "and unresolved questions. Ignore greetings and repetition. "
-                        "Do not invent facts. Facts originating from documents are "
-                        "conversation memory only and must not be treated as document "
-                        "evidence by the answering agent."
-                    )
-                ),
+                SystemMessage(content=MEMORY_COMPACTION_SYSTEM_PROMPT),
                 HumanMessage(
-                    content=(
-                        f"Previous memory:\n{current}\n\n"
-                        f"New conversation turns:\n{transcript}"
-                    )
+                    content=memory_compaction_human_message(current, transcript)
                 ),
             ]
         )

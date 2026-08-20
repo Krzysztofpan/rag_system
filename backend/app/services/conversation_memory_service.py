@@ -12,6 +12,7 @@ from app.config import Settings, get_settings
 from app.db.models.conversation import Conversation
 from app.db.models.conversation_summary import ConversationSummary
 from app.db.models.message import Message, MessageRole
+from app.prompts import conversation_memory_system_message
 from app.schemas.conversation_memory import ConversationMemorySummary
 from app.services.conversation_memory_compactor import (
     ConversationMemoryCompactor,
@@ -77,10 +78,8 @@ class ConversationMemoryService:
         if summary is not None:
             conversation_context.append(
                 SystemMessage(
-                    content=(
-                        "Conversation memory for interpreting references and user "
-                        "preferences. It is not evidence about document contents:\n"
-                        f"{summary.model_dump_json()}"
+                    content=conversation_memory_system_message(
+                        summary.model_dump_json()
                     )
                 )
             )
