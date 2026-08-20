@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     parser_llm_repair: bool = True
 
     orchestrator_model: str = "gpt-4o"
+    memory_enabled: bool = True
+    memory_summarization_model: str = "gpt-4o-mini"
+    memory_compaction_max_messages: int = 12
+    memory_compaction_max_tokens: int = 2500
+    memory_keep_recent_messages: int = 4
+    memory_summary_max_tokens: int = 600
     # Reject the whole document only when this fraction of chunks is unusable.
     parser_max_rejected_chunk_ratio: float = 0.25
 

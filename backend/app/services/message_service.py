@@ -69,3 +69,53 @@ class MessageService:
         messages = rows[:limit]
         messages.reverse()
         return MessagePage(messages=messages, has_more=has_more)
+
+    async def get_messages_after(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+        after_id: UUID | None,
+        limit: int,
+        newest_first: bool = False,
+    ) -> list[Message]:
+        query = (
+            select(Message)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .where(
+                Message.conversation_id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+
+        if after_id is not None:
+            cursor_result = await self.session.execute(
+                select(Message.created_at, Message.id)
+                .join(Conversation, Conversation.id == Message.conversation_id)
+                .where(
+                    Message.id == after_id,
+                    Message.conversation_id == conversation_id,
+                    Conversation.user_id == user_id,
+                )
+            )
+            cursor = cursor_result.one_or_none()
+            if cursor is None:
+                raise ValueError(f"Message {after_id} not found")
+            query = query.where(
+                (Message.created_at > cursor.created_at)
+                | (
+                    (Message.created_at == cursor.created_at)
+                    & (Message.id > cursor.id)
+                )
+            )
+
+        if newest_first:
+            query = query.order_by(Message.created_at.desc(), Message.id.desc())
+        else:
+            query = query.order_by(Message.created_at.asc(), Message.id.asc())
+
+        result = await self.session.execute(query.limit(limit))
+        messages = list(result.scalars().all())
+        if newest_first:
+            messages.reverse()
+        return messages

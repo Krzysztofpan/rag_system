@@ -1,13 +1,13 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
-from langchain_core.messages import HumanMessage
+
 from fastapi import (
-    FastAPI, 
-    File, 
-    HTTPException, 
-    Query, 
-    UploadFile, 
-    BackgroundTasks
+    BackgroundTasks,
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
 )
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,10 +18,11 @@ from app.routes.conversation_routes import conversation_router
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
 from app.dependencies import (
-    ConversationServiceDep, 
-    CurrentUserDep, 
-    DocumentIndexingServiceDep, 
-    MessageServiceDep
+    ConversationMemoryServiceDep,
+    ConversationServiceDep,
+    CurrentUserDep,
+    DocumentIndexingServiceDep,
+    MessageServiceDep,
 )
 
 from app.schemas.source import (
@@ -34,10 +35,14 @@ from app.schemas.upload import (
     quality_from_rejected_report,
 )
 from app.services.parser import ParseQualityError
-from app.background_tasks import summarize_document_and_update_title
+from app.background_tasks import (
+    compact_conversation_memory,
+    summarize_document_and_update_title,
+)
 from app.schemas.chat import ChatRequestBody, ChatResponseModel
 from app.agent.agent_orchestrator import get_agent_orchestrator
 from app.db.models import Message
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -156,22 +161,49 @@ async def chat(
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
     message_service: MessageServiceDep,
+    memory_service: ConversationMemoryServiceDep,
+    background_tasks: BackgroundTasks,
     body: ChatRequestBody,
 ) -> ChatResponseModel:
-    await conversation_service.get_conversation(body.conversation_id, user_id=current_user.user_id)
-    await message_service.create_message(Message(conversation_id=body.conversation_id, text=body.message, role="user"))
+    conversation = await conversation_service.get_conversation(
+        body.conversation_id,
+        user_id=current_user.user_id,
+    )
+    await message_service.create_message(
+        Message(
+            conversation_id=body.conversation_id,
+            text=body.message,
+            role="user",
+        )
+    )
+    conversation_context = await memory_service.build_context_for_agent(
+        conversation,
+    )
     agent = get_agent_orchestrator()
     agent_response = await agent.ainvoke(
-        {"messages": [HumanMessage(body.message)]},
-        context={"conversation_id": body.conversation_id, "user_id": current_user.user_id, "document_ids": body.document_ids},
+        {"messages": conversation_context},
+        context={
+            "conversation_id": body.conversation_id,
+            "user_id": current_user.user_id,
+            "document_ids": body.document_ids,
+        },
     )
-    print(agent_response)
-    print(agent_response['messages'][-1].content)
-    created_message = await message_service.create_message(Message(conversation_id=body.conversation_id, text=agent_response['messages'][-1].content, role="assistant"))
+    response_messages = agent_response["messages"]
+    final_response = response_messages[-1].content
+    created_message = await message_service.create_message(
+        Message(
+            conversation_id=body.conversation_id,
+            text=final_response,
+            role="assistant",
+        )
+    )
+    background_tasks.add_task(
+        compact_conversation_memory,
+        body.conversation_id,
+        current_user.user_id,
+    )
 
-    return {
-        "response": created_message
-    }
+    return {"response": created_message}
 
 
 @app.get("/health/db")
