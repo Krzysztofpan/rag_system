@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.conversation import Conversation
+from app.prompts import CONVERSATION_TITLE_TEMPLATE
 from app.services.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -105,16 +106,7 @@ class ConversationService:
         return conversation.title
 
     async def generate_conversation_title(self, conversation_id: UUID, doc_summary: str, *, user_id: UUID):
-        template = """
-        Based on actual title and new document summary you have to create new conversation title.
-        Title should be general and short, it's just for user to know what is about:
-
-        document summary: {doc_summary}
-
-        current_title: {conversation_title}
-        """
-
-        prompt = ChatPromptTemplate.from_template(template)
+        prompt = ChatPromptTemplate.from_template(CONVERSATION_TITLE_TEMPLATE)
 
         conversation = await self.get_conversation(conversation_id, user_id=user_id)
 

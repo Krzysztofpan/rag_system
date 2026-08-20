@@ -4,20 +4,12 @@ from langchain.agents import create_agent
 
 from app.agent.types import AgentContext
 from app.config import get_settings
+from app.prompts import AGENT_SYSTEM_PROMPT
 from app.tools import search_documents, summarize_context
 
 
 def build_system_prompt() -> str:
-    return (
-        "You are an assistant that helps the user work with documents in the current conversation.\n"
-        "Documents selected for the current request are injected into tools automatically. "
-        "Never ask for document IDs, conversation ID, user ID, or permission to use tools.\n"
-        "If the user wants a summary, overview, or recap, call summarize_context immediately.\n"
-        "If the user asks a specific question about the documents, call search_documents.\n"
-        "Answer document questions from current tool results, not from conversation memory. "
-        "If tools return no information, tell the user that no information was found and "
-        "that they may need to select documents."
-    )
+    return AGENT_SYSTEM_PROMPT
 
 
 @lru_cache(maxsize=1)

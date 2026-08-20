@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from app.services.fts_retriever import PostgresFTSRetriever
 from app.config import get_settings
 from app.lib.cohere import get_cohere_client
+from app.prompts import HYDE_QUERY_REWRITE_TEMPLATE
 settings = get_settings()
 
 class SearchDocumentsState(TypedDict):
@@ -113,13 +114,7 @@ class SearchDocumentsGraph:
 
     async def query_rewrite(self, state: SearchDocumentsState):
         # Using HYDE for rewrite query
-        template = """
-        Please write a scientific paper passage to answer the question.
-
-        question: {query}
-        """
-
-        prompt = ChatPromptTemplate.from_template(template)
+        prompt = ChatPromptTemplate.from_template(HYDE_QUERY_REWRITE_TEMPLATE)
         chain = prompt | self.llm_query_rewriter
 
         res = await chain.ainvoke({"query": state['query']})

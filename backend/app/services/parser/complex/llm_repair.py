@@ -12,37 +12,13 @@ from docling_core.types.doc.items.table.table_data import TableCell
 from docling_core.types.doc.items.text import TextItem
 
 from app.config import get_settings
+from app.prompts import LLM_REPAIR_SYSTEM_PROMPT, llm_repair_human_message
 
 from .ocr_repair import text_needs_ocr_repair
 
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 8
-
-SYSTEM_PROMPT = """You repair text extracted from PDF documents.
-
-Fix ONLY extraction / OCR defects. Do not change meaning or add content.
-
-Spacing (important — fix these aggressively when clearly wrong):
-- Missing spaces between words: "frameworkforidentifying" → "framework for identifying", "Createorextend" → "Create or extend", "Acyber" → "A cyber"
-- Spurious spaces inside a single word (often broken fi/fl ligatures): "Arti ficial" → "Artificial", "ef ficiently" → "efficiently", "speci fic" → "specific"
-- Glued phrases at word boundaries: "yourfingertips" → "your fingertips"
-
-Other defects to fix:
-- Broken ligatures left as partial letters
-- Obvious OCR typos (e.g. "Juypter" → "Jupyter") when unambiguous
-- Broken table-cell text from layout/parsing (split/merged words)
-
-Do NOT:
-- Summarize, translate, rephrase for style, or invent missing facts
-- Invent, guess, or "restore" numbers, years, versions, IDs, or codes
-- Change correct punctuation, numbers, product names, or markdown/table structure
-- "Normalize" ATT&CK / ATLAS / OWASP names beyond fixing clear extraction errors
-- Replace missing-digit gaps with words (never turn a year/number hole into "first", "Act I", "spon", etc.)
-
-Return JSON only: {"repairs": [{"id": <int>, "text": "<fixed text>"}, ...]}
-Include exactly one entry for every id you received. If a fragment needs no change, return it unchanged.
-"""
 
 
 @dataclass
@@ -130,13 +106,10 @@ def _call_llm(batch: list[_RepairTarget], model: str, api_key: str) -> dict[int,
     llm = ChatOpenAI(model=model, temperature=0, api_key=api_key)
     response = llm.invoke(
         [
-            SystemMessage(content=SYSTEM_PROMPT),
+            SystemMessage(content=LLM_REPAIR_SYSTEM_PROMPT),
             HumanMessage(
-                content=(
-                    "Fix spacing and extraction defects in these fragments. "
-                    "Especially restore missing spaces between words and remove "
-                    "spurious spaces inside single words.\n"
-                    + json.dumps(payload, ensure_ascii=False)
+                content=llm_repair_human_message(
+                    json.dumps(payload, ensure_ascii=False)
                 )
             ),
         ]
