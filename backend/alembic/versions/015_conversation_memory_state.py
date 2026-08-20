@@ -1,7 +1,7 @@
 """Add conversation memory state.
 
-Revision ID: 014_conversation_memory_state
-Revises: 013_create_messages
+Revision ID: 015_conversation_memory_state
+Revises: 014_drop_query_results
 Create Date: 2026-08-20
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "014_conversation_memory_state"
-down_revision: Union[str, Sequence[str], None] = "013_create_messages"
+revision: str = "015_conversation_memory_state"
+down_revision: Union[str, Sequence[str], None] = "014_drop_query_results"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
