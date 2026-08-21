@@ -7,8 +7,7 @@ type useSendMessageFncProps = {
     message: string;
 }
 
-export const useSendMessage = (conversationId: string) => {
-    void conversationId
+export const useSendMessage = () => {
     const { sendMessage } = useConversationContext()
     return useMutation({
         mutationFn: ({ documentIds, message }: useSendMessageFncProps) =>

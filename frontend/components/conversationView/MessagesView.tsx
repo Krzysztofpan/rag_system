@@ -51,7 +51,7 @@ const MessagesView = ({ conversationId }: { conversationId: string }) => {
                         <MessageItem message={message} />
                     </div>
                 ))}
-                {isPendingMessage && toolInvocations.map((invocation) => (
+                {isPendingMessage && !streamedMessage?.text && toolInvocations.map((invocation) => (
                     <ToolInvocationNotice key={invocation.id} invocation={invocation} />
                 ))}
                 {streamedMessage?.text && (

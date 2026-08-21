@@ -155,7 +155,5 @@ export const useInfiniteMessagesClient = (queryClient: QueryClient, conversation
         })
     }, [conversationId, limit, queryClient])
 
-    const addNewMessage = upsertMessage
-
-    return { addNewMessage, upsertMessage }
+    return { upsertMessage }
 }
