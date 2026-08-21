@@ -1,17 +1,32 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react'
 import { useParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query'
 
+import { useInfiniteMessagesClient } from '@/hooks/useInfiniteMessages'
 import { useSources } from '@/hooks/useSources';
+import { useStreamResponse } from '@/hooks/useStreamResponse'
+import type { Message } from '@/types/Message'
 
 import { ConversationContext, type ConversationContextValue } from './ConversationContext';
 
 export function ConversationProvider({ children }: { children: ReactNode }) {
     const { conversationId } = useParams<{ conversationId?: string }>()
+    const activeConversationId = conversationId ?? ''
 
-    const [isPendingMessage, setIsPendingMessage] = useState(false)
-    const sourcesResponseObject = useSources(conversationId || null)
+    const queryClient = useQueryClient()
+    const sourcesResponseObject = useSources(conversationId ?? null)
     const { data: sources = [] } = sourcesResponseObject
     const [unselectedSourcesIds, setUnselectedSourcesIds] = useState<string[]>([])
+    const [submittedMessageId, setSubmittedMessageId] = useState<string | null>(null)
+    const [localError, setLocalError] = useState<string | null>(null)
+    const { upsertMessage } = useInfiniteMessagesClient(queryClient, activeConversationId, 5)
+    const stream = useStreamResponse(activeConversationId)
+
+    useEffect(() => {
+        if (stream.persistedMessage) {
+            upsertMessage(stream.persistedMessage)
+        }
+    }, [stream.persistedMessage, upsertMessage])
 
     if (!conversationId) {
         throw new Error('ConversationProvider only can be used in Conversation route')
@@ -32,6 +47,43 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         setUnselectedSourcesIds((prev) => (prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId]))
     }
 
+    const sendMessage = async ({ documentIds, message }: { documentIds: string[]; message: string }) => {
+        const messageId = crypto.randomUUID()
+        const optimisticMessage: Message = {
+            id: messageId,
+            conversationId,
+            role: 'user',
+            text: message,
+            createdAt: new Date().toISOString(),
+        }
+        setLocalError(null)
+        setSubmittedMessageId(messageId)
+        upsertMessage(optimisticMessage)
+        try {
+            await stream.sendMessage({ documentIds, message, messageId })
+        }
+        catch (error) {
+            setLocalError(error instanceof Error ? error.message : 'Nie udało się wysłać wiadomości')
+            await queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+        }
+    }
+
+    const streamedMessage = (
+        stream.streamedMessageId
+        && stream.streamedMessageId !== submittedMessageId
+        && stream.streamedMessageId !== stream.persistedMessage?.id
+    )
+        ? {
+                id: stream.streamedMessageId,
+                conversationId,
+                role: 'assistant' as const,
+                text: stream.streamedText,
+                createdAt: new Date().toISOString(),
+            }
+        : null
+    const streamError = localError
+        ?? (stream.error instanceof Error ? stream.error.message : null)
+
     const conversationContextObj: ConversationContextValue = {
         conversationId,
         handleToogleSelectAllSources,
@@ -40,8 +92,14 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         setUnselectedSourcesIds,
         sourcesResponseObject,
         unselectedSourcesIds,
-        isPendingMessage,
-        setIsPendingMessage,
+        isPendingMessage: stream.isStreaming,
+        sendMessage,
+        streamedMessage,
+        streamError,
+        toolInvocations: stream.toolCalls.map((toolCall) => ({
+            id: toolCall.callId,
+            name: toolCall.name,
+        })),
     }
 
     return <ConversationContext.Provider value={conversationContextObj}>{children}</ConversationContext.Provider>

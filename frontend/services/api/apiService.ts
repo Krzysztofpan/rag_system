@@ -96,6 +96,32 @@ class ApiService {
         this.client = this.constructClient(token)
     }
 
+    getApiHost = () => this.apiHost
+
+    authorizedFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const execute = (token: string | null) => {
+            const headers = new Headers(init?.headers)
+            if (token) {
+                headers.set('Authorization', `Bearer ${token}`)
+            }
+            return fetch(input, { ...init, headers })
+        }
+
+        let response = await execute(this.token)
+        if (response.status !== 401) {
+            return response
+        }
+
+        const token = await this.refreshToken()
+        if (token) {
+            response = await execute(token)
+        }
+        if (response.status === 401) {
+            await this.authHandlers?.onUnauthorized()
+        }
+        return response
+    }
+
     getConversations = async (): Promise<GetConversationResponse> => {
         const { data } = await this.client.get<GetConversationResponse>('/conversations')
         return data

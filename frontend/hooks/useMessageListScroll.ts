@@ -13,6 +13,7 @@ type UseMessageListScrollOptions = {
     messages: Message[];
     isFetchingNextPage: boolean;
     isAiTyping?: boolean;
+    streamRevision?: string;
 }
 
 function isContainerAtBottom(container: HTMLElement, threshold = SCROLL_EPSILON) {
@@ -46,6 +47,7 @@ export function useMessageListScroll({
     messages,
     isFetchingNextPage,
     isAiTyping = false,
+    streamRevision = '',
 }: UseMessageListScrollOptions) {
     const containerRef = useRef<HTMLDivElement>(null)
     const bottomRef = useRef<HTMLDivElement>(null)
@@ -146,7 +148,7 @@ export function useMessageListScroll({
             cancelAnimationFrame(raf)
             resizeObserver.disconnect()
         }
-    }, [messages.length, isAnchored])
+    }, [messages, isAnchored])
 
     useLayoutEffect(() => {
         if (!isAnchored || messages.length === 0) {
@@ -171,7 +173,7 @@ export function useMessageListScroll({
     }, [messages, isAnchored])
 
     useLayoutEffect(() => {
-        if (!isAnchored || !isAiTyping) {
+        if (!isAnchored || !isAiTyping || userScrolledUp) {
             return
         }
 
@@ -182,8 +184,7 @@ export function useMessageListScroll({
         }
 
         scrollContainerToBottom(container)
-        setUserScrolledUp(false)
-    }, [isAiTyping, isAnchored])
+    }, [isAiTyping, isAnchored, streamRevision, userScrolledUp])
 
     useLayoutEffect(() => {
         const container = containerRef.current
