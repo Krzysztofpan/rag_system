@@ -8,8 +8,8 @@ import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 
 const InputMessage = () => {
-    const { conversationId, selectedSources, isPendingMessage } = useConversationContext()
-    const { mutate } = useSendMessage(conversationId)
+    const { selectedSources, isPendingMessage } = useConversationContext()
+    const { mutate } = useSendMessage()
     const [message, setMessage] = useState('')
 
     const handleSendMessage = (e: SubmitEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {

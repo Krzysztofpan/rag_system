@@ -98,6 +98,11 @@ class ApiService {
 
     getApiHost = () => this.apiHost
 
+    /**
+     * Fetch-compatible client used by streaming adapters that cannot use Axios.
+     * It mirrors the Axios interceptor by attaching auth, refreshing once on
+     * 401, retrying the request, and handling a persistent unauthorized state.
+     */
     authorizedFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const execute = (token: string | null) => {
             const headers = new Headers(init?.headers)

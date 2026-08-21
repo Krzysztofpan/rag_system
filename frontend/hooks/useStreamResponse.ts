@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useStream } from '@langchain/react'
 
 import { createChatStreamAdapter } from '@/services/stream/createChatStreamAdapter'
@@ -42,6 +42,7 @@ export function useStreamResponse(conversationId: string) {
         threadId: conversationId,
         initialValues: { documentIds: [], messages: [] },
     })
+    const [previousToolCallIds, setPreviousToolCallIds] = useState<Set<string>>(new Set())
 
     const sendMessage = async ({
         documentIds,
@@ -52,6 +53,9 @@ export function useStreamResponse(conversationId: string) {
         message: string;
         messageId: string;
     }) => {
+        setPreviousToolCallIds(new Set(
+            stream.toolCalls.map((toolCall) => toolCall.callId),
+        ))
         await stream.submit(
             {
                 messages: [{ id: messageId, type: 'human', content: message }],
@@ -63,6 +67,9 @@ export function useStreamResponse(conversationId: string) {
 
     const lastMessage = stream.messages.at(-1)
     const streamedText = lastMessage ? contentToText(lastMessage.content) : ''
+    const currentToolCalls = stream.toolCalls.filter(
+        (toolCall) => !previousToolCallIds.has(toolCall.callId),
+    )
 
     return {
         error: stream.error,
@@ -71,6 +78,6 @@ export function useStreamResponse(conversationId: string) {
         sendMessage,
         streamedMessageId: lastMessage?.id,
         streamedText,
-        toolCalls: stream.toolCalls,
+        toolCalls: currentToolCalls,
     }
 }
