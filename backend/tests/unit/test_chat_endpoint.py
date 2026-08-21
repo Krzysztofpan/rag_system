@@ -1,19 +1,19 @@
-from unittest.mock import AsyncMock, patch
+import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from fastapi import BackgroundTasks
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.app import chat
 from app.auth.deps import AuthenticatedUser
 from app.db.models.conversation import Conversation
-from app.schemas.chat import ChatRequestBody
+from app.routes.chat_stream_routes import chat_commands, chat_state, chat_stream
+from app.schemas.chat import ProtocolCommand, StreamSubscriptionRequest
+from app.services.chat.run_session import HEARTBEAT
 
 
-async def test_chat_passes_memory_once_persists_messages_and_schedules_compaction():
-    user_id = uuid4()
-    conversation_id = uuid4()
-    current_user = AuthenticatedUser(
+def _current_user(user_id):
+    return AuthenticatedUser(
         access_token="token",
         user_id=user_id,
         email=None,
@@ -22,48 +22,193 @@ async def test_chat_passes_memory_once_persists_messages_and_schedules_compactio
         app_metadata={},
         user_metadata={},
     )
+
+
+async def test_run_start_persists_user_and_returns_protocol_response():
+    user_id = uuid4()
+    conversation_id = uuid4()
+    message_id = uuid4()
+    current_user = _current_user(user_id)
     conversation = Conversation(id=conversation_id, user_id=user_id)
     conversation_service = AsyncMock()
     conversation_service.get_conversation.return_value = conversation
     message_service = AsyncMock()
     message_service.create_message.side_effect = lambda message: message
     memory_service = AsyncMock()
-
-    async def build_context(passed_conversation):
-        assert passed_conversation is conversation
-        assert message_service.create_message.await_count == 1
-        return [
-            HumanMessage(content="Previous question"),
-            AIMessage(content="Previous answer"),
-            HumanMessage(content="Current question"),
-        ]
-
-    memory_service.build_context_for_agent.side_effect = build_context
-    agent = AsyncMock()
-    agent.ainvoke.return_value = {
-        "messages": [AIMessage(content="Current answer")]
-    }
-    background_tasks = BackgroundTasks()
-    body = ChatRequestBody(
-        conversation_id=conversation_id,
-        message="Current question",
-        document_ids=[],
+    memory_service.build_context_for_agent.return_value = [
+        HumanMessage(content="Previous question"),
+        AIMessage(content="Previous answer"),
+        HumanMessage(content="Current question"),
+    ]
+    registry = AsyncMock()
+    registry.start.return_value = SimpleNamespace(task=None)
+    command = ProtocolCommand(
+        id=7,
+        method="run.start",
+        params={
+            "input": {
+                "messages": [
+                    {
+                        "id": str(message_id),
+                        "type": "human",
+                        "content": "Current question",
+                    }
+                ],
+                "documentIds": [],
+            }
+        },
     )
 
-    with patch("app.app.get_agent_orchestrator", return_value=agent):
-        response = await chat(
-            current_user=current_user,
-            conversation_service=conversation_service,
-            message_service=message_service,
-            memory_service=memory_service,
-            background_tasks=background_tasks,
-            body=body,
-        )
+    response = await chat_commands(
+        conversation_id=conversation_id,
+        command=command,
+        current_user=current_user,
+        conversation_service=conversation_service,
+        message_service=message_service,
+        memory_service=memory_service,
+        registry=registry,
+    )
 
-    invoke_messages = agent.ainvoke.await_args.args[0]["messages"]
-    assert sum(
-        message.content == "Current question" for message in invoke_messages
-    ) == 1
-    assert message_service.create_message.await_count == 2
-    assert response["response"].text == "Current answer"
-    assert len(background_tasks.tasks) == 1
+    assert response["type"] == "success"
+    assert response["id"] == 7
+    assert response["result"]["run_id"]
+    persisted = message_service.create_message.await_args.args[0]
+    assert persisted.id == message_id
+    assert persisted.text == "Current question"
+    memory_service.build_context_for_agent.assert_awaited_once_with(conversation)
+
+
+async def test_state_is_an_empty_technical_snapshot():
+    user_id = uuid4()
+    conversation_id = uuid4()
+    conversation_service = AsyncMock()
+    conversation_service.get_conversation.return_value = Conversation(
+        id=conversation_id,
+        user_id=user_id,
+    )
+
+    response = await chat_state(
+        conversation_id=conversation_id,
+        current_user=_current_user(user_id),
+        conversation_service=conversation_service,
+    )
+
+    assert response == {
+        "values": {"messages": []},
+        "next": [],
+        "tasks": [],
+    }
+
+
+async def test_stream_returns_replay_events_and_heartbeat_as_sse():
+    user_id = uuid4()
+    conversation_id = uuid4()
+    conversation_service = AsyncMock()
+    conversation_service.get_conversation.return_value = Conversation(
+        id=conversation_id,
+        user_id=user_id,
+    )
+    event = {
+        "type": "event",
+        "event_id": "run:1",
+        "seq": 1,
+        "method": "lifecycle",
+        "params": {
+            "namespace": [],
+            "timestamp": 1,
+            "data": {"event": "completed"},
+        },
+    }
+
+    class Subscription:
+        async def events(self):
+            yield event
+            yield HEARTBEAT
+
+    run_session = AsyncMock()
+    run_session.subscribe.return_value = Subscription()
+    registry = AsyncMock()
+    registry.get.return_value = run_session
+
+    response = await chat_stream(
+        conversation_id=conversation_id,
+        request=StreamSubscriptionRequest(channels=["lifecycle"]),
+        current_user=_current_user(user_id),
+        conversation_service=conversation_service,
+        registry=registry,
+    )
+
+    first_chunk = await anext(response.body_iterator)
+    second_chunk = await anext(response.body_iterator)
+    await response.body_iterator.aclose()
+
+    assert json.loads(first_chunk.removeprefix("data: ").strip()) == event
+    assert second_chunk == ": heartbeat\n\n"
+
+
+async def test_stream_stays_connected_and_subscribes_to_the_next_run():
+    user_id = uuid4()
+    conversation_id = uuid4()
+    conversation_service = AsyncMock()
+    conversation_service.get_conversation.return_value = Conversation(
+        id=conversation_id,
+        user_id=user_id,
+    )
+    first_event = {
+        "type": "event",
+        "event_id": "first-run:1",
+        "seq": 1,
+        "method": "lifecycle",
+        "params": {
+            "namespace": [],
+            "timestamp": 1,
+            "data": {"event": "completed"},
+        },
+    }
+    second_event = {
+        **first_event,
+        "event_id": "second-run:1",
+    }
+
+    class Subscription:
+        def __init__(self, event):
+            self.event = event
+
+        async def events(self):
+            yield self.event
+
+    first_session = AsyncMock()
+    first_session.subscribe.return_value = Subscription(first_event)
+    second_session = AsyncMock()
+    second_session.subscribe.return_value = Subscription(second_event)
+    registry = AsyncMock()
+    registry.get.return_value = first_session
+    registry.wait_for_session_after.return_value = second_session
+    request = StreamSubscriptionRequest(channels=["lifecycle"], since=7)
+
+    response = await chat_stream(
+        conversation_id=conversation_id,
+        request=request,
+        current_user=_current_user(user_id),
+        conversation_service=conversation_service,
+        registry=registry,
+    )
+
+    first_chunk = await anext(response.body_iterator)
+    second_chunk = await anext(response.body_iterator)
+    await response.body_iterator.aclose()
+
+    assert json.loads(first_chunk.removeprefix("data: ").strip()) == first_event
+    assert json.loads(second_chunk.removeprefix("data: ").strip()) == second_event
+    first_session.subscribe.assert_awaited_once_with(
+        channels={"lifecycle"},
+        namespaces=None,
+        depth=None,
+        since=7,
+    )
+    second_session.subscribe.assert_awaited_once_with(
+        channels={"lifecycle"},
+        namespaces=None,
+        depth=None,
+        since=None,
+    )

@@ -1,6 +1,6 @@
 'use client'
 
-import { type RefObject, useEffect, useRef } from 'react'
+import { type RefObject, useCallback, useEffect, useRef } from 'react'
 import { type InfiniteData, infiniteQueryOptions, QueryClient, useInfiniteQuery } from '@tanstack/react-query'
 
 import { apiService } from '@/services/api/apiService'
@@ -121,7 +121,7 @@ export function useInfiniteMessages(conversationId: string, limit = 10) {
 }
 
 export const useInfiniteMessagesClient = (queryClient: QueryClient, conversationId: string, limit: number) => {
-    const addNewMessage = (newMessage: Message) => {
+    const upsertMessage = useCallback((newMessage: Message) => {
         queryClient.setQueryData<InfiniteData<GetMessagesResponse>>(['messages', conversationId, limit], (messages) => {
             if (!messages?.pages.length) {
                 const messages = [newMessage]
@@ -130,7 +130,20 @@ export const useInfiniteMessagesClient = (queryClient: QueryClient, conversation
                     pageParams: [undefined],
                 }
             }
-            const pages = [...messages.pages]
+            let found = false
+            const pages = messages.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((message) => {
+                    if (message.id !== newMessage.id) {
+                        return message
+                    }
+                    found = true
+                    return newMessage
+                }),
+            }))
+            if (found) {
+                return { ...messages, pages }
+            }
             const firstPage = pages[0]
 
             pages[0] = {
@@ -140,8 +153,9 @@ export const useInfiniteMessagesClient = (queryClient: QueryClient, conversation
 
             return { ...messages, pages }
         })
-    }
+    }, [conversationId, limit, queryClient])
 
+    const addNewMessage = upsertMessage
 
-    return { addNewMessage }
+    return { addNewMessage, upsertMessage }
 }

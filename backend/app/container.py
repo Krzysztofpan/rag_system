@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.services.chunker.factory import ChunkerFactory
+from app.services.chat.run_registry import InMemoryRunRegistry
 from app.services.conversation_service import ConversationService
 from app.services.conversation_memory_service import ConversationMemoryService
 from app.services.document_service import DocumentService
@@ -12,6 +13,7 @@ from app.services.vector_store import VectorStore
 from app.services.message_service import MessageService
 
 _vector_store: VectorStore | None = None
+_run_registry: InMemoryRunRegistry | None = None
 
 
 def get_vector_store() -> VectorStore:
@@ -19,6 +21,13 @@ def get_vector_store() -> VectorStore:
     if _vector_store is None:
         _vector_store = VectorStore()
     return _vector_store
+
+
+def get_run_registry() -> InMemoryRunRegistry:
+    global _run_registry
+    if _run_registry is None:
+        _run_registry = InMemoryRunRegistry()
+    return _run_registry
 
 
 def create_indexing_service(
