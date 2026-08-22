@@ -4,12 +4,13 @@ from uuid import UUID
 from fastapi import UploadFile
 
 from app.db.session import get_session_factory
+from app.lib.file_types import FileTypes
 from app.lib.tracing import conversation_tracing
 from app.prompts import DOCUMENT_SUMMARY_TEMPLATE
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
 from app.services.document_service import DocumentService
-from app.services.parser import ParseQualityError, ParserFactory, Parser
+from app.services.parser import ParseQualityError, ParseResult, ParserFactory, Parser
 from app.services.parser.complex.quality_audit import ensure_chunk_quality
 from app.services.vector_store import VectorStore
 from langchain_openai import ChatOpenAI
@@ -72,10 +73,14 @@ class DocumentIndexingService:
     def create_parser(self, file: UploadFile) -> Parser:
         return self.parser_factory.create_parser(file)
 
-    def create_chunker(self, file: UploadFile) -> Chunker:
+    def create_chunker(
+        self,
+        content_type: str | FileTypes | None,
+        filename: str | None = None,
+    ) -> Chunker:
         return self.chunker_factory.create_chunker(
-            file.content_type,
-            filename=file.filename,
+            content_type,
+            filename=filename,
         )
 
     def _require_services(self) -> tuple[DocumentService, VectorStore]:
@@ -87,30 +92,53 @@ class DocumentIndexingService:
 
     async def ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
         with conversation_tracing(conversation_id, tags=["ingest"]):
-            return await self._ingest(file, conversation_id=conversation_id)
+            parser = self.create_parser(file)
+            document_service, _ = self._require_services()
 
-    async def _ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
-        self.parser = self.create_parser(file)
-        self.chunker = self.create_chunker(file)
+            document = await document_service.create_document(
+                conversation_id=conversation_id,
+                filename=file.filename or "unknown",
+                content_type=file.content_type,
+                file_size_bytes=file.size,
+            )
 
+            document_id = document.id
+            await document_service.mark_processing(document_id)
+
+            try:
+                parsed = await parser._parse()
+            except Exception as exc:
+                await document_service.mark_failed(document_id, str(exc))
+                raise
+
+            return await self.index_parsed(
+                document_id=document_id,
+                conversation_id=conversation_id,
+                parsed=parsed,
+                source_filename=file.filename or "unknown",
+                content_type=file.content_type,
+            )
+
+    async def index_parsed(
+        self,
+        *,
+        document_id: UUID,
+        conversation_id: UUID,
+        parsed: ParseResult,
+        source_filename: str,
+        content_type: str | FileTypes | None,
+    ) -> IngestResult:
+        """Chunk, store, and embed an already-created document from a ParseResult."""
         document_service, vector_store = self._require_services()
-
-        document = await document_service.create_document(
-            conversation_id=conversation_id,
-            filename=file.filename or "unknown",
-            content_type=file.content_type,
-            file_size_bytes=file.size,
+        chunker = self.create_chunker(
+            content_type,
+            filename=source_filename,
         )
-
-        document_id = document.id
-        await document_service.mark_processing(document_id)
-        parsed_markdown: str | None = None
+        parsed_markdown: str = parsed.markdown
 
         try:
-            parsed = await self.parser._parse()
-            parsed_markdown = parsed.markdown
             doc = parsed.document if parsed.document is not None else parsed.markdown
-            chunks = self.chunker._chunk(doc=doc, source_text=parsed.markdown)
+            chunks = chunker._chunk(doc=doc, source_text=parsed.markdown)
 
             kept, chunk_quality = ensure_chunk_quality(
                 chunks,
@@ -122,7 +150,7 @@ class DocumentIndexingService:
             vectors = vector_store.construct_vectors(
                 stored,
                 document_id=document_id,
-                source_filename=file.filename or "unknown",
+                source_filename=source_filename,
             )
 
             vector_store.add_vectors(

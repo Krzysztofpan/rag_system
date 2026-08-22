@@ -264,7 +264,63 @@ async def test_ingest_simple_path_passes_markdown_string_as_doc(
 async def test_create_parser_and_chunker_delegate_to_factories(markdown_upload):
     service = _service()
     assert isinstance(service.create_parser(markdown_upload), SimpleParser)
-    assert isinstance(service.create_chunker(markdown_upload), SimpleChunker)
+    assert isinstance(
+        service.create_chunker(
+            markdown_upload.content_type,
+            filename=markdown_upload.filename,
+        ),
+        SimpleChunker,
+    )
+
+
+async def test_index_parsed_indexes_precreated_document_without_upload(
+    conversation_id,
+    fake_document_service,
+    fake_vector_store,
+):
+    """index_parsed assumes the document already exists; no UploadFile involved."""
+    document = await fake_document_service.create_document(
+        conversation_id=conversation_id,
+        filename="note.md",
+        content_type=FileTypes.MD,
+    )
+    await fake_document_service.mark_processing(document.id)
+
+    service = _service(
+        document_service=fake_document_service,
+        vector_store=fake_vector_store,
+    )
+    parsed = ParseResult(
+        markdown="# Title\n\nPre-parsed body for indexing.",
+        report={"ok": True},
+    )
+
+    result = await service.index_parsed(
+        document_id=document.id,
+        conversation_id=conversation_id,
+        parsed=parsed,
+        source_filename="note.md",
+        content_type=FileTypes.MD,
+    )
+
+    assert result.document_id == document.id
+    assert result.parsed_content.startswith("# Title")
+    assert result.chunk_ids
+    assert result.parse_report["ok"] is True
+    assert result.chunk_quality["ok"] is True
+    assert fake_document_service.documents[document.id].status == DocumentStatus.ready
+    assert fake_document_service.saved_chunks[document.id]
+    assert fake_document_service.reports[document.id]["parsed_content"] == parsed.markdown
+    assert len(fake_vector_store.added) == 1
+    vectors, ns = fake_vector_store.added[0]
+    assert ns == conversation_id
+    assert len(vectors) == len(result.chunk_ids)
+    assert [e[0] for e in fake_document_service.events] == [
+        "create",
+        "processing",
+        "save_chunks",
+        "upsert_report",
+    ]
 
 
 async def test_summarize_document_writes_with_a_fresh_session(fake_document_service):
