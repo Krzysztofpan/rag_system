@@ -115,6 +115,9 @@ class ConversationService:
         summary_chain = prompt | summarization_llm
 
 
-        result = await summary_chain.ainvoke({"doc_summary": doc_summary, "conversation_title": conversation.title})
+        result = await summary_chain.ainvoke(
+            {"doc_summary": doc_summary, "conversation_title": conversation.title},
+            config={"run_name": "generate_conversation_title"},
+        )
 
         await self.change_conversation_title(conversation_id, user_id=user_id, title=result.title)

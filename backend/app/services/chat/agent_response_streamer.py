@@ -40,6 +40,7 @@ class AgentResponseStreamer:
         agent = get_agent_orchestrator()
         async for chunk in agent.astream(
             {"messages": list(self._conversation_context)},
+            config={"run_name": "chat"},
             context={
                 "conversation_id": self._conversation_id,
                 "user_id": self._user_id,

@@ -6,6 +6,7 @@ from app.agent.types import AgentContext
 from app.container import get_vector_store
 from app.db.session import get_session_factory
 from app.graphs.search_documents_graph import SearchDocumentsGraph
+from app.lib.tracing import conversation_tracing
 from app.services.document_service import DocumentService
 from app.services.fts_retriever import PostgresFTSRetriever
 
@@ -71,10 +72,19 @@ async def search_documents(
     ).build_graph()
 
     try:
-        graph_res = await search_documents_pipeline.ainvoke({
-            "query": query,
-            "search_retry_count": 0,
-        })
+        with conversation_tracing(
+            conversation_id,
+            user_id=user_id,
+            tags=["retrieval"],
+            as_root=True,
+        ):
+            graph_res = await search_documents_pipeline.ainvoke(
+                {
+                    "query": query,
+                    "search_retry_count": 0,
+                },
+                config={"run_name": "search_documents"},
+            )
     except Exception:
         logger.exception("search_documents graph failed")
         raise

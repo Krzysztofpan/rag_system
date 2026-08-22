@@ -22,4 +22,5 @@ def get_agent_orchestrator():
         system_prompt=build_system_prompt(),
         middleware=[DocumentGroundingMiddleware()],
         context_schema=AgentContext,
+        name="chat",
     )

@@ -46,7 +46,8 @@ class ConversationMemoryCompactor:
                 HumanMessage(
                     content=memory_compaction_human_message(current, transcript)
                 ),
-            ]
+            ],
+            config={"run_name": "memory_compaction"},
         )
         if not isinstance(response, ConversationMemorySummary):
             return ConversationMemorySummary.model_validate(response)

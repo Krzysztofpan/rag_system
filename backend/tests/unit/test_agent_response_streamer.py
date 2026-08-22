@@ -200,6 +200,7 @@ async def test_stream_passes_conversation_context_and_runtime_ids():
         "messages": list(streamer._conversation_context)
     }
     assert captured["kwargs"] == {
+        "config": {"run_name": "chat"},
         "context": {
             "conversation_id": streamer._conversation_id,
             "user_id": streamer._user_id,

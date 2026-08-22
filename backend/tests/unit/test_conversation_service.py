@@ -149,7 +149,8 @@ async def test_generate_conversation_title_updates_owned_conversation():
         {
             "doc_summary": "A summary of invoices",
             "conversation_title": "New Conversation",
-        }
+        },
+        config={"run_name": "generate_conversation_title"},
     )
     assert conversation.title == "Contracts and invoices"
     session.commit.assert_awaited_once()

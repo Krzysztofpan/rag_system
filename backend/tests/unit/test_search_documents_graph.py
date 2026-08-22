@@ -133,3 +133,9 @@ def test_get_cohere_client_requires_api_key(get_settings):
 
     with pytest.raises(RuntimeError, match="COHERE_API_KEY"):
         get_cohere_client()
+
+
+def test_build_graph_is_named_search_documents():
+    compiled = _graph().build_graph()
+
+    assert compiled.name == "search_documents"

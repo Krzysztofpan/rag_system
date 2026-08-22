@@ -9,6 +9,7 @@ from app.background_tasks import compact_conversation_memory
 from app.container import create_message_service
 from app.db.models import Message
 from app.db.session import get_session_factory
+from app.lib.tracing import conversation_tracing
 from app.services.chat.agent_response_streamer import AgentResponseStreamer
 from app.services.chat.event_publisher import ChatStreamPublisher
 from app.services.chat.run_session import RunSession
@@ -40,6 +41,14 @@ class ChatStreamRunner:
         )
 
     async def run(self) -> None:
+        with conversation_tracing(
+            self._conversation_id,
+            user_id=self._user_id,
+            tags=["chat"],
+        ):
+            await self._run_traced()
+
+    async def _run_traced(self) -> None:
         try:
             await self._publisher.start(
                 self._message_id,

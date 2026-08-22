@@ -57,7 +57,7 @@ class SearchDocumentsGraph:
 
         graph.set_entry_point("get_info")
 
-        return graph.compile()
+        return graph.compile(name="search_documents")
 
     async def get_info(self, state: SearchDocumentsState):
         ensemble = EnsembleRetriever(
@@ -73,7 +73,7 @@ class SearchDocumentsGraph:
 
         query = state['rewritten_query'] if state['search_retry_count'] > 0 else state['query']
 
-        docs = await ensemble.ainvoke(query)
+        docs = await ensemble.ainvoke(query, config={"run_name": "hybrid_retrieve"})
 
         return {
             "retrieved_docs": docs
@@ -115,7 +115,9 @@ class SearchDocumentsGraph:
     async def query_rewrite(self, state: SearchDocumentsState):
         # Using HYDE for rewrite query
         prompt = ChatPromptTemplate.from_template(HYDE_QUERY_REWRITE_TEMPLATE)
-        chain = prompt | self.llm_query_rewriter
+        chain = (prompt | self.llm_query_rewriter).with_config(
+            {"run_name": "hyde_query_rewrite"}
+        )
 
         res = await chain.ainvoke({"query": state['query']})
         
