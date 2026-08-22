@@ -21,6 +21,10 @@ async def search_documents(
     """
     Search the documents already selected for this conversation.
 
+    Call this before answering questions about policies, procedures, rules,
+    permissions, remote work, security, or any document facts. Do not skip
+    this tool because the answer seems obvious from general knowledge.
+
     Args:
     query: The search query. informations that user's looking for.
     top_k: Amount of chunks relevant to retrive to answer a user question, more complicated question more amount of chunks
