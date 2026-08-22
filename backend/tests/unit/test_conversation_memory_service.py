@@ -168,6 +168,7 @@ async def test_compaction_keeps_recent_messages_and_advances_watermark():
         "turn 2",
         "turn 3",
     ]
+    assert compactor.merge.await_args.kwargs == {}
     session.rollback.assert_awaited_once()
     session.commit.assert_awaited_once()
 

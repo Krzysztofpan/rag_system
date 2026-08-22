@@ -7,13 +7,14 @@ import pytest
 from app.tools.search_documents import search_documents
 
 
-def _runtime(*, conversation_id=None, user_id=None, document_ids=None):
+def _runtime(*, conversation_id=None, user_id=None, document_ids=None, config=None):
     return SimpleNamespace(
         context={
             "conversation_id": conversation_id or uuid4(),
             "user_id": user_id or uuid4(),
             "document_ids": document_ids if document_ids is not None else [uuid4()],
-        }
+        },
+        config=config,
     )
 
 
@@ -77,6 +78,13 @@ async def test_search_documents_scopes_to_owned_document_ids(
         conversation_id,
         document_ids,
         user_id=user_id,
+    )
+    graph_cls.return_value.build_graph.return_value.ainvoke.assert_awaited_once_with(
+        {
+            "query": "frontend stack",
+            "search_retry_count": 0,
+        },
+        config={"run_name": "search_documents"},
     )
     assert fts_cls.call_args.kwargs["conversation_id"] == conversation_id
     assert fts_cls.call_args.kwargs["document_ids"] == document_ids
@@ -174,3 +182,48 @@ async def test_search_documents_propagates_graph_errors(
         await search_documents.coroutine(
             query="frontend stack", top_k=5, runtime=runtime
         )
+
+
+@patch("app.tools.search_documents.DocumentService")
+@patch("app.tools.search_documents.get_session_factory")
+@patch("app.tools.search_documents.PostgresFTSRetriever")
+@patch("app.tools.search_documents.get_vector_store")
+@patch("app.tools.search_documents.SearchDocumentsGraph")
+async def test_search_documents_does_not_inherit_agent_runnable_config(
+    graph_cls,
+    get_vector_store,
+    fts_cls,
+    get_session_factory,
+    store_cls,
+):
+    conversation_id = uuid4()
+    user_id = uuid4()
+    runtime = _runtime(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        config={
+            "callbacks": ["parent-callback"],
+            "tags": ["chat"],
+            "configurable": {"checkpoint_ns": "tools:nested"},
+        },
+    )
+    get_session_factory.return_value = _session_factory()
+    store = MagicMock()
+    store.get_documents = AsyncMock()
+    store_cls.return_value = store
+    get_vector_store.return_value.get_retriever.return_value = MagicMock()
+    graph_cls.return_value.build_graph.return_value.ainvoke = AsyncMock(
+        return_value={"context": "found stack"}
+    )
+
+    await search_documents.coroutine(
+        query="frontend stack",
+        top_k=5,
+        runtime=runtime,
+    )
+
+    config = graph_cls.return_value.build_graph.return_value.ainvoke.await_args.kwargs[
+        "config"
+    ]
+    assert config == {"run_name": "search_documents"}
+    assert "callbacks" not in config

@@ -309,7 +309,10 @@ async def test_summarize_document_writes_with_a_fresh_session(fake_document_serv
             user_id,
         )
 
-    chain.ainvoke.assert_awaited_once_with({"document_content": "# Doc"})
+    chain.ainvoke.assert_awaited_once_with(
+        {"document_content": "# Doc"},
+        config={"run_name": "summarize_document"},
+    )
     store_cls.assert_called_once_with(session)
     store.add_summary_to_report.assert_awaited_once_with(
         "A short summary",

@@ -1,4 +1,7 @@
-from app.agent.agent_orchestrator import build_system_prompt
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from app.agent.agent_orchestrator import build_system_prompt, get_agent_orchestrator
 from app.tools.search_documents import search_documents
 from app.tools.summarize_context import summarize_context
 
@@ -47,3 +50,16 @@ def test_search_documents_description_requires_lookup_before_answering():
     assert "do not skip" in description
     assert "general knowledge" in description
     assert "do not ask the user" in description
+
+
+@patch("app.agent.agent_orchestrator.create_agent")
+@patch("app.agent.agent_orchestrator.get_settings")
+def test_orchestrator_graph_is_named_chat(get_settings, create_agent):
+    get_settings.return_value = SimpleNamespace(orchestrator_model="gpt-4o")
+    get_agent_orchestrator.cache_clear()
+    try:
+        get_agent_orchestrator()
+    finally:
+        get_agent_orchestrator.cache_clear()
+
+    assert create_agent.call_args.kwargs["name"] == "chat"

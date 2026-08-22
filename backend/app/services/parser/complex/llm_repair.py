@@ -112,7 +112,8 @@ def _call_llm(batch: list[_RepairTarget], model: str, api_key: str) -> dict[int,
                     json.dumps(payload, ensure_ascii=False)
                 )
             ),
-        ]
+        ],
+        config={"run_name": "llm_repair"},
     )
     content = response.content.strip()
     if content.startswith("```"):

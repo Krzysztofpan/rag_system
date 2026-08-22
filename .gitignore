@@ -1,3 +1,4 @@
 .env
 /plans/*
 .vscode/*
+.cursor/*

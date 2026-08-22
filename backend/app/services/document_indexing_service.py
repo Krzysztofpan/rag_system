@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import UploadFile
 
 from app.db.session import get_session_factory
+from app.lib.tracing import conversation_tracing
 from app.prompts import DOCUMENT_SUMMARY_TEMPLATE
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
@@ -51,7 +52,10 @@ class DocumentIndexingService:
   
         summary_chain = prompt | summarization_llm | StrOutputParser()
 
-        summary = await summary_chain.ainvoke({"document_content": document_parsed_content})
+        summary = await summary_chain.ainvoke(
+            {"document_content": document_parsed_content},
+            config={"run_name": "summarize_document"},
+        )
 
         session_factory = get_session_factory()
         async with session_factory() as session:
@@ -79,6 +83,10 @@ class DocumentIndexingService:
         return self.document_service, self.vector_store
 
     async def ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
+        with conversation_tracing(conversation_id, tags=["ingest"]):
+            return await self._ingest(file, conversation_id=conversation_id)
+
+    async def _ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
         self.parser = self.create_parser(file)
         self.chunker = self.create_chunker(file)
 
