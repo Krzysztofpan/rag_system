@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     parser_llm_model: str = "gpt-4o-mini"
     parser_ocr_repair: bool = True
     parser_llm_repair: bool = True
+    parser_image_pipeline: Literal["vlm", "standard"] = "vlm"
+    parser_vlm_model: str = "gpt-4o-mini"
+    parser_vlm_timeout: float = 90
+    parser_vlm_url: str = "https://api.openai.com/v1/chat/completions"
+    parser_image_suffixes: tuple[str, ...] = (".png", ".jpg", ".jpeg")
 
     orchestrator_model: str = "gpt-4o"
     memory_enabled: bool = True

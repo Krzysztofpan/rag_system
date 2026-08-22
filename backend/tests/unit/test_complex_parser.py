@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.services.parser.complex.parser import ComplexParser
-from app.types import FileTypes
+from app.lib.file_types import FileTypes
 from tests.helpers import make_fake_docling_document, make_upload_file
 
 
@@ -42,6 +42,53 @@ async def test_complex_parser_writes_temp_file_with_docx_suffix(docx_upload):
     assert result.markdown == "docx body"
     assert seen_paths
     # temp file cleaned up after parse
+    from pathlib import Path
+
+    assert not Path(seen_paths[0]).exists()
+
+
+async def test_complex_parser_writes_temp_file_with_png_suffix(png_upload):
+    fake_doc = make_fake_docling_document("image body")
+    seen_paths: list[str] = []
+
+    def _convert(path, **kwargs):  # noqa: ARG001
+        seen_paths.append(str(path))
+        assert str(path).endswith(".png")
+        assert path.exists()
+        return fake_doc
+
+    with patch(
+        "app.services.parser.complex.parser.convert_document",
+        side_effect=_convert,
+    ):
+        result = await ComplexParser(png_upload)._parse()
+
+    assert result.markdown == "image body"
+    assert result.content_type == FileTypes.PNG
+    assert seen_paths
+    from pathlib import Path
+
+    assert not Path(seen_paths[0]).exists()
+
+
+async def test_complex_parser_writes_temp_file_with_jpg_suffix(jpeg_upload):
+    fake_doc = make_fake_docling_document("jpeg body")
+    seen_paths: list[str] = []
+
+    def _convert(path, **kwargs):  # noqa: ARG001
+        seen_paths.append(str(path))
+        assert str(path).endswith(".jpg")
+        assert path.exists()
+        return fake_doc
+
+    with patch(
+        "app.services.parser.complex.parser.convert_document",
+        side_effect=_convert,
+    ):
+        result = await ComplexParser(jpeg_upload)._parse()
+
+    assert result.content_type == FileTypes.JPEG
+    assert seen_paths
     from pathlib import Path
 
     assert not Path(seen_paths[0]).exists()

@@ -1,6 +1,6 @@
 from app.services.parser.base import ensure_real_newlines
 from app.services.parser.simple import SimpleParser
-from app.types import FileTypes
+from app.lib.file_types import FileTypes
 from tests.helpers import make_upload_file
 
 
