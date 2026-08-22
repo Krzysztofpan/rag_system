@@ -15,7 +15,7 @@ from app.services.parser.base import ParseQualityError, ParseResult
 from app.services.parser.complex.ocr_repair import REPLACEMENT_CHAR
 from app.services.parser.factory import ParserFactory
 from app.services.parser.simple import SimpleParser
-from app.types import FileTypes
+from app.lib.file_types import FileTypes
 from tests.helpers import (
     FakeChunker,
     FakeChunkerFactory,
@@ -106,7 +106,7 @@ async def test_ingest_complex_path_passes_docling_document_to_chunker(
     captured: dict = {}
 
     class CapturingChunkerFactory:
-        def create_chunker(self, content_type):
+        def create_chunker(self, content_type, filename=None):
             assert content_type == FileTypes.PDF
 
             class Wrapper:
@@ -154,7 +154,7 @@ async def test_ingest_docx_complex_path(
     fake_doc = make_fake_docling_document("DOCX content")
 
     class StubChunkerFactory:
-        def create_chunker(self, content_type):
+        def create_chunker(self, content_type, filename=None):
             assert content_type == FileTypes.DOCX
             return FakeChunker([make_chunk("DOCX content", token_count=2)])
 

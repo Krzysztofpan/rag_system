@@ -7,20 +7,22 @@ from app.services.parser.base import (
     Parser,
     ensure_real_newlines,
 )
-from app.types import FileTypes
+from app.lib.file_types import FileTypes, resolve_file_type
 from app.services.parser.complex.converter import convert_document
 from app.services.parser.complex.quality_audit import audit_markdown
 
 _CONTENT_TYPE_SUFFIX = {
     FileTypes.PDF: ".pdf",
     FileTypes.DOCX: ".docx",
+    FileTypes.PNG: ".png",
+    FileTypes.JPEG: ".jpg",
 }
 
 
 class ComplexParser(Parser):
     async def _parse(self) -> ParseResult:
         settings = get_settings()
-        content_type = self.file.content_type or FileTypes.PDF
+        content_type = resolve_file_type(self.file.content_type, self.file.filename)
         suffix = _CONTENT_TYPE_SUFFIX.get(content_type, ".pdf")
         payload = await self.file.read()
 
@@ -47,6 +49,6 @@ class ComplexParser(Parser):
             markdown=markdown,
             report=report,
             filename=self.file.filename,
-            content_type=self.file.content_type,
+            content_type=content_type,
             document=document,
         )

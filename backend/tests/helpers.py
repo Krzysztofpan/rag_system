@@ -91,7 +91,7 @@ class FakeChunkerFactory:
         self.chunker = chunker
         self.calls: list[str | None] = []
 
-    def create_chunker(self, content_type) -> FakeChunker:
+    def create_chunker(self, content_type, filename=None) -> FakeChunker:
         self.calls.append(content_type)
         return self.chunker
 

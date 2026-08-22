@@ -1,5 +1,5 @@
 from app.services.chunker.simple import SimpleChunker
-from app.types import FileTypes
+from app.lib.file_types import FileTypes
 
 
 def test_simple_chunker_splits_markdown_with_offsets_and_no_context():

@@ -1,5 +1,5 @@
 from app.services.chunker.base import ChunkResult, Chunker
-from app.types import FileTypes
+from app.lib.file_types import FileTypes
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 _MARKDOWN_SEPARATORS = [

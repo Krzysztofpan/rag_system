@@ -73,7 +73,10 @@ class DocumentIndexingService:
         return self.parser_factory.create_parser(file)
 
     def create_chunker(self, file: UploadFile) -> Chunker:
-        return self.chunker_factory.create_chunker(file.content_type)
+        return self.chunker_factory.create_chunker(
+            file.content_type,
+            filename=file.filename,
+        )
 
     def _require_services(self) -> tuple[DocumentService, VectorStore]:
         if self.document_service is None:

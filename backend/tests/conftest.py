@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import UploadFile
 
-from app.types import FileTypes
+from app.lib.file_types import FileTypes
 from tests.helpers import (
     FakeDocumentService,
     FakeVectorStore,
@@ -62,4 +62,22 @@ def docx_upload() -> UploadFile:
         b"PK\x03\x04fake-docx",
         content_type=FileTypes.DOCX,
         filename="doc.docx",
+    )
+
+
+@pytest.fixture
+def png_upload() -> UploadFile:
+    return make_upload_file(
+        b"\x89PNG\r\n\x1a\n",
+        content_type=FileTypes.PNG,
+        filename="photo.png",
+    )
+
+
+@pytest.fixture
+def jpeg_upload() -> UploadFile:
+    return make_upload_file(
+        b"\xff\xd8\xff",
+        content_type=FileTypes.JPEG,
+        filename="photo.jpg",
     )

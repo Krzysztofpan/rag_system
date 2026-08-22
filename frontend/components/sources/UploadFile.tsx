@@ -5,6 +5,16 @@ import { Button } from '../ui/button'
 import { useSidebar } from '../ui/sidebar'
 
 
+const ACCEPTED_SOURCE_EXTENSIONS = [
+    '.pdf',
+    '.docx',
+    '.txt',
+    '.md',
+    '.png',
+    '.jpg',
+    '.jpeg',
+] as const
+
 type UploadFileBtn = {
     handleSelectSource: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -30,7 +40,7 @@ const UploadFilePage = ({ handleSelectSource }: UploadFileBtn) => {
                 <Plus />
                 {!isCollapsed && 'Add source'}
             </Button>
-            <input type="file" accept=".pdf,.docx,.txt,.md" className="hidden" ref={fileRef} onChange={handleSelectSource} />
+            <input type="file" accept={ACCEPTED_SOURCE_EXTENSIONS.join(',')} className="hidden" ref={fileRef} onChange={handleSelectSource} />
         </div>
     )
 }

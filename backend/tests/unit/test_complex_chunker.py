@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.services.chunker.complex import ComplexChunker
-from app.types import FileTypes
+from app.lib.file_types import FileTypes
 
 
 def test_resolve_offsets_finds_substring_and_advances_search():

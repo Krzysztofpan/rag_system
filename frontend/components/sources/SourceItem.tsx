@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useEditSourceName } from '@/hooks/useEditSourceName'
-import { IconsMap } from '@/types/IconsMap'
+import { sourceIconSrc } from '@/types/IconsMap'
 import type { Source } from '@/types/source'
 
 import { useSidebar } from '../ui/sidebar'
@@ -26,7 +26,7 @@ const SourceItem = ({ source }: SourceItemProps) => {
 
     const isCollapsed = state === 'collapsed'
     const isPending = status === 'pending' || status === 'processing'
-    const iconSrc = contentType ? IconsMap[contentType] : undefined
+    const iconSrc = sourceIconSrc(contentType, filename)
 
     const handleNameChange = (newName: string) => {
         editSourceName({ documentId: source.id, name: newName })
