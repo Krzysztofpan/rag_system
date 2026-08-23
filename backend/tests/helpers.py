@@ -11,6 +11,7 @@ from fastapi import UploadFile
 from starlette.datastructures import Headers
 
 from app.db.models.document import Document, DocumentStatus
+from app.schemas.origin import FileOrigin, YoutubeOrigin, dump_origin
 from app.services.chunker.base import ChunkResult
 from app.services.parser.base import ParseResult, Parser
 
@@ -109,14 +110,14 @@ class FakeDocumentService:
         conversation_id: UUID,
         filename: str,
         content_type: str | None = None,
-        file_size_bytes: int | None = None,
+        origin: FileOrigin | YoutubeOrigin | None = None,
     ) -> Document:
         document = Document(
             id=uuid4(),
             conversation_id=conversation_id,
             filename=filename,
             content_type=content_type,
-            file_size_bytes=file_size_bytes,
+            origin=dump_origin(origin) if origin is not None else None,
             status=DocumentStatus.pending,
         )
         self.documents[document.id] = document
@@ -140,6 +141,14 @@ class FakeDocumentService:
         stored = [(uuid4(), chunk) for chunk in chunks]
         self.events.append(("save_chunks", document_id, len(chunks)))
         return stored
+
+    async def update_document_origin(
+        self,
+        document_id: UUID,
+        origin: FileOrigin | YoutubeOrigin,
+    ) -> None:
+        self.documents[document_id].origin = dump_origin(origin)
+        self.events.append(("update_origin", document_id, origin))
 
     async def mark_failed(self, document_id: UUID, message: str) -> None:
         document = self.documents[document_id]

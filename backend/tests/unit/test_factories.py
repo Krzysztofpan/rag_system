@@ -39,6 +39,12 @@ def test_parser_factory_routes_png_by_suffix_when_mime_missing():
     assert isinstance(parser, ComplexParser)
 
 
+def test_parser_factory_rejects_youtube_mime():
+    upload = make_upload_file("body", content_type=FileTypes.YOUTUBE, filename="f")
+    with pytest.raises(ValueError, match="Unexpected file type"):
+        ParserFactory.create_parser(upload)
+
+
 def test_parser_factory_rejects_unknown_mime():
     upload = make_upload_file("body", content_type="application/zip", filename="f.zip")
     with pytest.raises(ValueError, match="Unexpected file type"):
@@ -56,6 +62,7 @@ def test_parser_factory_rejects_missing_mime():
     [
         (FileTypes.MD, SimpleChunker),
         (FileTypes.TXT, SimpleChunker),
+        (FileTypes.YOUTUBE, SimpleChunker),
         (FileTypes.PDF, ComplexChunker),
         (FileTypes.DOCX, ComplexChunker),
         (FileTypes.PNG, ComplexChunker),

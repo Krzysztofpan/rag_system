@@ -1,11 +1,11 @@
 import type { UploadSourceResponse } from '@/services/api/types'
 import type { Source } from '@/types/source'
 
-export function createPendingSource(file: File): Source {
+export function createPendingSource(name: string, type: string | null): Source {
     return {
         id: crypto.randomUUID(),
-        filename: file.name,
-        contentType: file.type || null,
+        filename: name,
+        contentType: type,
         status: 'pending',
         error: null,
         chunkCount: 0,

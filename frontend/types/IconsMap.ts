@@ -5,6 +5,7 @@ import mdIcon from '@/src/assets/icons/md-icon.png'
 import pdfIcon from '@/src/assets/icons/pdf-icon.png'
 import pngIcon from '@/src/assets/icons/png-icon.png'
 import txtIcon from '@/src/assets/icons/txt-icon.png'
+import youtubeIcon from '@/src/assets/icons/youtube-icon.png'
 
 export const IconsMap: Record<string, string> = {
     'application/pdf': pdfIcon,
@@ -14,6 +15,7 @@ export const IconsMap: Record<string, string> = {
     'image/png': pngIcon,
     'image/jpeg': jpegIcon,
     'image/jpg': jpgIcon,
+    'video/youtube': youtubeIcon,
 }
 
 const SUFFIX_ICONS: Record<string, string> = {

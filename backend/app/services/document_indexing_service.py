@@ -7,6 +7,7 @@ from app.db.session import get_session_factory
 from app.lib.file_types import FileTypes
 from app.lib.tracing import conversation_tracing
 from app.prompts import DOCUMENT_SUMMARY_TEMPLATE
+from app.schemas.origin import FileOrigin
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
 from app.services.document_service import DocumentService
@@ -99,7 +100,7 @@ class DocumentIndexingService:
                 conversation_id=conversation_id,
                 filename=file.filename or "unknown",
                 content_type=file.content_type,
-                file_size_bytes=file.size,
+                origin=FileOrigin(file_size_bytes=file.size),
             )
 
             document_id = document.id
