@@ -29,12 +29,6 @@ export type DeleteSourceResponse = {
 
 export type SourceReportResponse = SourceReport
 
-export type UploadSourceResponse = {
-    source: SourceResponse | null;
-    report: SourceReportResponse | null;
-    error: string | null;
-}
-
 export type GetMessagesResponse = {
     messages: Message[];
     hasMore: boolean;

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -18,6 +19,14 @@ from app.db.models.document_report import DocumentReport
 from app.db.session import get_session
 from app.routes.conversation_routes import conversation_router
 from tests.helpers import FakeVectorStore
+
+
+def _mark_processing(document: Document) -> AsyncMock:
+    async def mark_processing(_document_id):
+        document.status = DocumentStatus.processing
+        return document
+
+    return AsyncMock(side_effect=mark_processing)
 
 
 @pytest.fixture
@@ -151,7 +160,7 @@ def test_ingest_source_url_returns_202_and_queues_background(
         ) as create_document,
         patch(
             "app.services.document_service.DocumentService.mark_processing",
-            new=AsyncMock(),
+            new=_mark_processing(document),
         ),
         patch(
             "app.routes.conversation_routes.ingest_youtube_source",
@@ -177,6 +186,100 @@ def test_ingest_source_url_returns_202_and_queues_background(
     assert background.await_args.args[1] == document.id
     assert background.await_args.args[2] == authenticated_user.user_id
     assert background.await_args.args[4] == "dQw4w9wgXcQ"
+
+
+def test_ingest_source_document_rejects_unsupported_type_without_creating_document(client):
+    conversation_id = uuid4()
+
+    with patch(
+        "app.services.document_service.DocumentService.create_document",
+        new=AsyncMock(),
+    ) as create_document:
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/document",
+            files={"file": ("archive.zip", b"PK", "application/zip")},
+        )
+
+    assert response.status_code == 400
+    create_document.assert_not_called()
+
+
+def test_ingest_source_document_returns_202_and_queues_background(
+    client,
+    authenticated_user,
+):
+    conversation_id = uuid4()
+    document = Document(
+        conversation_id=conversation_id,
+        filename="note.md",
+        content_type="text/markdown",
+        status=DocumentStatus.pending,
+    )
+    tmp_path = Path("/tmp/fake-note.md")
+
+    with (
+        patch(
+            "app.services.conversation_service.ConversationService.get_conversation",
+            new=AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(return_value=document),
+        ) as create_document,
+        patch(
+            "app.services.document_service.DocumentService.mark_processing",
+            new=_mark_processing(document),
+        ),
+        patch(
+            "app.routes.conversation_routes.save_upload_to_temp",
+            new=AsyncMock(return_value=(tmp_path, 12)),
+        ),
+        patch(
+            "app.routes.conversation_routes.ingest_document_source",
+            new=AsyncMock(),
+        ) as background,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/document",
+            files={"file": ("note.md", b"# hello world", "text/markdown")},
+        )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["id"] == str(document.id)
+    assert payload["status"] == "processing"
+    assert payload["contentType"] == "text/markdown"
+    assert payload["filename"] == "note.md"
+    origin = create_document.await_args.kwargs["origin"]
+    assert origin.kind == "file"
+    assert origin.file_size_bytes == 12
+    background.assert_awaited_once()
+    assert background.await_args.args[1] == document.id
+    assert background.await_args.args[2] == authenticated_user.user_id
+    assert background.await_args.args[3] == str(tmp_path)
+    assert background.await_args.args[4] == "note.md"
+
+
+def test_ingest_source_document_missing_conversation_returns_404(client):
+    conversation_id = uuid4()
+
+    with (
+        patch(
+            "app.services.conversation_service.ConversationService.get_conversation",
+            new=AsyncMock(side_effect=ValueError("Conversation missing")),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(),
+        ) as create_document,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/document",
+            files={"file": ("note.md", b"# hello", "text/markdown")},
+        )
+
+    assert response.status_code == 404
+    create_document.assert_not_called()
 
 
 def test_ingest_source_url_missing_conversation_returns_404(client):

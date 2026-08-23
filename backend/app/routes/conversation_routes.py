@@ -1,12 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from typing import Annotated
 from fastapi import Query
 from app.schemas.message import GetConversationMessagesResponse
 
 from app.auth.deps import get_current_user
+from app.background_tasks.document_background import ingest_document_source
 from app.background_tasks.youtube_background import ingest_youtube_source
 from app.dependencies import (
     ConversationServiceDep,
@@ -14,10 +15,10 @@ from app.dependencies import (
     DocumentServiceDep,
     MessageServiceDep
 )
-from app.db.models.document import DocumentStatus
-from app.lib.file_types import FileTypes
+from app.lib.file_types import FileTypes, resolve_document_file_type
+from app.lib.upload_temp import save_upload_to_temp
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
-from app.schemas.origin import YoutubeOrigin
+from app.schemas.origin import FileOrigin, YoutubeOrigin
 from app.schemas.conversation import (
     CreateConversationResponse,
     GetConversationsResponse,
@@ -158,8 +159,7 @@ async def ingest_source_url(
         content_type=FileTypes.YOUTUBE,
         origin=YoutubeOrigin(video_id=video.video_id, url=video.url),
     )
-    await document_service.mark_processing(document.id)
-    document.status = DocumentStatus.processing
+    document = await document_service.mark_processing(document.id)
 
     background_tasks.add_task(
         ingest_youtube_source,
@@ -169,6 +169,60 @@ async def ingest_source_url(
         video.url,
         video.video_id,
     )
+    return source_from_document(document)
+
+
+@conversation_router.post(
+    "/{conversation_id}/sources/document",
+    response_model=SourceResponse,
+    status_code=202,
+)
+async def ingest_source_document(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
+    document_service: DocumentServiceDep,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+) -> SourceResponse:
+    try:
+        resolve_document_file_type(file.content_type, file.filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        await conversation_service.get_conversation(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    filename = file.filename or "unknown"
+    content_type = file.content_type
+    path, size = await save_upload_to_temp(file)
+    try:
+        document = await document_service.create_document(
+            conversation_id=conversation_id,
+            filename=filename,
+            content_type=content_type,
+            origin=FileOrigin(file_size_bytes=size),
+        )
+        document = await document_service.mark_processing(document.id)
+
+        background_tasks.add_task(
+            ingest_document_source,
+            conversation_id,
+            document.id,
+            current_user.user_id,
+            str(path),
+            filename,
+            content_type,
+        )
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+
     return source_from_document(document)
 
 

@@ -47,11 +47,13 @@ class DocumentService:
         await self.session.refresh(document)
         return document
 
-    async def mark_processing(self, document_id: UUID) -> None:
+    async def mark_processing(self, document_id: UUID) -> Document:
         document = await self._get_by_id(document_id)
         document.status = DocumentStatus.processing
         document.updated_at = datetime.now(UTC)
         await self.session.commit()
+        await self.session.refresh(document)
+        return document
 
     async def get_conversation_documents(
         self,

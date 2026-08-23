@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.db.models.document import DocumentStatus
+from app.schemas.origin import FileOrigin
 from app.services.chunker.factory import ChunkerFactory
 from app.services.chunker.simple import SimpleChunker
 from app.services.document_indexing_service import DocumentIndexingService
@@ -43,16 +44,35 @@ def _service(
     )
 
 
+async def _prepare_document(fake_document_service, conversation_id, upload):
+    document = await fake_document_service.create_document(
+        conversation_id=conversation_id,
+        filename=upload.filename or "unknown",
+        content_type=upload.content_type,
+        origin=FileOrigin(file_size_bytes=upload.size),
+    )
+    await fake_document_service.mark_processing(document.id)
+    return document
+
+
 async def test_ingest_requires_document_service(markdown_upload, conversation_id):
     service = _service(vector_store=FakeVectorStore())
     with pytest.raises(RuntimeError, match="DocumentService is required"):
-        await service.ingest(markdown_upload, conversation_id=conversation_id)
+        await service.ingest(
+            markdown_upload,
+            conversation_id=conversation_id,
+            document_id=uuid4(),
+        )
 
 
 async def test_ingest_requires_vector_store(markdown_upload, conversation_id, fake_document_service):
     service = _service(document_service=fake_document_service)
     with pytest.raises(RuntimeError, match="VectorStore is required"):
-        await service.ingest(markdown_upload, conversation_id=conversation_id)
+        await service.ingest(
+            markdown_upload,
+            conversation_id=conversation_id,
+            document_id=uuid4(),
+        )
 
 
 async def test_ingest_simple_path_happy(
@@ -63,8 +83,15 @@ async def test_ingest_simple_path_happy(
 ):
     """MD/TXT: real SimpleParser + SimpleChunker through the full ingest pipeline."""
     service = _service(document_service=fake_document_service, vector_store=fake_vector_store)
+    document = await _prepare_document(
+        fake_document_service, conversation_id, markdown_upload
+    )
 
-    result = await service.ingest(markdown_upload, conversation_id=conversation_id)
+    result = await service.ingest(
+        markdown_upload,
+        conversation_id=conversation_id,
+        document_id=document.id,
+    )
 
     document = fake_document_service.documents[result.document_id]
     assert document.status == DocumentStatus.ready
@@ -92,7 +119,12 @@ async def test_ingest_text_path_uses_simple_parser_and_chunker(
     fake_vector_store,
 ):
     service = _service(document_service=fake_document_service, vector_store=fake_vector_store)
-    result = await service.ingest(text_upload, conversation_id=conversation_id)
+    document = await _prepare_document(fake_document_service, conversation_id, text_upload)
+    result = await service.ingest(
+        text_upload,
+        conversation_id=conversation_id,
+        document_id=document.id,
+    )
 
     assert "Plain text" in result.parsed_content
     assert fake_document_service.documents[result.document_id].status == DocumentStatus.ready
@@ -140,7 +172,14 @@ async def test_ingest_complex_path_passes_docling_document_to_chunker(
             document_service=fake_document_service,
             vector_store=fake_vector_store,
         )
-        result = await service.ingest(pdf_upload, conversation_id=conversation_id)
+        document = await _prepare_document(
+            fake_document_service, conversation_id, pdf_upload
+        )
+        result = await service.ingest(
+            pdf_upload,
+            conversation_id=conversation_id,
+            document_id=document.id,
+        )
 
     assert captured["doc"] is fake_doc
     assert captured["source_text"] == "# PDF Title\n\nParsed PDF body for chunking."
@@ -171,7 +210,14 @@ async def test_ingest_docx_complex_path(
             document_service=fake_document_service,
             vector_store=fake_vector_store,
         )
-        result = await service.ingest(docx_upload, conversation_id=conversation_id)
+        document = await _prepare_document(
+            fake_document_service, conversation_id, docx_upload
+        )
+        result = await service.ingest(
+            docx_upload,
+            conversation_id=conversation_id,
+            document_id=document.id,
+        )
 
     assert result.parsed_content == "DOCX content"
     assert fake_document_service.documents[result.document_id].status == DocumentStatus.ready
@@ -200,8 +246,13 @@ async def test_ingest_marks_failed_on_parse_quality_error(
         vector_store=fake_vector_store,
     )
 
+    document = await _prepare_document(fake_document_service, conversation_id, upload)
     with pytest.raises(ParseQualityError) as exc_info:
-        await service.ingest(upload, conversation_id=conversation_id)
+        await service.ingest(
+            upload,
+            conversation_id=conversation_id,
+            document_id=document.id,
+        )
 
     document_id = exc_info.value.document_id
     assert document_id is not None
@@ -231,8 +282,13 @@ async def test_ingest_marks_failed_on_generic_error(
         vector_store=fake_vector_store,
     )
 
+    document = await _prepare_document(fake_document_service, conversation_id, upload)
     with pytest.raises(RuntimeError, match="parse exploded"):
-        await service.ingest(upload, conversation_id=conversation_id)
+        await service.ingest(
+            upload,
+            conversation_id=conversation_id,
+            document_id=document.id,
+        )
 
     document = next(iter(fake_document_service.documents.values()))
     assert document.status == DocumentStatus.failed
@@ -258,8 +314,13 @@ async def test_ingest_simple_path_passes_markdown_string_as_doc(
         document_service=fake_document_service,
         vector_store=fake_vector_store,
     )
+    document = await _prepare_document(fake_document_service, conversation_id, upload)
 
-    await service.ingest(upload, conversation_id=conversation_id)
+    await service.ingest(
+        upload,
+        conversation_id=conversation_id,
+        document_id=document.id,
+    )
 
     assert chunker.calls[0]["doc"] == "hello chunk"
     assert chunker.calls[0]["source_text"] == "hello chunk"

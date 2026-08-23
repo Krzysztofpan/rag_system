@@ -26,6 +26,15 @@ _SUFFIX_TO_TYPE = {
     ".jpeg": FileTypes.JPEG,
 }
 
+DOCUMENT_FILE_TYPES = frozenset({
+    FileTypes.PDF,
+    FileTypes.DOCX,
+    FileTypes.MD,
+    FileTypes.TXT,
+    FileTypes.PNG,
+    FileTypes.JPEG,
+})
+
 
 def resolve_file_type(
     content_type: str | None,
@@ -42,3 +51,14 @@ def resolve_file_type(
     if suffix in _SUFFIX_TO_TYPE:
         return _SUFFIX_TO_TYPE[suffix]
     raise ValueError(f"Unexpected file type: {content_type!r}")
+
+
+def resolve_document_file_type(
+    content_type: str | None,
+    filename: str | None = None,
+) -> FileTypes:
+    """Resolve a file type that this endpoint can ingest as an uploaded document."""
+    resolved = resolve_file_type(content_type, filename)
+    if resolved not in DOCUMENT_FILE_TYPES:
+        raise ValueError(f"Unexpected file type: {content_type!r}")
+    return resolved

@@ -7,7 +7,6 @@ from app.db.session import get_session_factory
 from app.lib.file_types import FileTypes
 from app.lib.tracing import conversation_tracing
 from app.prompts import DOCUMENT_SUMMARY_TEMPLATE
-from app.schemas.origin import FileOrigin
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker import ChunkerFactory, Chunker
 from app.services.document_service import DocumentService
@@ -91,20 +90,16 @@ class DocumentIndexingService:
             raise RuntimeError("VectorStore is required")
         return self.document_service, self.vector_store
 
-    async def ingest(self, file: UploadFile, *, conversation_id: UUID) -> IngestResult:
+    async def ingest(
+        self,
+        file: UploadFile,
+        *,
+        conversation_id: UUID,
+        document_id: UUID,
+    ) -> IngestResult:
         with conversation_tracing(conversation_id, tags=["ingest"]):
             parser = self.create_parser(file)
             document_service, _ = self._require_services()
-
-            document = await document_service.create_document(
-                conversation_id=conversation_id,
-                filename=file.filename or "unknown",
-                content_type=file.content_type,
-                origin=FileOrigin(file_size_bytes=file.size),
-            )
-
-            document_id = document.id
-            await document_service.mark_processing(document_id)
 
             try:
                 parsed = await parser._parse()
