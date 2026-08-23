@@ -1,18 +1,23 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from typing import Annotated
 from fastapi import Query
 from app.schemas.message import GetConversationMessagesResponse
 
 from app.auth.deps import get_current_user
+from app.background_tasks.youtube_background import ingest_youtube_source
 from app.dependencies import (
     ConversationServiceDep,
     CurrentUserDep,
     DocumentServiceDep,
     MessageServiceDep
 )
+from app.db.models.document import DocumentStatus
+from app.lib.file_types import FileTypes
+from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
+from app.schemas.origin import YoutubeOrigin
 from app.schemas.conversation import (
     CreateConversationResponse,
     GetConversationsResponse,
@@ -22,7 +27,9 @@ from app.schemas.conversation import (
 from app.schemas.source import (
     DeleteSourceResponse,
     GetSourcesResponse,
+    IngestUrlRequest,
     SourceReportResponse,
+    SourceResponse,
     report_from_document_report,
     source_from_document,
 )
@@ -118,6 +125,52 @@ async def get_conversation_messages(
         has_more=message_page.has_more
     )
    
+
+@conversation_router.post(
+    "/{conversation_id}/sources/url",
+    response_model=SourceResponse,
+    status_code=202,
+)
+async def ingest_source_url(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
+    document_service: DocumentServiceDep,
+    background_tasks: BackgroundTasks,
+    body: IngestUrlRequest,
+) -> SourceResponse:
+    try:
+        video = parse_youtube_url(body.url)
+    except InvalidYoutubeUrlError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        await conversation_service.get_conversation(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    document = await document_service.create_document(
+        conversation_id=conversation_id,
+        filename=f"youtube:{video.video_id}",
+        content_type=FileTypes.YOUTUBE,
+        origin=YoutubeOrigin(video_id=video.video_id, url=video.url),
+    )
+    await document_service.mark_processing(document.id)
+    document.status = DocumentStatus.processing
+
+    background_tasks.add_task(
+        ingest_youtube_source,
+        conversation_id,
+        document.id,
+        current_user.user_id,
+        video.url,
+        video.video_id,
+    )
+    return source_from_document(document)
+
 
 @conversation_router.get(
     "/{conversation_id}/sources",

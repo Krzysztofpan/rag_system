@@ -29,7 +29,7 @@ function SourceSection() {
         unselectedSourcesIds: unselectedIds,
         sourcesResponseObject: { data: sources = [], isLoading, error },
     } = useConversationContext()
-    const { uploadSource } = useSourcesClient(conversationId)
+    const { uploadSource, addUrlSource } = useSourcesClient(conversationId)
 
     const isCollapsed = state === 'collapsed'
 
@@ -47,7 +47,12 @@ function SourceSection() {
             </div>
             <Separator />
             <div className={`min-h-0 flex-1 overflow-y-auto flex flex-col py-4 ${isCollapsed ? 'items-center gap-2' : 'px-7 gap-6'}`}>
-                <UploadFilePage handleSelectSource={handleSelectSource} />
+                <UploadFilePage
+                    handleSelectSource={handleSelectSource}
+                    handleAddYoutubeUrl={(url) => {
+                        void addUrlSource(url)
+                    }}
+                />
 
                 <div>
                     {!isLoading && !error && sources.length > 0

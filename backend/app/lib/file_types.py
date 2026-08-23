@@ -9,6 +9,7 @@ class FileTypes(str, Enum):
     TXT = "text/plain"
     PNG = "image/png"
     JPEG = "image/jpeg"
+    YOUTUBE = "video/youtube"
 
 
 _MIME_ALIASES = {

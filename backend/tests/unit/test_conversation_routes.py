@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -110,6 +110,95 @@ def test_get_conversations_returns_service_result(client, authenticated_user):
 
     assert response.status_code == 200
     assert len(response.json()['conversations']) == 2
+
+
+def test_ingest_source_url_rejects_invalid_url_without_creating_document(client):
+    conversation_id = uuid4()
+
+    with patch(
+        "app.services.document_service.DocumentService.create_document",
+        new=AsyncMock(),
+    ) as create_document:
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/url",
+            json={"url": "https://example.com/watch?v=dQw4w9wgXcQ"},
+        )
+
+    assert response.status_code == 400
+    create_document.assert_not_called()
+
+
+def test_ingest_source_url_returns_202_and_queues_background(
+    client,
+    authenticated_user,
+):
+    conversation_id = uuid4()
+    document = Document(
+        conversation_id=conversation_id,
+        filename="youtube:dQw4w9wgXcQ",
+        content_type="video/youtube",
+        status=DocumentStatus.pending,
+    )
+
+    with (
+        patch(
+            "app.services.conversation_service.ConversationService.get_conversation",
+            new=AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(return_value=document),
+        ) as create_document,
+        patch(
+            "app.services.document_service.DocumentService.mark_processing",
+            new=AsyncMock(),
+        ),
+        patch(
+            "app.routes.conversation_routes.ingest_youtube_source",
+            new=AsyncMock(),
+        ) as background,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/url",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9wgXcQ"},
+        )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["id"] == str(document.id)
+    assert payload["status"] == "processing"
+    assert payload["contentType"] == "video/youtube"
+    assert payload["filename"] == "youtube:dQw4w9wgXcQ"
+    origin = create_document.await_args.kwargs["origin"]
+    assert origin.kind == "youtube"
+    assert origin.video_id == "dQw4w9wgXcQ"
+    assert origin.url == "https://www.youtube.com/watch?v=dQw4w9wgXcQ"
+    background.assert_awaited_once()
+    assert background.await_args.args[1] == document.id
+    assert background.await_args.args[2] == authenticated_user.user_id
+    assert background.await_args.args[4] == "dQw4w9wgXcQ"
+
+
+def test_ingest_source_url_missing_conversation_returns_404(client):
+    conversation_id = uuid4()
+
+    with (
+        patch(
+            "app.services.conversation_service.ConversationService.get_conversation",
+            new=AsyncMock(side_effect=ValueError("Conversation missing")),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(),
+        ) as create_document,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/url",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9wgXcQ"},
+        )
+
+    assert response.status_code == 404
+    create_document.assert_not_called()
 
 
 def test_get_sources_returns_documents(client, authenticated_user):

@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { useAuthQuery } from '@/hooks/useAuthQuery'
@@ -5,6 +6,18 @@ import { useUserQueryKey } from '@/hooks/useUserQueryKey'
 import { applyUploadResponse, createPendingSource, rejectSource } from '@/lib/source'
 import { apiService } from '@/services/api/apiService'
 import type { Source } from '@/types/source'
+
+function sourceRequestError(error: unknown): string {
+    if (!isAxiosError(error)) {
+        return 'Server didn\'t respond'
+    }
+    const payload: unknown = error.response?.data
+    if (typeof payload !== 'object' || payload === null) {
+        return 'Server didn\'t respond'
+    }
+    const detail: unknown = Reflect.get(payload, 'detail')
+    return typeof detail === 'string' ? detail : 'Server didn\'t respond'
+}
 
 export const useSources = (conversationId: string | null) => {
     return useAuthQuery({
@@ -14,6 +27,12 @@ export const useSources = (conversationId: string | null) => {
             return response.conversationSources
         },
         enabled: !!conversationId,
+        refetchInterval: (query) => {
+            const sources = query.state.data
+            return sources?.some((source) => source.status === 'pending' || source.status === 'processing')
+                ? 2000
+                : false
+        },
     })
 }
 
@@ -55,8 +74,21 @@ export const useSourcesClient = (conversationId: string) => {
         queryClient.setQueryData<Source[]>(queryKey, (current = []) => current.map((source) => (source.id === sourceId ? nextSource : source)))
     }
 
+    const addUrlSource = async (url: string) => {
+        const pendingSource = createPendingSource(url, 'video/youtube')
+        addSource(pendingSource)
+
+        try {
+            const source = await apiService.addUrlSource(conversationId, url)
+            replaceSource(pendingSource.id, source)
+        }
+        catch (error) {
+            replaceSource(pendingSource.id, rejectSource(pendingSource, sourceRequestError(error)))
+        }
+    }
+
     const uploadSource = async (file: File) => {
-        const pendingSource = createPendingSource(file)
+        const pendingSource = createPendingSource(file.name, file.type || null)
         addSource(pendingSource)
 
         try {
@@ -89,6 +121,7 @@ export const useSourcesClient = (conversationId: string) => {
         deleteSource,
         insertSourceInIndex,
         replaceSource,
+        addUrlSource,
         uploadSource,
         editSourceName,
     }

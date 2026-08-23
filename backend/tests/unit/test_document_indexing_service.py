@@ -69,6 +69,10 @@ async def test_ingest_simple_path_happy(
     document = fake_document_service.documents[result.document_id]
     assert document.status == DocumentStatus.ready
     assert document.filename == "note.md"
+    assert document.origin == {
+        "kind": "file",
+        "file_size_bytes": markdown_upload.size,
+    }
     assert result.parsed_content.startswith("# Title")
     assert result.chunk_ids
     assert result.parse_report["ok"] is True

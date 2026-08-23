@@ -39,6 +39,10 @@ class UploadSourceResponse(APIModel):
     error: str | None = None
 
 
+class IngestUrlRequest(APIModel):
+    url: str
+
+
 def source_from_document(document: Document) -> SourceResponse:
     return SourceResponse(
         id=str(document.id),

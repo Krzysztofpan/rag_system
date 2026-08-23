@@ -10,6 +10,7 @@ from app.db.models.chunk import Chunk
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
+from app.schemas.origin import FileOrigin, YoutubeOrigin, dump_origin
 from app.services.chunker import ChunkResult
 from app.services.vector_store import VectorStore
 
@@ -31,13 +32,13 @@ class DocumentService:
         conversation_id: UUID,
         filename: str,
         content_type: str | None = None,
-        file_size_bytes: int | None = None,
+        origin: FileOrigin | YoutubeOrigin | None = None,
     ) -> Document:
         document = Document(
             conversation_id=conversation_id,
             filename=filename,
             content_type=content_type,
-            file_size_bytes=file_size_bytes,
+            origin=dump_origin(origin) if origin is not None else None,
             status=DocumentStatus.pending,
         )
         self.session.add(document)
@@ -145,6 +146,16 @@ class DocumentService:
 
         await self.session.commit()
         return stored
+
+    async def update_document_origin(
+        self,
+        document_id: UUID,
+        origin: FileOrigin | YoutubeOrigin,
+    ) -> None:
+        document = await self._get_by_id(document_id)
+        document.origin = dump_origin(origin)
+        document.updated_at = datetime.now(UTC)
+        await self.session.commit()
 
     async def mark_failed(self, document_id: UUID, message: str) -> None:
         await self.session.rollback()

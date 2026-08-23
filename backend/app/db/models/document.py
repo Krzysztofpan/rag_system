@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum, ForeignKey, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -39,7 +40,11 @@ class Document(SQLModel, table=True):
     )
     filename: str
     content_type: str | None = None
-    file_size_bytes: int | None = None
+    # FileOrigin | YoutubeOrigin — see app.schemas.origin
+    origin: Optional[dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
     status: DocumentStatus = Field(
         default=DocumentStatus.pending,
         sa_column=Column(

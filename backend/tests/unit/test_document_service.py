@@ -10,6 +10,7 @@ import pytest
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
+from app.schemas.origin import FileOrigin, YoutubeOrigin
 from app.services.document_service import DocumentService
 from tests.helpers import FakeVectorStore
 
@@ -47,15 +48,52 @@ async def test_create_document_increments_source_count():
         conversation_id=conversation_id,
         filename="note.md",
         content_type="text/markdown",
-        file_size_bytes=12,
+        origin=FileOrigin(file_size_bytes=12),
     )
 
     assert document.conversation_id == conversation_id
+    assert document.origin == {"kind": "file", "file_size_bytes": 12}
     session.add.assert_called_once_with(document)
     statement = _source_count_update_statement(session.execute)
     assert statement.table.name == Conversation.__tablename__
     session.commit.assert_awaited_once()
     session.refresh.assert_awaited_once_with(document)
+
+
+async def test_update_document_origin_replaces_json():
+    document_id = uuid4()
+    document = Document(
+        id=document_id,
+        conversation_id=uuid4(),
+        filename="youtube:dQw4w9wgXcQ",
+        content_type="video/youtube",
+        origin={"kind": "youtube", "video_id": "dQw4w9wgXcQ", "url": "https://youtu.be/dQw4w9wgXcQ"},
+        status=DocumentStatus.processing,
+    )
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=document)
+    service = DocumentService(session)
+
+    await service.update_document_origin(
+        document_id,
+        YoutubeOrigin(
+            video_id="dQw4w9wgXcQ",
+            url="https://www.youtube.com/watch?v=dQw4w9wgXcQ",
+            duration_sec=4.0,
+            language="en",
+            transcript_source="captions",
+        ),
+    )
+
+    assert document.origin == {
+        "kind": "youtube",
+        "video_id": "dQw4w9wgXcQ",
+        "url": "https://www.youtube.com/watch?v=dQw4w9wgXcQ",
+        "duration_sec": 4.0,
+        "language": "en",
+        "transcript_source": "captions",
+    }
+    session.commit.assert_awaited_once()
 
 
 async def test_delete_document_requires_ownership():

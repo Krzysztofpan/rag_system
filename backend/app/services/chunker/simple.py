@@ -28,7 +28,7 @@ class SimpleChunker(Chunker):
 
         separators = (
             _MARKDOWN_SEPARATORS
-            if content_type in (FileTypes.MD, FileTypes.TXT)
+            if content_type in (FileTypes.MD, FileTypes.TXT, FileTypes.YOUTUBE)
             else _PLAIN_SEPARATORS
         )
 

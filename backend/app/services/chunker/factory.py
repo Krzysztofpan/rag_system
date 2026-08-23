@@ -14,7 +14,7 @@ class ChunkerFactory:
         match resolved:
             case FileTypes.PDF | FileTypes.DOCX | FileTypes.PNG | FileTypes.JPEG:
                 return ComplexChunker(resolved)
-            case FileTypes.MD | FileTypes.TXT:
+            case FileTypes.MD | FileTypes.TXT | FileTypes.YOUTUBE:
                 return SimpleChunker(resolved)
             case _:
                 raise ValueError(f"Unexpected file type: {content_type!r}")

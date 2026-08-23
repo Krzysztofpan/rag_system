@@ -40,7 +40,9 @@ const SourceItem = ({ source }: SourceItemProps) => {
         `}
         >
             <div className="flex gap-2 items-center min-w-0 w-full">
-                {iconSrc ? <img src={iconSrc} width={25} alt={filename} /> : <div className="size-6.25 shrink-0 rounded bg-muted" aria-hidden />}
+                {iconSrc
+                    ? <img src={iconSrc} width={25} alt={filename} />
+                    : <div className="size-6.25 shrink-0 rounded bg-muted" aria-hidden />}
                 {!isCollapsed && (editMode
                     ? (
                             <EditValueView
