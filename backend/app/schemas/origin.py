@@ -16,6 +16,7 @@ class YoutubeOrigin(BaseModel):
     url: str
     duration_sec: float | None = None
     language: str | None = None
+    # "stt" = speech-to-text (Whisper fallback when captions are missing).
     transcript_source: Literal["captions", "auto_captions", "stt"] | None = None
 
 

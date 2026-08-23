@@ -29,7 +29,8 @@ class TranscriptCue:
 class YoutubeTranscript:
     cues: list[TranscriptCue]
     language: str | None
-    source: Literal["captions", "auto_captions"]
+    # "stt" = speech-to-text (Whisper fallback when captions are missing).
+    source: Literal["captions", "auto_captions", "stt"]
 
 
 class CaptionClient:
