@@ -5,6 +5,7 @@ from collections.abc import Callable
 from uuid import UUID
 
 from app.background_tasks.upload_background import summarize_document_and_update_title
+from app.config import Settings, get_settings
 from app.container import create_document_service, create_indexing_service
 from app.db.session import get_session_factory
 from app.lib.file_types import FileTypes
@@ -15,7 +16,9 @@ from app.services.parser.complex.quality_audit import audit_markdown
 from app.services.youtube.caption_client import (
     CaptionClient,
     TranscriptUnavailableError,
+    YoutubeTranscript,
 )
+from app.services.youtube.stt import SpeechToText, YoutubeSttError
 from app.services.youtube.title import fetch_youtube_title
 from app.services.youtube.transcript_markdown import transcript_to_markdown
 
@@ -28,9 +31,19 @@ class YoutubeIngestService:
         self,
         caption_client: CaptionClient | None = None,
         title_fetcher: TitleFetcher | None = None,
+        speech_to_text: SpeechToText | None = None,
+        settings: Settings | None = None,
     ):
         self.caption_client = caption_client or CaptionClient()
         self.title_fetcher = title_fetcher or fetch_youtube_title
+        self._speech_to_text = speech_to_text
+        self.settings = settings or get_settings()
+
+    @property
+    def speech_to_text(self) -> SpeechToText:
+        if self._speech_to_text is None:
+            self._speech_to_text = SpeechToText(settings=self.settings)
+        return self._speech_to_text
 
     async def ingest(
         self,
@@ -48,7 +61,7 @@ class YoutubeIngestService:
             extra_metadata={"document_id": document_id, "video_id": video_id},
         ):
             try:
-                transcript = await asyncio.to_thread(self.caption_client.fetch, video_id)
+                transcript = await self._resolve_transcript(url, video_id)
                 title = await asyncio.to_thread(self.title_fetcher, url)
                 filename = title or f"youtube:{video_id}"
                 markdown = transcript_to_markdown(
@@ -105,9 +118,19 @@ class YoutubeIngestService:
                 )
             except TranscriptUnavailableError as exc:
                 await self._mark_failed(document_id, str(exc))
+            except YoutubeSttError as exc:
+                await self._mark_failed(document_id, str(exc))
             except Exception as exc:
                 await self._mark_failed(document_id, str(exc))
                 raise
+
+    async def _resolve_transcript(self, url: str, video_id: str) -> YoutubeTranscript:
+        try:
+            return await asyncio.to_thread(self.caption_client.fetch, video_id)
+        except TranscriptUnavailableError:
+            if not self.settings.youtube_stt_enabled:
+                raise
+            return await asyncio.to_thread(self.speech_to_text.transcribe, url)
 
     async def _mark_failed(self, document_id: UUID, message: str) -> None:
         session_factory = get_session_factory()

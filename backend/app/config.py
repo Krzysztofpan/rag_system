@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     cohere_rerank_model: str = "rerank-v4.0-fast"
     rerank_min_score: float = 0
 
+    # YouTube STT fallback when captions are missing (off: ToS gray area).
+    youtube_stt_enabled: bool = False
+    youtube_max_duration_sec: int = 2700
+    youtube_stt_max_bytes: int = 24 * 1024 * 1024
+    youtube_stt_chunk_sec: int = 9 * 60
+    youtube_stt_chunk_overlap_sec: int = 15
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

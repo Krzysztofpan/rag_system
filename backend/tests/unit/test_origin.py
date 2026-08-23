@@ -23,6 +23,19 @@ def test_parse_youtube_origin():
     assert origin.transcript_source == "captions"
 
 
+def test_parse_youtube_origin_stt():
+    origin = parse_origin(
+        {
+            "kind": "youtube",
+            "video_id": "dQw4w9wgXcQ",
+            "url": "https://www.youtube.com/watch?v=dQw4w9wgXcQ",
+            "transcript_source": "stt",
+        }
+    )
+    assert isinstance(origin, YoutubeOrigin)
+    assert origin.transcript_source == "stt"
+
+
 def test_parse_origin_none():
     assert parse_origin(None) is None
 
