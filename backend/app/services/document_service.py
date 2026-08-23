@@ -142,7 +142,7 @@ class DocumentService:
             stored.append((db_chunk.id, chunk))
 
         self.session.add_all(db_chunks)
-        self._set_document_ready(document, chunks)
+        self._set_document_ready(document)
 
         await self.session.commit()
         return stored
@@ -290,15 +290,8 @@ class DocumentService:
             if document_id in by_id
         ]
 
-    def _set_document_ready(
-        self,
-        document: Document,
-        chunks: list[ChunkResult],
-    ) -> None:
-        token_counts = [c.token_count for c in chunks if c.token_count is not None]
+    def _set_document_ready(self, document: Document) -> None:
         document.status = DocumentStatus.ready
-        document.chunk_count = len(chunks)
-        document.token_count = sum(token_counts) if token_counts else None
         document.updated_at = datetime.now(UTC)
 
     async def _require_report(

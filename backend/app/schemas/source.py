@@ -14,7 +14,6 @@ class SourceResponse(APIModel):
     content_type: str | None
     status: Literal["pending", "processing", "ready", "failed"]
     error: str | None = None
-    chunk_count: int = 0
 
 
 class SourceReportResponse(APIModel):
@@ -50,7 +49,6 @@ def source_from_document(document: Document) -> SourceResponse:
         content_type=document.content_type,
         status=document.status.value,
         error=document.error_message,
-        chunk_count=document.chunk_count,
     )
 
 

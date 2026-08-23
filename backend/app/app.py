@@ -105,7 +105,6 @@ async def upload(
                 content_type=content_type,
                 status="failed",
                 error=str(exc),
-                chunk_count=0,
             )
             report = SourceReportResponse(
                 document_id=str(exc.document_id),
@@ -138,7 +137,6 @@ async def upload(
             content_type=content_type,
             status="ready",
             error=None,
-            chunk_count=len(result.chunk_ids),
         ),
         report=SourceReportResponse(
             document_id=str(result.document_id),

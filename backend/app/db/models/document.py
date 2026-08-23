@@ -58,8 +58,6 @@ class Document(SQLModel, table=True):
         ),
     )
     error_message: str | None = None
-    chunk_count: int = Field(default=0)
-    token_count: int | None = None
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(

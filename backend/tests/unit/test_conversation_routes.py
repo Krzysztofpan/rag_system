@@ -209,7 +209,6 @@ def test_get_sources_returns_documents(client, authenticated_user):
             filename="a.md",
             content_type="text/markdown",
             status=DocumentStatus.ready,
-            chunk_count=3,
         )
     ]
 

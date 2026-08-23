@@ -135,8 +135,6 @@ class FakeDocumentService:
     ) -> list[tuple[UUID, ChunkResult]]:
         document = self.documents[document_id]
         document.status = DocumentStatus.ready
-        document.chunk_count = len(chunks)
-        document.token_count = sum(c.token_count or 0 for c in chunks) or None
         self.saved_chunks[document_id] = list(chunks)
         stored = [(uuid4(), chunk) for chunk in chunks]
         self.events.append(("save_chunks", document_id, len(chunks)))

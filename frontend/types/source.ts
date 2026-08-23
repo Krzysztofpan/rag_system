@@ -6,5 +6,4 @@ export type Source = {
     contentType: string | null;
     status: SourceStatus;
     error: string | null;
-    chunkCount: number;
 }

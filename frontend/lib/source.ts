@@ -8,7 +8,6 @@ export function createPendingSource(name: string, type: string | null): Source {
         contentType: type,
         status: 'pending',
         error: null,
-        chunkCount: 0,
     }
 }
 
