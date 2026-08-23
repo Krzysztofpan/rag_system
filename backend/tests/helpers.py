@@ -124,9 +124,11 @@ class FakeDocumentService:
         self.events.append(("create", document.id, filename))
         return document
 
-    async def mark_processing(self, document_id: UUID) -> None:
-        self.documents[document_id].status = DocumentStatus.processing
+    async def mark_processing(self, document_id: UUID) -> Document:
+        document = self.documents[document_id]
+        document.status = DocumentStatus.processing
         self.events.append(("processing", document_id, None))
+        return document
 
     async def save_chunks(
         self,

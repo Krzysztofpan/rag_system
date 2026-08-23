@@ -21,6 +21,14 @@ from app.routes.conversation_routes import conversation_router
 from tests.helpers import FakeVectorStore
 
 
+def _mark_processing(document: Document) -> AsyncMock:
+    async def mark_processing(_document_id):
+        document.status = DocumentStatus.processing
+        return document
+
+    return AsyncMock(side_effect=mark_processing)
+
+
 @pytest.fixture
 def user_id():
     return uuid4()
@@ -152,7 +160,7 @@ def test_ingest_source_url_returns_202_and_queues_background(
         ) as create_document,
         patch(
             "app.services.document_service.DocumentService.mark_processing",
-            new=AsyncMock(),
+            new=_mark_processing(document),
         ),
         patch(
             "app.routes.conversation_routes.ingest_youtube_source",
@@ -220,7 +228,7 @@ def test_ingest_source_document_returns_202_and_queues_background(
         ) as create_document,
         patch(
             "app.services.document_service.DocumentService.mark_processing",
-            new=AsyncMock(),
+            new=_mark_processing(document),
         ),
         patch(
             "app.routes.conversation_routes.save_upload_to_temp",

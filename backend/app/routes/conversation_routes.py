@@ -15,7 +15,6 @@ from app.dependencies import (
     DocumentServiceDep,
     MessageServiceDep
 )
-from app.db.models.document import DocumentStatus
 from app.lib.file_types import FileTypes, resolve_document_file_type
 from app.lib.upload_temp import save_upload_to_temp
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
@@ -160,8 +159,7 @@ async def ingest_source_url(
         content_type=FileTypes.YOUTUBE,
         origin=YoutubeOrigin(video_id=video.video_id, url=video.url),
     )
-    await document_service.mark_processing(document.id)
-    document.status = DocumentStatus.processing
+    document = await document_service.mark_processing(document.id)
 
     background_tasks.add_task(
         ingest_youtube_source,
@@ -210,8 +208,7 @@ async def ingest_source_document(
             content_type=content_type,
             origin=FileOrigin(file_size_bytes=size),
         )
-        await document_service.mark_processing(document.id)
-        document.status = DocumentStatus.processing
+        document = await document_service.mark_processing(document.id)
 
         background_tasks.add_task(
             ingest_document_source,
