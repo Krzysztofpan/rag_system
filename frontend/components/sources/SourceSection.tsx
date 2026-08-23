@@ -33,9 +33,7 @@ function SourceSection() {
 
     const isCollapsed = state === 'collapsed'
 
-    const handleSelectSource = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
+    const handleSelectSource = (file: File) => {
         void uploadSource(file)
     }
 
