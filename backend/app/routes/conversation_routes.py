@@ -16,11 +16,10 @@ from app.dependencies import (
     MessageServiceDep
 )
 from app.db.models.document import DocumentStatus
-from app.lib.file_types import FileTypes
+from app.lib.file_types import FileTypes, resolve_document_file_type
 from app.lib.upload_temp import save_upload_to_temp
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
 from app.schemas.origin import FileOrigin, YoutubeOrigin
-from app.services.parser.factory import ParserFactory
 from app.schemas.conversation import (
     CreateConversationResponse,
     GetConversationsResponse,
@@ -189,7 +188,7 @@ async def ingest_source_document(
     file: UploadFile = File(...),
 ) -> SourceResponse:
     try:
-        ParserFactory.create_parser(file)
+        resolve_document_file_type(file.content_type, file.filename)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

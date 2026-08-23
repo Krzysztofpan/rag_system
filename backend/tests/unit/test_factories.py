@@ -6,7 +6,7 @@ from app.services.chunker.simple import SimpleChunker
 from app.services.parser.complex.parser import ComplexParser
 from app.services.parser.factory import ParserFactory
 from app.services.parser.simple import SimpleParser
-from app.lib.file_types import FileTypes, resolve_file_type
+from app.lib.file_types import FileTypes, resolve_document_file_type, resolve_file_type
 from tests.helpers import make_upload_file
 
 
@@ -96,3 +96,15 @@ def test_chunker_factory_rejects_unknown_mime():
 )
 def test_resolve_file_type_images(content_type, filename, expected):
     assert resolve_file_type(content_type, filename) == expected
+
+
+def test_resolve_document_file_type_accepts_uploadable_files():
+    assert resolve_document_file_type(FileTypes.MD, "note.md") == FileTypes.MD
+    assert resolve_document_file_type("", "photo.png") == FileTypes.PNG
+
+
+def test_resolve_document_file_type_rejects_youtube_and_unknown():
+    with pytest.raises(ValueError, match="Unexpected file type"):
+        resolve_document_file_type(FileTypes.YOUTUBE, "f")
+    with pytest.raises(ValueError, match="Unexpected file type"):
+        resolve_document_file_type("application/zip", "f.zip")
