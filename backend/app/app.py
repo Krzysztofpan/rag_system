@@ -1,14 +1,6 @@
 from contextlib import asynccontextmanager
-from uuid import UUID
 
-from fastapi import (
-    BackgroundTasks,
-    FastAPI,
-    File,
-    HTTPException,
-    Query,
-    UploadFile,
-)
+from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -17,26 +9,10 @@ from app.config import get_settings
 from app.container import get_run_registry
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
-from app.dependencies import (
-    ConversationServiceDep,
-    CurrentUserDep,
-    DocumentIndexingServiceDep,
-)
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
-from app.schemas.source import (
-    SourceReportResponse,
-    SourceResponse,
-    UploadSourceResponse,
-)
-from app.schemas.upload import (
-    build_upload_quality,
-    quality_from_rejected_report,
-)
-from app.services.parser import ParseQualityError
-from app.background_tasks import (
-    summarize_document_and_update_title,
-)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     verify_auth_configuration()
@@ -65,86 +41,6 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
-
-@app.post("/upload", response_model=UploadSourceResponse)
-async def upload(
-    indexing_service: DocumentIndexingServiceDep,
-    current_user: CurrentUserDep,
-    conversation_service: ConversationServiceDep,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    conversation_id: UUID = Query(
-        ..., description="conversations.id for this chat"
-    ),
-) -> UploadSourceResponse:
-    """Business outcomes always return HTTP 200; failures use source.status=failed or source=null."""
-    try:
-        await conversation_service.get_conversation(
-            conversation_id,
-            user_id=current_user.user_id,
-        )
-    except ValueError as exc:
-        # Authorization failure, not a business outcome: same 404 as elsewhere.
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    filename = file.filename or "unknown"
-    content_type = file.content_type
-
-    try:
-        result = await indexing_service.ingest(
-            file,
-            conversation_id=conversation_id,
-        )
-    except ParseQualityError as exc:
-        source = None
-        report = None
-        if exc.document_id is not None:
-            source = SourceResponse(
-                id=str(exc.document_id),
-                filename=filename,
-                content_type=content_type,
-                status="failed",
-                error=str(exc),
-            )
-            report = SourceReportResponse(
-                document_id=str(exc.document_id),
-                parsed_content=exc.parsed_content,
-                quality=quality_from_rejected_report(exc.report),
-            )
-        return UploadSourceResponse(
-            source=source,
-            report=report,
-            error=str(exc),
-        )
-
-    quality = build_upload_quality(
-        parse_report=result.parse_report,
-        chunk_quality=result.chunk_quality,
-    )
-
-    background_tasks.add_task(
-        summarize_document_and_update_title,
-        result.parsed_content,
-        conversation_id,
-        result.document_id,
-        current_user.user_id,
-    )
-
-    return UploadSourceResponse(
-        source=SourceResponse(
-            id=str(result.document_id),
-            filename=filename,
-            content_type=content_type,
-            status="ready",
-            error=None,
-        ),
-        report=SourceReportResponse(
-            document_id=str(result.document_id),
-            parsed_content=result.parsed_content,
-            quality=quality,
-        ),
-        error=None,
-    )
 
 
 @app.get("/health/db")

@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import { useAuthQuery } from '@/hooks/useAuthQuery'
 import { useUserQueryKey } from '@/hooks/useUserQueryKey'
-import { applyUploadResponse, createPendingSource, rejectSource } from '@/lib/source'
+import { createPendingSource, rejectSource } from '@/lib/source'
 import { apiService } from '@/services/api/apiService'
 import type { Source } from '@/types/source'
 
@@ -94,11 +94,11 @@ export const useSourcesClient = (conversationId: string) => {
         try {
             const formData = new FormData()
             formData.append('file', file)
-            const body = await apiService.uploadSource(conversationId, formData)
-            replaceSource(pendingSource.id, applyUploadResponse(pendingSource, body))
+            const source = await apiService.uploadSource(conversationId, formData)
+            replaceSource(pendingSource.id, source)
         }
-        catch {
-            replaceSource(pendingSource.id, rejectSource(pendingSource, 'Server didn\'t respond'))
+        catch (error) {
+            replaceSource(pendingSource.id, rejectSource(pendingSource, sourceRequestError(error)))
         }
     }
 

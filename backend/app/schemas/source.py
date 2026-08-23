@@ -32,12 +32,6 @@ class DeleteSourceResponse(APIModel):
     deleted_document: Document
 
 
-class UploadSourceResponse(APIModel):
-    source: SourceResponse | None = None
-    report: SourceReportResponse | None = None
-    error: str | None = None
-
-
 class IngestUrlRequest(APIModel):
     url: str
 
