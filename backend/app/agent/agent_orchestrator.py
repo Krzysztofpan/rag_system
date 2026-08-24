@@ -6,7 +6,7 @@ from app.agent.document_grounding import DocumentGroundingMiddleware
 from app.agent.types import AgentContext
 from app.config import get_settings
 from app.prompts import AGENT_SYSTEM_PROMPT
-from app.tools import search_documents, summarize_context
+from app.tools import search_documents, summarize_context, web_search_tavily
 
 
 def build_system_prompt() -> str:
@@ -18,7 +18,7 @@ def get_agent_orchestrator():
     settings = get_settings()
     return create_agent(
         model=settings.orchestrator_model,
-        tools=[search_documents, summarize_context],
+        tools=[search_documents, summarize_context, web_search_tavily],
         system_prompt=build_system_prompt(),
         middleware=[DocumentGroundingMiddleware()],
         context_schema=AgentContext,
