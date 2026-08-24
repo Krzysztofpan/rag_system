@@ -5,6 +5,7 @@ import type { ToolInvocation } from '@/contexts/conversation/ConversationContext
 const TOOL_LABELS: Record<string, string> = {
     search_documents: 'Searching selected documents',
     summarize_context: 'Summarizing document context',
+    web_search_tavily: 'Searching the web',
 }
 
 const ToolInvocationNotice = ({ invocation }: { invocation: ToolInvocation }) => (

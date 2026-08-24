@@ -4,6 +4,7 @@ from unittest.mock import patch
 from app.agent.agent_orchestrator import build_system_prompt, get_agent_orchestrator
 from app.tools.search_documents import search_documents
 from app.tools.summarize_context import summarize_context
+from app.tools.web_search import web_search_tavily
 
 
 def test_system_prompt_keeps_document_runtime_context_out_of_prefix():
@@ -70,3 +71,8 @@ def test_orchestrator_graph_is_named_chat(get_settings, create_agent):
         get_agent_orchestrator.cache_clear()
 
     assert create_agent.call_args.kwargs["name"] == "chat"
+    assert create_agent.call_args.kwargs["tools"] == [
+        search_documents,
+        summarize_context,
+        web_search_tavily,
+    ]

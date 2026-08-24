@@ -152,9 +152,14 @@ async def test_subscription_emits_heartbeat_when_queue_is_idle():
     )
     iterator = subscription.events()
 
+    def timeout_after_closing_awaitable(awaitable, timeout=None, **_kwargs):
+        if asyncio.iscoroutine(awaitable):
+            awaitable.close()
+        raise TimeoutError
+
     with patch(
         "app.services.chat.run_session.asyncio.wait_for",
-        side_effect=TimeoutError,
+        side_effect=timeout_after_closing_awaitable,
     ):
         item = await anext(iterator)
 
