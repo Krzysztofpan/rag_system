@@ -82,6 +82,7 @@ async def test_search_documents_scopes_to_owned_document_ids(
     graph_cls.return_value.build_graph.return_value.ainvoke.assert_awaited_once_with(
         {
             "query": "frontend stack",
+            "user_query": "frontend stack",
             "search_retry_count": 0,
         },
         config={"run_name": "search_documents"},

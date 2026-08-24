@@ -6,6 +6,7 @@ from uuid import UUID
 from app.db.models import Message
 from app.services.chat.protocol import ProtocolEvent
 from app.services.chat.run_session import RunSession
+from app.services.security import PROMPT_ATTACK_MESSAGE, PromptAttackError
 
 
 class ChatStreamPublisher:
@@ -124,14 +125,24 @@ class ChatStreamPublisher:
                     "message": "Tool execution failed",
                 },
             )
-        await self._publish(
-            "messages",
-            {
-                "event": "error",
-                "message": "Nie udało się wygenerować odpowiedzi",
-                "code": "agent_failed",
-            },
-        )
+        if isinstance(error, PromptAttackError):
+            await self._publish(
+                "messages",
+                {
+                    "event": "error",
+                    "message": PROMPT_ATTACK_MESSAGE,
+                    "code": error.code,
+                },
+            )
+        else:
+            await self._publish(
+                "messages",
+                {
+                    "event": "error",
+                    "message": "Nie udało się wygenerować odpowiedzi",
+                    "code": "agent_failed",
+                },
+            )
         await self._publish(
             "lifecycle",
             {"event": "failed", "error": str(error)},

@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from app.db.models import Message, MessageRole
 from app.services.chat.event_publisher import ChatStreamPublisher
+from app.services.security import PROMPT_ATTACK_MESSAGE, PromptAttackError
 
 
 def _publisher():
@@ -198,3 +199,21 @@ async def test_failed_without_active_tools_skips_tool_errors():
 
     methods = [method for method, _data in _payloads(session)]
     assert methods == ["messages", "lifecycle"]
+
+
+async def test_failed_emits_prompt_attack_code():
+    publisher, session = _publisher()
+
+    await publisher.failed(PromptAttackError(), [])
+
+    assert _payloads(session) == [
+        (
+            "messages",
+            {
+                "event": "error",
+                "message": PROMPT_ATTACK_MESSAGE,
+                "code": "prompt_attack",
+            },
+        ),
+        ("lifecycle", {"event": "failed", "error": PROMPT_ATTACK_MESSAGE}),
+    ]

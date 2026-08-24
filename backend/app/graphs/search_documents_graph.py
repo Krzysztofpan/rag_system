@@ -1,3 +1,4 @@
+import logging
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
@@ -8,10 +9,22 @@ from app.services.fts_retriever import PostgresFTSRetriever
 from app.config import get_settings
 from app.lib.cohere import get_cohere_client
 from app.prompts import HYDE_QUERY_REWRITE_TEMPLATE
+from app.services.security import (
+    PromptAttackError,
+    get_prompt_shields_service,
+    join_untrusted_context,
+    kept_document_indexes,
+    should_block_shielded_user_prompt,
+    wrap_untrusted_excerpt,
+)
+
+logger = logging.getLogger(__name__)
 settings = get_settings()
+
 
 class SearchDocumentsState(TypedDict):
     query: str
+    user_query: str
     search_retry_count: int
     retrieved_docs: list
     relevant_docs: list
@@ -40,6 +53,7 @@ class SearchDocumentsGraph:
         graph.add_node("get_info", self.get_info)
         graph.add_node("rerank_docs", self.rerank_docs)
         graph.add_node("query_rewrite", self.query_rewrite)
+        graph.add_node("shield_docs", self.shield_docs)
         graph.add_node("build_context", self.build_context)
 
         # edges
@@ -48,10 +62,11 @@ class SearchDocumentsGraph:
 
         graph.add_conditional_edges("rerank_docs", self.route_after_rerank_docs, {
             "rewrite_query": "query_rewrite",
-            "build_context": "build_context",
+            "shield_docs": "shield_docs",
         })
 
         graph.add_edge("query_rewrite", "get_info")
+        graph.add_edge("shield_docs", "build_context")
 
         graph.add_edge("build_context", END)
 
@@ -126,6 +141,34 @@ class SearchDocumentsGraph:
             "search_retry_count": state["search_retry_count"] + 1,
         }
 
+    async def shield_docs(self, state: SearchDocumentsState):
+        docs = state.get("relevant_docs") or []
+        if not docs:
+            return {"relevant_docs": []}
+
+        user_prompt = state.get("user_query") or state.get("query") or ""
+        verdict = await get_prompt_shields_service().analyze(
+            user_prompt,
+            [doc.page_content for doc in docs],
+        )
+        if should_block_shielded_user_prompt(verdict):
+            raise PromptAttackError()
+        kept = kept_document_indexes(verdict)
+        if len(kept) != len(docs):
+            dropped = [
+                (getattr(docs[index], "metadata", None) or {}).get("chunk_id")
+                for index in range(len(docs))
+                if index not in set(kept)
+            ]
+            logger.info(
+                "Prompt Shields dropped %s chunks",
+                len(dropped),
+                extra={"dropped_chunk_ids": dropped},
+            )
+        return {
+            "relevant_docs": [docs[index] for index in kept],
+        }
+
     def build_context(self, state: SearchDocumentsState):
         if len(state["relevant_docs"]) < 1:
             return {
@@ -155,18 +198,22 @@ class SearchDocumentsGraph:
             lines = [" | ".join(header_bits)]
             if section:
                 lines.append(f"Section: {section}")
-            lines.append(doc.page_content.strip())
-            parts.append("\n".join(lines))
+            parts.append(
+                wrap_untrusted_excerpt(
+                    doc.page_content,
+                    header="\n".join(lines),
+                )
+            )
 
         return {
-            "context": "\n\n---\n\n".join(parts)
+            "context": join_untrusted_context(parts)
         }
 
     def route_after_rerank_docs(self, state: SearchDocumentsState):
         if(len(state['relevant_docs']) == 0):
             if(state['search_retry_count'] > 0):
-                return "build_context"
+                return "shield_docs"
 
             return "rewrite_query"
         
-        return "build_context"
+        return "shield_docs"

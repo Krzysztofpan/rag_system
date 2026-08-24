@@ -16,6 +16,7 @@ def _streamer(publisher=None):
         user_id=uuid4(),
         document_ids=[uuid4()],
         conversation_context=[HumanMessage(content="Question")],
+        user_query="Question",
     )
     return streamer, publisher
 
@@ -205,6 +206,7 @@ async def test_stream_passes_conversation_context_and_runtime_ids():
             "conversation_id": streamer._conversation_id,
             "user_id": streamer._user_id,
             "document_ids": streamer._document_ids,
+            "user_query": streamer._user_query,
         },
         "stream_mode": ["messages", "updates"],
         "version": "v2",

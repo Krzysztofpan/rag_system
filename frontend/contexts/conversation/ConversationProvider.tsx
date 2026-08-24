@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useInfiniteMessagesClient } from '@/hooks/useInfiniteMessages'
 import { useSources } from '@/hooks/useSources';
 import { useStreamResponse } from '@/hooks/useStreamResponse'
+import { chatSendErrorMessage } from '@/lib/chatError'
 import type { Message } from '@/types/Message'
 
 import { ConversationContext, type ConversationContextValue } from './ConversationContext';
@@ -63,7 +64,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             await stream.sendMessage({ documentIds, message, messageId })
         }
         catch (error) {
-            setLocalError(error instanceof Error ? error.message : 'Nie udało się wysłać wiadomości')
+            setLocalError(chatSendErrorMessage(error))
             await queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
         }
     }
@@ -82,7 +83,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             }
         : null
     const streamError = localError
-        ?? (stream.error instanceof Error ? stream.error.message : null)
+        ?? (stream.error ? chatSendErrorMessage(stream.error) : null)
 
     const conversationContextObj: ConversationContextValue = {
         conversationId,
