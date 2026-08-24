@@ -13,6 +13,7 @@ from app.dependencies import (
     ConversationServiceDep,
     CurrentUserDep,
     MessageServiceDep,
+    PromptGuardServiceDep,
     RunRegistryDep,
 )
 from app.schemas.chat import (
@@ -22,6 +23,7 @@ from app.schemas.chat import (
 )
 from app.services.chat.run_session import HEARTBEAT, RunSession
 from app.services.chat.stream_runner import ChatStreamRunner
+from app.services.security import PROMPT_ATTACK_MESSAGE
 
 chat_stream_router = APIRouter(
     prefix="/conversations",
@@ -52,6 +54,7 @@ async def chat_commands(
     message_service: MessageServiceDep,
     memory_service: ConversationMemoryServiceDep,
     registry: RunRegistryDep,
+    prompt_guard: PromptGuardServiceDep,
 ) -> dict[str, Any]:
     if command.method != "run.start":
         return _command_error(
@@ -77,6 +80,17 @@ async def chat_commands(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    if await prompt_guard.should_block_message(
+        conversation_id=conversation_id,
+        user_id=current_user.user_id,
+        text=latest_message.content,
+    ):
+        return _command_error(
+            command.id,
+            PROMPT_ATTACK_MESSAGE,
+            code="prompt_attack",
+        )
+
     run_id = str(uuid4())
     prepared: asyncio.Future[list] = asyncio.get_running_loop().create_future()
 
@@ -88,6 +102,7 @@ async def chat_commands(
             user_id=current_user.user_id,
             document_ids=run_input.document_ids,
             conversation_context=conversation_context,
+            user_query=latest_message.content,
         )
         await runner.run()
 

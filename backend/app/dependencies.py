@@ -17,6 +17,7 @@ from app.services.conversation_memory_service import ConversationMemoryService
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.document_service import DocumentService
 from app.services.message_service import MessageService
+from app.services.security import PromptGuardService, get_prompt_guard_service
 
 DocumentIndexingServiceDep = Annotated[
     DocumentIndexingService, Depends(get_document_indexing_service)
@@ -33,6 +34,9 @@ DocumentServiceDep = Annotated[
 MessageServiceDep = Annotated[
     MessageService, Depends(get_message_service)
 ]
+PromptGuardServiceDep = Annotated[
+    PromptGuardService, Depends(get_prompt_guard_service)
+]
 RunRegistryDep = Annotated[
     InMemoryRunRegistry, Depends(get_run_registry)
 ]
@@ -46,6 +50,7 @@ __all__ = [
     "DocumentIndexingServiceDep",
     "DocumentServiceDep",
     "MessageServiceDep",
+    "PromptGuardServiceDep",
     "RunRegistryDep",
     "get_conversation_service",
     "get_current_user",

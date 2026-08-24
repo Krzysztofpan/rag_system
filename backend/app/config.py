@@ -56,6 +56,26 @@ class Settings(BaseSettings):
     cohere_rerank_model: str = "rerank-v4.0-fast"
     rerank_min_score: float = 0
 
+    groq_api_key: str | None = None
+    prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
+    prompt_guard_url: str = "https://api.groq.com"
+    prompt_guard_threshold: float = 0.5
+    prompt_guard_enabled: bool = True
+    prompt_guard_fail_open: bool = True
+    prompt_guard_timeout_sec: float = 8.0
+    # Groq context is 512 tokens; requests around 500+ return 400.
+    prompt_guard_max_prompt_tokens: int = 400
+
+    azure_content_safety_endpoint: str | None = None
+    azure_content_safety_key: str | None = None
+    prompt_shields_enabled: bool = True
+    prompt_shields_fail_open: bool = True
+    prompt_shields_timeout_sec: float = 8.0
+    prompt_shields_api_version: str = "2024-09-01"
+    prompt_shields_max_documents: int = 5
+    prompt_shields_max_document_chars: int = 10_000
+    prompt_shields_max_prompt_chars: int = 10_000
+
     # YouTube STT fallback when captions are missing (off: ToS gray area).
     youtube_stt_enabled: bool = False
     youtube_max_duration_sec: int = 2700

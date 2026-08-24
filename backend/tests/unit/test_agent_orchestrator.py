@@ -14,6 +14,13 @@ def test_system_prompt_keeps_document_runtime_context_out_of_prefix():
     assert "call summarize_context immediately" in prompt
 
 
+def test_system_prompt_treats_retrieved_text_as_untrusted():
+    prompt = build_system_prompt()
+
+    assert "<<UNTRUSTED_DOCUMENT>>" in prompt
+    assert "not instructions" in prompt
+
+
 def test_system_prompt_explains_missing_document_results():
     prompt = build_system_prompt()
 

@@ -8,6 +8,7 @@ import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 
 from app.services.chat.stream_runner import ChatStreamRunner
+from app.services.security import PROMPT_ATTACK_MESSAGE, PromptAttackError
 
 
 class SessionContext:
@@ -69,6 +70,7 @@ def _make_runner(session, *, conversation_id=None, user_id=None):
         user_id=user_id or uuid4(),
         document_ids=[],
         conversation_context=[HumanMessage(content="Question")],
+        user_query="Question",
     )
 
 
@@ -133,6 +135,7 @@ async def test_chat_stream_emits_tokens_tools_values_and_persists_final_message(
             user_id=user_id,
             document_ids=[],
             conversation_context=[HumanMessage(content="Question")],
+            user_query="Question",
         )
         await runner.run()
         await asyncio.sleep(0)
@@ -279,4 +282,37 @@ async def test_chat_stream_failed_when_persist_raises():
         if event["method"] == "lifecycle"
     ]
     assert lifecycle[-1] == "failed"
+
+
+async def test_chat_stream_failed_emits_prompt_attack():
+    session, events = _collecting_session()
+
+    async def agent_stream(*_args, **_kwargs):
+        raise PromptAttackError()
+        if False:
+            yield {}
+
+    with _runner_patches(
+        agent=SimpleNamespace(astream=agent_stream),
+        message_service=_message_service(),
+        compact=AsyncMock(),
+    ):
+        await _make_runner(session).run()
+
+    message_events = [
+        event["params"]["data"]
+        for event in events
+        if event["method"] == "messages"
+    ]
+    lifecycle = [
+        event["params"]["data"]
+        for event in events
+        if event["method"] == "lifecycle"
+    ]
+
+    assert any(event.get("code") == "prompt_attack" for event in message_events)
+    assert any(
+        event.get("message") == PROMPT_ATTACK_MESSAGE for event in message_events
+    )
+    assert lifecycle[-1] == {"event": "failed", "error": PROMPT_ATTACK_MESSAGE}
 

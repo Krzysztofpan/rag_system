@@ -2,13 +2,19 @@
 from langchain.tools import ToolRuntime, tool
 from app.services.document_service import DocumentService
 from app.db.session import get_session_factory
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 from app.agent.types import AgentContext
+from app.services.security import (
+    PromptAttackError,
+    get_prompt_shields_service,
+    join_untrusted_context,
+    kept_document_indexes,
+    should_block_shielded_user_prompt,
+    wrap_untrusted_excerpt,
+)
+
 
 @tool
-async def summarize_context(runtime: ToolRuntime[AgentContext]) -> list[dict[str, str]]:
+async def summarize_context(runtime: ToolRuntime[AgentContext]) -> str:
     """
     Summarize the documents already selected for this conversation.
 
@@ -19,6 +25,7 @@ async def summarize_context(runtime: ToolRuntime[AgentContext]) -> list[dict[str
     document_ids = runtime.context["document_ids"]
     conversation_id = runtime.context["conversation_id"]
     user_id = runtime.context["user_id"]
+    user_query = runtime.context.get("user_query") or ""
 
     session_factory = get_session_factory()
     async with session_factory() as session:
@@ -29,6 +36,17 @@ async def summarize_context(runtime: ToolRuntime[AgentContext]) -> list[dict[str
             user_id=user_id,
         )
 
+    summaries = [report.summary for report in reports if report.summary]
+    if not summaries:
+        return ""
 
-    return [report.summary for report in reports]
-  
+    verdict = await get_prompt_shields_service().analyze(user_query, summaries)
+    if should_block_shielded_user_prompt(verdict):
+        raise PromptAttackError()
+    kept = [
+        wrap_untrusted_excerpt(summaries[index], header=f"Summary {i}")
+        for i, index in enumerate(kept_document_indexes(verdict), start=1)
+    ]
+    if not kept:
+        return ""
+    return join_untrusted_context(kept)

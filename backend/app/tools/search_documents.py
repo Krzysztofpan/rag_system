@@ -81,6 +81,7 @@ async def search_documents(
             graph_res = await search_documents_pipeline.ainvoke(
                 {
                     "query": query,
+                    "user_query": runtime.context.get("user_query") or query,
                     "search_retry_count": 0,
                 },
                 config={"run_name": "search_documents"},

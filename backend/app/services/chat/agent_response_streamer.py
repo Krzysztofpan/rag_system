@@ -17,12 +17,14 @@ class AgentResponseStreamer:
         user_id: UUID,
         document_ids: list[UUID],
         conversation_context: Sequence[BaseMessage],
+        user_query: str,
     ) -> None:
         self._publisher = publisher
         self._conversation_id = conversation_id
         self._user_id = user_id
         self._document_ids = document_ids
         self._conversation_context = conversation_context
+        self._user_query = user_query
 
         self._response_parts: list[str] = []
         self._fallback_response = ""
@@ -45,6 +47,7 @@ class AgentResponseStreamer:
                 "conversation_id": self._conversation_id,
                 "user_id": self._user_id,
                 "document_ids": self._document_ids,
+                "user_query": self._user_query,
             },
             stream_mode=["messages", "updates"],
             version="v2",

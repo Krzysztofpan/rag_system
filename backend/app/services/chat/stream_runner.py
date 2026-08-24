@@ -26,6 +26,7 @@ class ChatStreamRunner:
         user_id: UUID,
         document_ids: list[UUID],
         conversation_context: Sequence[BaseMessage],
+        user_query: str,
     ) -> None:
         self._session = session
         self._conversation_id = conversation_id
@@ -38,6 +39,7 @@ class ChatStreamRunner:
             user_id=user_id,
             document_ids=document_ids,
             conversation_context=conversation_context,
+            user_query=user_query,
         )
 
     async def run(self) -> None:
