@@ -28,6 +28,7 @@ class SearchDocumentsState(TypedDict):
     search_retry_count: int
     retrieved_docs: list
     relevant_docs: list
+    dropped_chunk_ids: list
     doc_scores: list
     max_score: float
     rewritten_query: str
@@ -144,7 +145,7 @@ class SearchDocumentsGraph:
     async def shield_docs(self, state: SearchDocumentsState):
         docs = state.get("relevant_docs") or []
         if not docs:
-            return {"relevant_docs": []}
+            return {"relevant_docs": [], "dropped_chunk_ids": []}
 
         user_prompt = state.get("user_query") or state.get("query") or ""
         verdict = await get_prompt_shields_service().analyze(
@@ -153,20 +154,21 @@ class SearchDocumentsGraph:
         )
         if should_block_shielded_user_prompt(verdict):
             raise PromptAttackError()
-        kept = kept_document_indexes(verdict)
-        if len(kept) != len(docs):
-            dropped = [
-                (getattr(docs[index], "metadata", None) or {}).get("chunk_id")
-                for index in range(len(docs))
-                if index not in set(kept)
-            ]
+        kept_indexes = set(kept_document_indexes(verdict))
+        dropped_chunk_ids = [
+            (getattr(docs[index], "metadata", None) or {}).get("chunk_id")
+            for index in range(len(docs))
+            if index not in kept_indexes
+        ]
+        if dropped_chunk_ids:
             logger.info(
                 "Prompt Shields dropped %s chunks",
-                len(dropped),
-                extra={"dropped_chunk_ids": dropped},
+                len(dropped_chunk_ids),
+                extra={"dropped_chunk_ids": dropped_chunk_ids},
             )
         return {
-            "relevant_docs": [docs[index] for index in kept],
+            "relevant_docs": [docs[index] for index in range(len(docs)) if index in kept_indexes],
+            "dropped_chunk_ids": dropped_chunk_ids,
         }
 
     def build_context(self, state: SearchDocumentsState):

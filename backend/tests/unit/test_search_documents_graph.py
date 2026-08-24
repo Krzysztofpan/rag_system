@@ -155,7 +155,7 @@ async def test_shield_docs_skips_azure_when_nothing_relevant(get_shields):
 
     result = await pipeline.shield_docs({"relevant_docs": []})
 
-    assert result == {"relevant_docs": []}
+    assert result == {"relevant_docs": [], "dropped_chunk_ids": []}
     get_shields.assert_not_called()
 
 
@@ -182,6 +182,7 @@ async def test_shield_docs_drops_flagged_chunks(get_shields):
         ["alpha", "beta", "gamma"],
     )
     assert result["relevant_docs"] == [docs[0], docs[2]]
+    assert result["dropped_chunk_ids"] == ["b"]
 
 
 @patch("app.graphs.search_documents_graph.get_prompt_shields_service")
