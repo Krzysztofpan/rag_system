@@ -41,7 +41,7 @@ class ConversationService:
             self, *, user_id: UUID
     ) -> List[Conversation]:
         result = await self.session.execute(
-            select(Conversation).where(Conversation.user_id==user_id)
+            select(Conversation).where(Conversation.user_id==user_id).order_by(Conversation.updated_at.desc())
         )
 
         return list(result.scalars().all())

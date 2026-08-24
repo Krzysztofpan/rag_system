@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Message
 from app.db.models.conversation import Conversation
 
-
+from datetime import datetime
 @dataclass(frozen=True)
 class MessagePage:
     messages: list[Message]
@@ -19,6 +19,9 @@ class MessageService:
         self.session = session
 
     async def create_message(self, message: Message) -> Message:
+        conversation = await self.session.get(Conversation, message.conversation_id)
+        conversation.updated_at = datetime.now()
+        
         self.session.add(message)
         await self.session.commit()
         await self.session.refresh(message)
