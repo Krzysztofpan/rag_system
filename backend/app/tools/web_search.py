@@ -1,6 +1,8 @@
-from langchain.tools import ToolRuntime
+from langchain.tools import ToolRuntime, tool
 from langchain_tavily import TavilySearch
-from langchain_core.tools import tool
+
+from app.agent.types import AgentContext
+from app.config import get_settings
 from app.services.security import (
     PromptAttackError,
     get_prompt_shields_service,
@@ -9,15 +11,17 @@ from app.services.security import (
     should_block_shielded_user_prompt,
     wrap_untrusted_excerpt,
 )
-from app.agent.types import AgentContext
-from app.config import get_settings
 
-tavily_api_key = get_settings().tavily_api_key
 
-web_search = TavilySearch(tavily_api_key=tavily_api_key)
+def build_tavily_search() -> TavilySearch:
+    api_key = get_settings().tavily_api_key
+    if not api_key:
+        raise RuntimeError("TAVILY_API_KEY is not configured")
+    return TavilySearch(tavily_api_key=api_key)
+
 
 @tool
-async def web_search_tavily(query: str,runtime: ToolRuntime[AgentContext]) -> str:
+async def web_search_tavily(query: str, runtime: ToolRuntime[AgentContext]) -> str:
     """
     Search the public web for current or external information.
 
@@ -33,7 +37,7 @@ async def web_search_tavily(query: str,runtime: ToolRuntime[AgentContext]) -> st
     """
     user_query = runtime.context.get("user_query") or ""
 
-    response = await web_search.arun(query)
+    response = await build_tavily_search().ainvoke({"query": query})
     results = response.get("results") if isinstance(response, dict) else None
     pages = [
         page

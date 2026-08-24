@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     rerank_min_score: float = 0
 
     groq_api_key: str | None = None
-    
+
     tavily_api_key: str | None = None
 
     prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
