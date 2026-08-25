@@ -1,15 +1,15 @@
-
 from langchain.tools import ToolRuntime, tool
-from app.services.document_service import DocumentService
-from app.db.session import get_session_factory
+
+from app.agent.sources import cite_excerpt
 from app.agent.types import AgentContext
+from app.db.session import get_session_factory
+from app.services.document_service import DocumentService
 from app.services.security import (
     PromptAttackError,
     get_prompt_shields_service,
     join_untrusted_context,
     kept_document_indexes,
     should_block_shielded_user_prompt,
-    wrap_untrusted_excerpt,
 )
 
 
@@ -21,7 +21,7 @@ async def summarize_context(runtime: ToolRuntime[AgentContext]) -> str:
     Call this when the user wants a summary, overview, or recap.
     Selected document IDs are provided by the application — do not ask the user for them.
     """
-    
+
     document_ids = runtime.context["document_ids"]
     conversation_id = runtime.context["conversation_id"]
     user_id = runtime.context["user_id"]
@@ -36,16 +36,23 @@ async def summarize_context(runtime: ToolRuntime[AgentContext]) -> str:
             user_id=user_id,
         )
 
-    summaries = [report.summary for report in reports if report.summary]
-    if not summaries:
+    summarized = [report for report in reports if report.summary]
+    if not summarized:
         return ""
 
+    summaries = [report.summary for report in summarized]
     verdict = await get_prompt_shields_service().analyze(user_query, summaries)
     if should_block_shielded_user_prompt(verdict):
         raise PromptAttackError()
     kept = [
-        wrap_untrusted_excerpt(summaries[index], header=f"Summary {i}")
-        for i, index in enumerate(kept_document_indexes(verdict), start=1)
+        cite_excerpt(
+            runtime.context,
+            summaries[index],
+            header="Summary",
+            kind="summary",
+            document_id=summarized[index].document_id,
+        )
+        for index in kept_document_indexes(verdict)
     ]
     if not kept:
         return ""

@@ -5,6 +5,7 @@ from uuid import UUID
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 
 from app.agent.agent_orchestrator import get_agent_orchestrator
+from app.schemas.citation_source import MessageSource
 from app.services.chat.event_publisher import ChatStreamPublisher
 
 
@@ -29,10 +30,15 @@ class AgentResponseStreamer:
         self._response_parts: list[str] = []
         self._fallback_response = ""
         self._active_tools: set[str] = set()
+        self._sources: list[MessageSource] = []
 
     @property
     def active_tool_ids(self) -> set[str]:
         return self._active_tools.copy()
+
+    @property
+    def sources(self) -> list[MessageSource]:
+        return list(self._sources)
 
     @property
     def _response_text(self) -> str:
@@ -48,6 +54,7 @@ class AgentResponseStreamer:
                 "user_id": self._user_id,
                 "document_ids": self._document_ids,
                 "user_query": self._user_query,
+                "sources": self._sources,
             },
             stream_mode=["messages", "updates"],
             version="v2",

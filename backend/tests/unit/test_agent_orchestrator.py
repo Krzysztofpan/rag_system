@@ -35,6 +35,7 @@ def test_system_prompt_forbids_answering_from_general_knowledge():
     assert "Never answer from your own knowledge" in prompt
     assert "call search_documents" in prompt
     assert "even if the answer seems obvious" in prompt
+    assert "labeled [n]" in prompt
 
 
 def test_system_prompt_is_stable():

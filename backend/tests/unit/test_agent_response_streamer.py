@@ -207,6 +207,7 @@ async def test_stream_passes_conversation_context_and_runtime_ids():
             "user_id": streamer._user_id,
             "document_ids": streamer._document_ids,
             "user_query": streamer._user_query,
+            "sources": streamer._sources,
         },
         "stream_mode": ["messages", "updates"],
         "version": "v2",

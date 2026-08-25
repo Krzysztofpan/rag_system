@@ -1,21 +1,22 @@
 import logging
 from typing import TypedDict
-from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
+
 from langchain_classic.retrievers import EnsembleRetriever
-from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
-from app.services.fts_retriever import PostgresFTSRetriever
+from langchain_core.retrievers import BaseRetriever
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, StateGraph
+
 from app.config import get_settings
 from app.lib.cohere import get_cohere_client
 from app.prompts import HYDE_QUERY_REWRITE_TEMPLATE
+from app.services.fts_retriever import PostgresFTSRetriever
 from app.services.security import (
     PromptAttackError,
     get_prompt_shields_service,
-    join_untrusted_context,
     kept_document_indexes,
     should_block_shielded_user_prompt,
-    wrap_untrusted_excerpt,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,13 +27,12 @@ class SearchDocumentsState(TypedDict):
     query: str
     user_query: str
     search_retry_count: int
-    retrieved_docs: list
-    relevant_docs: list
-    dropped_chunk_ids: list
-    doc_scores: list
+    retrieved_docs: list[Document]
+    relevant_docs: list[Document]
+    dropped_chunk_ids: list[str | None]
+    doc_scores: list[float]
     max_score: float
     rewritten_query: str
-    context: str
 
 
 class SearchDocumentsGraph:
@@ -55,10 +55,9 @@ class SearchDocumentsGraph:
         graph.add_node("rerank_docs", self.rerank_docs)
         graph.add_node("query_rewrite", self.query_rewrite)
         graph.add_node("shield_docs", self.shield_docs)
-        graph.add_node("build_context", self.build_context)
 
         # edges
-        
+
         graph.add_edge("get_info", "rerank_docs")
 
         graph.add_conditional_edges("rerank_docs", self.route_after_rerank_docs, {
@@ -67,9 +66,7 @@ class SearchDocumentsGraph:
         })
 
         graph.add_edge("query_rewrite", "get_info")
-        graph.add_edge("shield_docs", "build_context")
-
-        graph.add_edge("build_context", END)
+        graph.add_edge("shield_docs", END)
 
         graph.set_entry_point("get_info")
 
@@ -171,51 +168,11 @@ class SearchDocumentsGraph:
             "dropped_chunk_ids": dropped_chunk_ids,
         }
 
-    def build_context(self, state: SearchDocumentsState):
-        if len(state["relevant_docs"]) < 1:
-            return {
-                "context": "no context founded"
-            }
-
-        parts: list[str] = []
-        
-        for i, doc in enumerate(state["relevant_docs"], start=1):
-            meta = getattr(doc, "metadata", None) or {}
-            section = meta.get("context")
-            pages = meta.get("pages")
-            document_id = meta.get("document_id")
-            chunk_id = meta.get("chunk_id")
-            chunk_index = meta.get("chunk_index")
-
-            header_bits = [f"Source {i}"]
-            if document_id:
-                header_bits.append(f"document_id={document_id}")
-            if chunk_id:
-                header_bits.append(f"chunk_id={chunk_id}")
-            if chunk_index is not None:
-                header_bits.append(f"chunk_index={chunk_index}")
-            if pages:
-                header_bits.append(f"pages={pages}")
-
-            lines = [" | ".join(header_bits)]
-            if section:
-                lines.append(f"Section: {section}")
-            parts.append(
-                wrap_untrusted_excerpt(
-                    doc.page_content,
-                    header="\n".join(lines),
-                )
-            )
-
-        return {
-            "context": join_untrusted_context(parts)
-        }
-
     def route_after_rerank_docs(self, state: SearchDocumentsState):
-        if(len(state['relevant_docs']) == 0):
-            if(state['search_retry_count'] > 0):
+        if not state["relevant_docs"]:
+            if state["search_retry_count"] > 0:
                 return "shield_docs"
 
             return "rewrite_query"
-        
+
         return "shield_docs"

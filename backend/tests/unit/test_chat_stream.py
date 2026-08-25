@@ -163,9 +163,49 @@ async def test_chat_stream_emits_tokens_tools_values_and_persists_final_message(
         "tool-finished",
     ]
     assert values["persistedMessage"]["text"] == "Answer"
+    assert values["persistedMessage"]["sources"] == []
     persisted = message_service.create_message.await_args.args[0]
     assert persisted.text == "Answer"
+    assert persisted.sources == []
     compact.assert_awaited_once_with(conversation_id, user_id)
+
+
+async def test_chat_stream_persists_sources_from_streamer():
+    chunk_id = uuid4()
+    session, events = _collecting_session()
+    message_service = _message_service()
+
+    async def agent_stream(*_args, **_kwargs):
+        yield {
+            "type": "messages",
+            "data": (
+                AIMessageChunk(content="Answer [1]"),
+                {"langgraph_node": "model"},
+            ),
+        }
+
+    with _runner_patches(
+        agent=SimpleNamespace(astream=agent_stream),
+        message_service=message_service,
+        compact=AsyncMock(),
+    ):
+        runner = _make_runner(session)
+        runner._response_streamer._sources.append(
+            {"index": 1, "kind": "chunk", "chunk_id": str(chunk_id)}
+        )
+        await runner.run()
+        await asyncio.sleep(0)
+
+    persisted = message_service.create_message.await_args.args[0]
+    assert persisted.sources == [
+        {"index": 1, "kind": "chunk", "chunk_id": str(chunk_id)},
+    ]
+    values = next(
+        event["params"]["data"] for event in events if event["method"] == "values"
+    )
+    assert values["persistedMessage"]["sources"] == [
+        {"index": 1, "kind": "chunk", "chunkId": str(chunk_id)},
+    ]
 
 
 async def test_chat_stream_publishes_interrupted_and_reraises_on_cancel():

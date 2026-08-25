@@ -128,6 +128,7 @@ async def test_finish_emits_message_close_persisted_value_and_completed():
                     "text": "Final answer",
                     "role": "assistant",
                     "createdAt": message.created_at.isoformat(),
+                    "sources": [],
                 }
             },
         ),
@@ -148,6 +149,25 @@ async def test_format_persisted_message_accepts_string_role():
     formatted = publisher._format_persisted_message(message)
 
     assert formatted["role"] == "user"
+
+
+async def test_format_persisted_message_includes_camel_case_sources():
+    publisher, _session = _publisher()
+    chunk_id = uuid4()
+    message = SimpleNamespace(
+        id=uuid4(),
+        conversation_id=uuid4(),
+        text="Hi [1]",
+        role="assistant",
+        created_at=datetime(2026, 8, 22, tzinfo=UTC),
+        sources=[{"index": 1, "kind": "chunk", "chunk_id": str(chunk_id)}],
+    )
+
+    formatted = publisher._format_persisted_message(message)
+
+    assert formatted["sources"] == [
+        {"index": 1, "kind": "chunk", "chunkId": str(chunk_id)},
+    ]
 
 
 async def test_interrupted_emits_lifecycle_event():

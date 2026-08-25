@@ -56,6 +56,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             role: 'user',
             text: message,
             createdAt: new Date().toISOString(),
+            sources: [],
         }
         setLocalError(null)
         setSubmittedMessageId(messageId)
@@ -80,6 +81,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
                 role: 'assistant' as const,
                 text: stream.streamedText,
                 createdAt: new Date().toISOString(),
+                sources: [],
             }
         : null
     const streamError = localError

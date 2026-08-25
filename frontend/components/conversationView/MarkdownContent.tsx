@@ -3,21 +3,32 @@ import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 
+import { citationIndexFromHref, remarkCitations, sourceByIndex } from '@/lib/citations'
 import { normalizeMathMarkdown } from '@/lib/normalizeMathMarkdown'
 import { cn } from '@/lib/utils'
+import type { MessageSource } from '@/types/citation'
+
+import MessageCitation from './messageCitation/MessageCitation'
 
 import 'katex/dist/katex.min.css'
 
 type MarkdownContentProps = {
     content: string;
     className?: string;
+    conversationId?: string;
+    sources?: MessageSource[];
 }
 
-const MarkdownContent = ({ content, className }: MarkdownContentProps) => {
+const MarkdownContent = ({
+    content,
+    className,
+    conversationId,
+    sources,
+}: MarkdownContentProps) => {
     return (
         <div className={cn('prose-chat max-w-none wrap-break-word', className)}>
             <Markdown
-                remarkPlugins={[remarkMath, remarkGfm]}
+                remarkPlugins={[remarkMath, remarkGfm, remarkCitations]}
                 rehypePlugins={[[rehypeKatex, { strict: 'ignore' }]]}
                 components={{
                     p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
@@ -37,11 +48,27 @@ const MarkdownContent = ({ content, className }: MarkdownContentProps) => {
                     em: ({ children }) => <em className="italic">{children}</em>,
                     hr: () => <hr className="my-4 border-mist-400" />,
                     blockquote: ({ children }) => <blockquote className="mb-4 border-l-4 border-mist-400 pl-4 italic last:mb-0">{children}</blockquote>,
-                    a: ({ href, children }) => (
-                        <a href={href} className="underline underline-offset-2 hover:opacity-80" target="_blank" rel="noopener noreferrer">
-                            {children}
-                        </a>
-                    ),
+                    a: ({ href, children }) => {
+                        const index = citationIndexFromHref(href)
+                        if (index != null) {
+                            const source = sourceByIndex(sources, index)
+                            if (!source || !conversationId) {
+                                return <sup className="text-muted-foreground">{`[${index}]`}</sup>
+                            }
+                            return (
+                                <MessageCitation
+                                    source={source}
+                                    conversationId={conversationId}
+                                    variant="inline"
+                                />
+                            )
+                        }
+                        return (
+                            <a href={href} className="underline underline-offset-2 hover:opacity-80" target="_blank" rel="noopener noreferrer">
+                                {children}
+                            </a>
+                        )
+                    },
                     pre: ({ children }) => <pre className="mb-4 overflow-x-auto rounded-xl bg-mist-300 p-4 text-sm last:mb-0">{children}</pre>,
                     code: ({ className, children, ...props }) => {
                         const isBlock = Boolean(className?.includes('language-'))

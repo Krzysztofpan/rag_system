@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 from pathlib import Path
@@ -16,6 +17,7 @@ from app.container import get_vector_store
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
+from app.db.models.message import Message, MessageRole
 from app.db.session import get_session
 from app.routes.conversation_routes import conversation_router
 from tests.helpers import FakeVectorStore
@@ -119,6 +121,38 @@ def test_get_conversations_returns_service_result(client, authenticated_user):
 
     assert response.status_code == 200
     assert len(response.json()['conversations']) == 2
+
+
+def test_get_messages_serializes_sources_with_api_aliases(client):
+    conversation_id = uuid4()
+    chunk_id = uuid4()
+    message = Message(
+        conversation_id=conversation_id,
+        text="Answer [1]",
+        role=MessageRole.assistant,
+        sources=[
+            {"index": 1, "kind": "chunk", "chunk_id": str(chunk_id)},
+        ],
+    )
+    page = SimpleNamespace(messages=[message], has_more=False)
+
+    with (
+        patch(
+            "app.services.conversation_service.ConversationService.get_conversation",
+            new=AsyncMock(return_value=SimpleNamespace(id=conversation_id)),
+        ),
+        patch(
+            "app.services.message_service.MessageService.get_messages",
+            new=AsyncMock(return_value=page),
+        ),
+    ):
+        response = client.get(f"/conversations/{conversation_id}/messages")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["messages"][0]["sources"] == [
+        {"index": 1, "kind": "chunk", "chunkId": str(chunk_id)},
+    ]
 
 
 def test_ingest_source_url_rejects_invalid_url_without_creating_document(client):
@@ -413,6 +447,51 @@ def test_get_source_report_returns_report_payload(client):
     assert payload["parsedContent"] == "# Doc"
     assert payload["summary"] == "Doc overview"
     assert payload["quality"]["parseReport"]["ok"] is True
+
+
+def test_get_chunk_returns_payload(client):
+    conversation_id = uuid4()
+    chunk_id = uuid4()
+    document_id = uuid4()
+    chunk = SimpleNamespace(
+        id=chunk_id,
+        content="Pracownik nie musi informować o L4.",
+        pages=[4],
+        chunk_index=2,
+    )
+    document = SimpleNamespace(id=document_id, filename="regulamin.pdf")
+
+    with patch(
+        "app.services.document_service.DocumentService.get_chunk",
+        new=AsyncMock(return_value=(chunk, document)),
+    ):
+        response = client.get(
+            f"/conversations/{conversation_id}/chunks/{chunk_id}"
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == str(chunk_id)
+    assert payload["documentId"] == str(document_id)
+    assert payload["filename"] == "regulamin.pdf"
+    assert payload["content"] == "Pracownik nie musi informować o L4."
+    assert payload["pages"] == [4]
+    assert payload["chunkIndex"] == 2
+
+
+def test_get_chunk_not_found_returns_404(client):
+    conversation_id = uuid4()
+    chunk_id = uuid4()
+
+    with patch(
+        "app.services.document_service.DocumentService.get_chunk",
+        new=AsyncMock(side_effect=ValueError("Chunk not found")),
+    ):
+        response = client.get(
+            f"/conversations/{conversation_id}/chunks/{chunk_id}"
+        )
+
+    assert response.status_code == 404
 
 
 def test_delete_conversation_returns_deleted_conversation(client, authenticated_user):
