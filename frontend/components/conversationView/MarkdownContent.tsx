@@ -6,9 +6,9 @@ import remarkMath from 'remark-math'
 import { citationIndexFromHref, remarkCitations, sourceByIndex } from '@/lib/citations'
 import { normalizeMathMarkdown } from '@/lib/normalizeMathMarkdown'
 import { cn } from '@/lib/utils'
-import type { MessageSource } from '@/types/Message'
+import type { MessageSource } from '@/types/citation'
 
-import MessageCitation from './MessageCitation'
+import MessageCitation from './messageCitation/MessageCitation'
 
 import 'katex/dist/katex.min.css'
 

@@ -1,34 +1,10 @@
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, cast
 from uuid import UUID
 
 from langchain_core.documents import Document
 
+from app.schemas.citation_source import MessageSource, SourceContext, SourceKind
 from app.services.security import join_untrusted_context, wrap_untrusted_excerpt
-
-SourceKind = Literal["chunk", "summary", "web"]
-
-
-class ChunkSource(TypedDict):
-    index: int
-    kind: Literal["chunk"]
-    chunk_id: str
-
-
-class SummarySource(TypedDict):
-    index: int
-    kind: Literal["summary"]
-    document_id: str
-
-
-class WebSource(TypedDict):
-    index: int
-    kind: Literal["web"]
-    url: str
-    title: str
-
-
-MessageSource = ChunkSource | SummarySource | WebSource
-SourceContext = dict[str, Any]
 
 
 def sources_from_context(context: SourceContext) -> list[MessageSource]:

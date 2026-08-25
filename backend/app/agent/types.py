@@ -1,7 +1,7 @@
 from typing import TypedDict
 from uuid import UUID
 
-from app.agent.sources import MessageSource
+from app.schemas.citation_source import MessageSource
 
 
 class AgentContext(TypedDict):

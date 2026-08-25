@@ -1,14 +1,4 @@
-export type WebMessageSource = {
-    index: number;
-    kind: 'web';
-    url: string;
-    title: string;
-}
-
-export type MessageSource =
-    | { index: number; kind: 'chunk'; chunkId: string }
-    | { index: number; kind: 'summary'; documentId: string }
-    | WebMessageSource
+import type { MessageSource } from './citation'
 
 export type Message = {
     id: string;
@@ -22,13 +12,4 @@ export type Message = {
 export type MessagesParams = {
     before_id?: string;
     limit?: number;
-}
-
-export type ChunkPreview = {
-    id: string;
-    documentId: string;
-    filename: string;
-    content: string;
-    pages: number[] | null;
-    chunkIndex: number;
 }

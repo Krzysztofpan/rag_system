@@ -5,7 +5,7 @@ from uuid import UUID
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 
 from app.agent.agent_orchestrator import get_agent_orchestrator
-from app.agent.sources import MessageSource
+from app.schemas.citation_source import MessageSource
 from app.services.chat.event_publisher import ChatStreamPublisher
 
 
