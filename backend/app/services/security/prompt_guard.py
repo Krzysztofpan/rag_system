@@ -5,11 +5,11 @@ import logging
 from functools import lru_cache
 from uuid import UUID
 
-from groq import AsyncGroq
-from groq.types.chat import ChatCompletion
+from langchain_core.messages import BaseMessage
+from langchain_openai import ChatOpenAI
 
 from app.config import get_settings
-from app.lib.groq import get_groq_client
+
 from app.lib.prompt_guard_tokenizer import get_prompt_guard_tokenizer
 from app.lib.tracing import conversation_tracing
 from app.services.security.policies import should_block_user_prompt
@@ -27,14 +27,14 @@ class PromptGuardService:
         enabled: bool,
         fail_open: bool,
         max_prompt_tokens: int,
-        groq_client: AsyncGroq | None = None,
+        groq_llm: ChatOpenAI | None = None,
     ) -> None:
         self._model = model
         self._threshold = threshold
         self._enabled = enabled
         self._fail_open = fail_open
         self._max_prompt_tokens = max_prompt_tokens
-        self._client = groq_client
+        self._groq_llm = groq_llm
 
     async def should_block_message(
         self,
@@ -63,7 +63,7 @@ class PromptGuardService:
     async def classify(self, text: str) -> PromptGuardVerdict:
         if not self._enabled:
             return PromptGuardVerdict(malicious=False, label="disabled")
-        if self._client is None:
+        if self._groq_llm is None:
             logger.warning("Prompt Guard skipped: GROQ_API_KEY is not configured")
             return PromptGuardVerdict(
                 malicious=False,
@@ -88,25 +88,15 @@ class PromptGuardService:
         return self._worst_verdict(verdicts)
 
     async def _score_text(self, text: str) -> PromptGuardVerdict:
-        if self._client is None:
+        if self._groq_llm is None:
             raise RuntimeError("Prompt Guard client is not configured")
-        completion = await self._client.chat.completions.create(
-            model=self._model,
-            messages=[{"role": "user", "content": text}],
-        )
-        return self._parse_completion(completion)
+        response = await self._groq_llm.ainvoke(text)
+        return self._parse_response(response)
 
-    def _parse_completion(self, completion: ChatCompletion) -> PromptGuardVerdict:
-        content = ""
-        if completion.choices:
-            message = completion.choices[0].message
-            if message is not None and isinstance(message.content, str):
-                content = message.content.strip()
-        return self._parse_content(content)
-
-    def _parse_content(self, content: str) -> PromptGuardVerdict:
+    def _parse_response(self, response: BaseMessage) -> PromptGuardVerdict:
+        content = response.content if isinstance(response.content, str) else ""
         try:
-            score = float(content)
+            score = float(content.strip())
         except ValueError:
             if self._fail_open:
                 return PromptGuardVerdict(
@@ -152,12 +142,16 @@ class PromptGuardService:
 @lru_cache
 def get_prompt_guard_service() -> PromptGuardService:
     settings = get_settings()
-    groq_client = get_groq_client() if settings.groq_api_key else None
+    groq_llm = ChatOpenAI(
+        model=settings.prompt_guard_model, 
+        base_url=settings.prompt_guard_base_url,
+        api_key=settings.groq_api_key
+    )
     return PromptGuardService(
         model=settings.prompt_guard_model,
         threshold=settings.prompt_guard_threshold,
         enabled=settings.prompt_guard_enabled,
         fail_open=settings.prompt_guard_fail_open,
         max_prompt_tokens=settings.prompt_guard_max_prompt_tokens,
-        groq_client=groq_client,
+        groq_llm=groq_llm,
     )

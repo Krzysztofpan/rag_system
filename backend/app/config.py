@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     tavily_api_key: str | None = None
 
     prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
-    prompt_guard_url: str = "https://api.groq.com"
+    prompt_guard_base_url: str = "https://api.groq.com/openai/v1"
     prompt_guard_threshold: float = 0.5
     prompt_guard_enabled: bool = True
     prompt_guard_fail_open: bool = True
