@@ -1,8 +1,7 @@
 from langchain.tools import ToolRuntime, tool
-from langchain_tavily import TavilySearch
 
 from app.agent.types import AgentContext
-from app.config import get_settings
+
 from app.services.security import (
     PromptAttackError,
     get_prompt_shields_service,
@@ -12,16 +11,11 @@ from app.services.security import (
     wrap_untrusted_excerpt,
 )
 
-
-def build_tavily_search() -> TavilySearch:
-    api_key = get_settings().tavily_api_key
-    if not api_key:
-        raise RuntimeError("TAVILY_API_KEY is not configured")
-    return TavilySearch(tavily_api_key=api_key)
+from app.lib.tavily import get_tavily_client
 
 
 @tool
-async def web_search_tavily(query: str, runtime: ToolRuntime[AgentContext]) -> str:
+async def web_search(query: str,top_k: int, runtime: ToolRuntime[AgentContext]) -> str:
     """
     Search the public web for current or external information.
 
@@ -30,14 +24,16 @@ async def web_search_tavily(query: str, runtime: ToolRuntime[AgentContext]) -> s
     the internet. Do not use this instead of search_documents when the question
     is about the conversation's files.
 
-    The search query is provided by the application — do not ask the user for it.
+    Args:
+    query: The search query. informations that user's looking for.
+    top_k: Amount of articles to retrive from web.
 
     Return Value:
     Web page excerpts with URL and title metadata.
     """
     user_query = runtime.context.get("user_query") or ""
-
-    response = await build_tavily_search().ainvoke({"query": query})
+    client = get_tavily_client()
+    response = await client.search(query=query, max_results=top_k)
     results = response.get("results") if isinstance(response, dict) else None
     pages = [
         page
