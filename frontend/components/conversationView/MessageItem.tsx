@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils'
 import type { Message } from '@/types/Message'
 
-import MarkdownContent from './MarkdownContent'
 import MessageCitation from './messageCitation/MessageCitation'
+import MarkdownContent from './MarkdownContent'
 
 const MessageItem = ({ message }: { message: Message }) => {
     const isUser = message.role === 'user'
