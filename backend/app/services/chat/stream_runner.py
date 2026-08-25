@@ -10,6 +10,7 @@ from app.container import create_message_service
 from app.db.models import Message
 from app.db.session import get_session_factory
 from app.lib.tracing import conversation_tracing
+from app.schemas.message_source import dump_message_sources
 from app.services.chat.agent_response_streamer import AgentResponseStreamer
 from app.services.chat.event_publisher import ChatStreamPublisher
 from app.services.chat.run_session import RunSession
@@ -90,5 +91,6 @@ class ChatStreamRunner:
                     conversation_id=self._conversation_id,
                     text=response_text,
                     role="assistant",
+                    sources=dump_message_sources(self._response_streamer.sources),
                 )
             )

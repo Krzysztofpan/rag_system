@@ -1,7 +1,8 @@
 from langchain.tools import ToolRuntime, tool
 
+from app.agent.sources import cite_excerpt
 from app.agent.types import AgentContext
-
+from app.lib.tavily import get_tavily_client
 from app.services.security import (
     PromptAttackError,
     get_prompt_shields_service,
@@ -11,11 +12,9 @@ from app.services.security import (
     wrap_untrusted_excerpt,
 )
 
-from app.lib.tavily import get_tavily_client
-
 
 @tool
-async def web_search(query: str,top_k: int, runtime: ToolRuntime[AgentContext]) -> str:
+async def web_search(query: str, top_k: int, runtime: ToolRuntime[AgentContext]) -> str:
     """
     Search the public web for current or external information.
 
@@ -29,7 +28,7 @@ async def web_search(query: str,top_k: int, runtime: ToolRuntime[AgentContext]) 
     top_k: Amount of articles to retrive from web.
 
     Return Value:
-    Web page excerpts with URL and title metadata.
+    Numbered web excerpts labeled [n], with URL and title metadata.
     """
     user_query = runtime.context.get("user_query") or ""
     client = get_tavily_client()
@@ -47,13 +46,24 @@ async def web_search(query: str,top_k: int, runtime: ToolRuntime[AgentContext]) 
     verdict = await get_prompt_shields_service().analyze(user_query, pages_content)
     if should_block_shielded_user_prompt(verdict):
         raise PromptAttackError()
-    kept = [
-        wrap_untrusted_excerpt(
-            pages_content[index],
-            header=f"URL: {pages[index].get('url', '')}, Title: {pages[index].get('title', '')}",
-        )
-        for index in kept_document_indexes(verdict)
-    ]
+    kept = []
+    for index in kept_document_indexes(verdict):
+        page = pages[index]
+        url = page.get("url") or ""
+        title = page.get("title") or ""
+        header = f"URL: {url}, Title: {title}"
+        if url:
+            kept.append(
+                cite_excerpt(
+                    runtime.context,
+                    pages_content[index],
+                    header=header,
+                    kind="web",
+                    url=url,
+                )
+            )
+            continue
+        kept.append(wrap_untrusted_excerpt(pages_content[index], header=header))
     if not kept:
         return ""
     return join_untrusted_context(kept)

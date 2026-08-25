@@ -2,6 +2,7 @@ import logging
 
 from langchain.tools import ToolRuntime, tool
 
+from app.agent.sources import cite_documents
 from app.agent.types import AgentContext
 from app.container import get_vector_store
 from app.db.session import get_session_factory
@@ -33,24 +34,27 @@ async def search_documents(
     Selected document IDs are provided by the application — do not ask the user for them.
 
     Return Value:
-    Context from documents with metadata, and source to context.
+    Numbered document excerpts labeled [n]. Cite claims with those indices,
+    or "no context founded".
     """
     document_ids = runtime.context["document_ids"]
     conversation_id = runtime.context["conversation_id"]
     user_id = runtime.context["user_id"]
 
+    if not document_ids:
+        return "no context founded"
+
     session_factory = get_session_factory()
 
     async with session_factory() as session:
         store = DocumentService(session)
-        await store.get_documents(
+        documents = await store.get_documents(
             conversation_id,
             document_ids,
             user_id=user_id,
         )
 
-    if not document_ids:
-        return "no context founded"
+    filenames = {str(document.id): document.filename for document in documents}
 
     fts_retriever = PostgresFTSRetriever(
         session_factory=session_factory,
@@ -91,4 +95,11 @@ async def search_documents(
         logger.exception("search_documents graph failed")
         raise
 
-    return graph_res["context"]
+    formatted_docs = cite_documents(
+        runtime.context,
+        graph_res.get("relevant_docs") or [],
+        filenames,
+    )
+    if not formatted_docs:
+        return "no context founded"
+    return formatted_docs

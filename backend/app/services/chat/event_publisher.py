@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.db.models import Message
+from app.schemas.message_source import dump_message_sources
 from app.services.chat.protocol import ProtocolEvent
 from app.services.chat.run_session import RunSession
 from app.services.security import PROMPT_ATTACK_MESSAGE, PromptAttackError
@@ -37,6 +38,10 @@ class ChatStreamPublisher:
             "text": message.text,
             "role": role,
             "createdAt": message.created_at.isoformat(),
+            "sources": dump_message_sources(
+                getattr(message, "sources", None),
+                by_alias=True,
+            ),
         }
 
     async def start(self, message_id: UUID, conversation_id: UUID) -> None:

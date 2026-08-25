@@ -1,10 +1,11 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum, ForeignKey, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -51,6 +52,14 @@ class Message(SQLModel, table=True):
             DateTime(timezone=True),
             nullable=False,
             server_default="now()",
+        ),
+    )
+    sources: list[dict[str, Any]] = Field(
+        default_factory=list,
+        sa_column=Column(
+            JSONB,
+            nullable=False,
+            server_default=sa.text("'[]'::jsonb"),
         ),
     )
 

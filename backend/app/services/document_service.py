@@ -265,6 +265,28 @@ class DocumentService:
             raise ValueError("Document not found in conversation")
         return [by_id[document_id] for document_id in unique_ids]
 
+    async def get_chunk(
+        self,
+        conversation_id: UUID,
+        chunk_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> tuple[Chunk, Document]:
+        result = await self.session.execute(
+            select(Chunk, Document)
+            .join(Document, Document.id == Chunk.document_id)
+            .join(Conversation, Conversation.id == Document.conversation_id)
+            .where(
+                Chunk.id == chunk_id,
+                Document.conversation_id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise ValueError("Chunk not found")
+        return row[0], row[1]
+
     async def get_document_reports(
         self,
         conversation_id: UUID,

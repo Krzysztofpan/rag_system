@@ -1,10 +1,17 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from sqlalchemy.exc import IntegrityError
-from typing import Annotated
-from fastapi import Query
-from app.schemas.message import GetConversationMessagesResponse
 
 from app.auth.deps import get_current_user
 from app.background_tasks.document_background import ingest_document_source
@@ -13,18 +20,20 @@ from app.dependencies import (
     ConversationServiceDep,
     CurrentUserDep,
     DocumentServiceDep,
-    MessageServiceDep
+    MessageServiceDep,
 )
 from app.lib.file_types import FileTypes, resolve_document_file_type
 from app.lib.upload_temp import save_upload_to_temp
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
-from app.schemas.origin import FileOrigin, YoutubeOrigin
+from app.schemas.chunk import ChunkResponse
 from app.schemas.conversation import (
     CreateConversationResponse,
+    DeleteConversationResponse,
     GetConversationsResponse,
     conversation_from_model,
-    DeleteConversationResponse
 )
+from app.schemas.message import GetConversationMessagesResponse
+from app.schemas.origin import FileOrigin, YoutubeOrigin
 from app.schemas.source import (
     DeleteSourceResponse,
     GetSourcesResponse,
@@ -122,8 +131,37 @@ async def get_conversation_messages(
     message_page = await message_service.get_messages(conversation_id, user_id=current_user.user_id, limit=limit, before_id=before_id)
     
     return GetConversationMessagesResponse(
-        messages=message_page.messages, 
-        has_more=message_page.has_more
+        messages=message_page.messages,
+        has_more=message_page.has_more,
+    )
+
+
+@conversation_router.get(
+    "/{conversation_id}/chunks/{chunk_id}",
+    response_model=ChunkResponse,
+)
+async def get_chunk(
+    conversation_id: UUID,
+    chunk_id: UUID,
+    current_user: CurrentUserDep,
+    document_service: DocumentServiceDep,
+) -> ChunkResponse:
+    try:
+        chunk, document = await document_service.get_chunk(
+            conversation_id,
+            chunk_id,
+            user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return ChunkResponse(
+        id=chunk.id,
+        document_id=document.id,
+        filename=document.filename,
+        content=chunk.content,
+        pages=chunk.pages,
+        chunk_index=chunk.chunk_index,
     )
    
 

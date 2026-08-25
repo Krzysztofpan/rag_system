@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from langchain_core.documents import Document
 
 from app.tools.search_documents import search_documents
 
@@ -13,6 +14,7 @@ def _runtime(*, conversation_id=None, user_id=None, document_ids=None, config=No
             "conversation_id": conversation_id or uuid4(),
             "user_id": user_id or uuid4(),
             "document_ids": document_ids if document_ids is not None else [uuid4()],
+            "sources": [],
         },
         config=config,
     )
@@ -58,13 +60,36 @@ async def test_search_documents_scopes_to_owned_document_ids(
         user_id=user_id,
         document_ids=document_ids,
     )
+    summary_document_id = uuid4()
+    runtime.context["sources"].append(
+        {
+            "index": 1,
+            "kind": "summary",
+            "document_id": str(summary_document_id),
+        }
+    )
     get_session_factory.return_value = _session_factory()
     store = MagicMock()
-    store.get_documents = AsyncMock()
+    store.get_documents = AsyncMock(
+        return_value=[
+            SimpleNamespace(id=document_ids[0], filename="stack.md"),
+            SimpleNamespace(id=document_ids[1], filename="other.md"),
+        ]
+    )
     store_cls.return_value = store
     get_vector_store.return_value.get_retriever.return_value = MagicMock()
     graph_cls.return_value.build_graph.return_value.ainvoke = AsyncMock(
-        return_value={"context": "found stack"}
+        return_value={
+            "relevant_docs": [
+                Document(
+                    page_content="found stack",
+                    metadata={
+                        "chunk_id": "a",
+                        "document_id": str(document_ids[0]),
+                    },
+                )
+            ],
+        }
     )
 
     result = await search_documents.coroutine(
@@ -73,7 +98,16 @@ async def test_search_documents_scopes_to_owned_document_ids(
         runtime=runtime,
     )
 
-    assert result == "found stack"
+    assert result.startswith("[2] stack.md")
+    assert "found stack" in result
+    assert runtime.context["sources"] == [
+        {
+            "index": 1,
+            "kind": "summary",
+            "document_id": str(summary_document_id),
+        },
+        {"index": 2, "kind": "chunk", "chunk_id": "a"},
+    ]
     store.get_documents.assert_awaited_once_with(
         conversation_id,
         document_ids,
@@ -115,7 +149,7 @@ async def test_search_documents_skips_search_when_no_document_ids(
     )
     get_session_factory.return_value = _session_factory()
     store = MagicMock()
-    store.get_documents = AsyncMock()
+    store.get_documents = AsyncMock(return_value=[])
     store_cls.return_value = store
 
     result = await search_documents.coroutine(
@@ -123,14 +157,40 @@ async def test_search_documents_skips_search_when_no_document_ids(
     )
 
     assert result == "no context founded"
-    store.get_documents.assert_awaited_once_with(
-        conversation_id,
-        [],
-        user_id=user_id,
-    )
+    get_session_factory.assert_not_called()
+    store.get_documents.assert_not_awaited()
     fts_cls.assert_not_called()
     get_vector_store.return_value.get_retriever.assert_not_called()
     graph_cls.assert_not_called()
+
+
+@patch("app.tools.search_documents.DocumentService")
+@patch("app.tools.search_documents.get_session_factory")
+@patch("app.tools.search_documents.PostgresFTSRetriever")
+@patch("app.tools.search_documents.get_vector_store")
+@patch("app.tools.search_documents.SearchDocumentsGraph")
+async def test_search_documents_returns_no_context_when_graph_finds_nothing(
+    graph_cls,
+    get_vector_store,
+    fts_cls,
+    get_session_factory,
+    store_cls,
+):
+    runtime = _runtime()
+    get_session_factory.return_value = _session_factory()
+    store = MagicMock()
+    store.get_documents = AsyncMock(return_value=[])
+    store_cls.return_value = store
+    get_vector_store.return_value.get_retriever.return_value = MagicMock()
+    graph_cls.return_value.build_graph.return_value.ainvoke = AsyncMock(
+        return_value={"relevant_docs": []}
+    )
+
+    result = await search_documents.coroutine(
+        query="frontend stack", top_k=5, runtime=runtime
+    )
+
+    assert result == "no context founded"
 
 
 @patch("app.tools.search_documents.DocumentService")
@@ -172,7 +232,7 @@ async def test_search_documents_propagates_graph_errors(
     runtime = _runtime()
     get_session_factory.return_value = _session_factory()
     store = MagicMock()
-    store.get_documents = AsyncMock()
+    store.get_documents = AsyncMock(return_value=[])
     store_cls.return_value = store
     get_vector_store.return_value.get_retriever.return_value = MagicMock()
     graph_cls.return_value.build_graph.return_value.ainvoke = AsyncMock(
@@ -210,11 +270,11 @@ async def test_search_documents_does_not_inherit_agent_runnable_config(
     )
     get_session_factory.return_value = _session_factory()
     store = MagicMock()
-    store.get_documents = AsyncMock()
+    store.get_documents = AsyncMock(return_value=[])
     store_cls.return_value = store
     get_vector_store.return_value.get_retriever.return_value = MagicMock()
     graph_cls.return_value.build_graph.return_value.ainvoke = AsyncMock(
-        return_value={"context": "found stack"}
+        return_value={"relevant_docs": [Document(page_content="found stack")]}
     )
 
     await search_documents.coroutine(

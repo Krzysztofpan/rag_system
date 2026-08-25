@@ -1,9 +1,9 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig, isAxiosError } from 'axios'
 import qs from 'qs'
 
-import type { MessagesParams } from '@/types/Message';
+import type { MessagesParams } from '@/types/Message'
 
-import type { CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetSourcesResponse, SendMessageResponse, SourceReportResponse, SourceResponse } from './types'
+import type { ChunkResponse, CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetSourcesResponse, SendMessageResponse, SourceReportResponse, SourceResponse } from './types'
 
 export type AuthHandlers = {
     refreshToken: () => Promise<string | null>;
@@ -150,6 +150,13 @@ class ApiService {
     getMessages = async (conversationId: string, params?: MessagesParams): Promise<GetMessagesResponse> => {
         const query = toQueryString(params)
         const { data } = await this.client.get<GetMessagesResponse>(`/conversations/${conversationId}/messages${query}`)
+        return data
+    }
+
+    getChunk = async (conversationId: string, chunkId: string): Promise<ChunkResponse> => {
+        const { data } = await this.client.get<ChunkResponse>(
+            `/conversations/${conversationId}/chunks/${chunkId}`,
+        )
         return data
     }
 

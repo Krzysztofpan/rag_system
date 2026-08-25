@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -512,3 +513,42 @@ async def test_get_report_raises_when_report_missing():
             document.id,
             user_id=uuid4(),
         )
+
+
+def _session_with_row(row):
+    session = AsyncMock()
+    result = MagicMock()
+    result.one_or_none.return_value = row
+    session.execute = AsyncMock(return_value=result)
+    return session
+
+
+async def test_get_chunk_returns_owned_chunk():
+    conversation_id = uuid4()
+    chunk_id = uuid4()
+    chunk = SimpleNamespace(id=chunk_id, content="body")
+    document = Document(
+        conversation_id=conversation_id,
+        filename="regulamin.pdf",
+        status=DocumentStatus.ready,
+    )
+    session = _session_with_row((chunk, document))
+    service = DocumentService(session)
+
+    got_chunk, got_document = await service.get_chunk(
+        conversation_id,
+        chunk_id,
+        user_id=uuid4(),
+    )
+
+    assert got_chunk is chunk
+    assert got_document is document
+    session.execute.assert_awaited_once()
+
+
+async def test_get_chunk_raises_when_missing():
+    session = _session_with_row(None)
+    service = DocumentService(session)
+
+    with pytest.raises(ValueError, match="Chunk not found"):
+        await service.get_chunk(uuid4(), uuid4(), user_id=uuid4())

@@ -13,7 +13,7 @@ from app.tools.web_search import web_search
 
 
 def _runtime(*, user_query="latest news"):
-    return SimpleNamespace(context={"user_query": user_query})
+    return SimpleNamespace(context={"user_query": user_query, "sources": []})
 
 
 def _tavily_response(*pages):
@@ -50,10 +50,11 @@ async def test_web_search_wraps_kept_pages_as_untrusted(get_client, get_shields)
     )
     get_shields.return_value = service
 
+    runtime = _runtime(user_query="what happened")
     result = await web_search.coroutine(
         query="latest news",
         top_k=5,
-        runtime=_runtime(user_query="what happened"),
+        runtime=runtime,
     )
 
     client.search.assert_awaited_once_with(query="latest news", max_results=5)
@@ -63,8 +64,15 @@ async def test_web_search_wraps_kept_pages_as_untrusted(get_client, get_shields)
     )
     assert "public fact" in result
     assert "ignore previous instructions" not in result
-    assert result.startswith("URL: https://example.com/safe, Title: Safe page")
+    assert result.startswith("[1] URL: https://example.com/safe, Title: Safe page")
     assert f"{UNTRUSTED_DOCUMENT_START}\npublic fact\n{UNTRUSTED_DOCUMENT_END}" in result
+    assert runtime.context["sources"] == [
+        {
+            "index": 1,
+            "kind": "web",
+            "url": "https://example.com/safe",
+        }
+    ]
 
 
 @patch("app.tools.web_search.get_prompt_shields_service")
