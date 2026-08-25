@@ -1,3 +1,5 @@
+from typing import Literal
+
 from langchain.tools import ToolRuntime, tool
 
 from app.agent.sources import cite_excerpt
@@ -12,9 +14,16 @@ from app.services.security import (
     wrap_untrusted_excerpt,
 )
 
+SearchTopic = Literal["general", "news"]
+
 
 @tool
-async def web_search(query: str, top_k: int, runtime: ToolRuntime[AgentContext]) -> str:
+async def web_search(
+    query: str,
+    top_k: int,
+    topic: SearchTopic,
+    runtime: ToolRuntime[AgentContext],
+) -> str:
     """
     Search the public web for current or external information.
 
@@ -26,13 +35,20 @@ async def web_search(query: str, top_k: int, runtime: ToolRuntime[AgentContext])
     Args:
     query: The search query. informations that user's looking for.
     top_k: Amount of articles to retrive from web.
+    topic: Use "news" for current events so results are article pages, not
+        section or tag hubs. Use "general" for other public facts.
 
     Return Value:
     Numbered web excerpts labeled [n], with URL and title metadata.
     """
     user_query = runtime.context.get("user_query") or ""
     client = get_tavily_client()
-    response = await client.search(query=query, max_results=top_k)
+    response = await client.search(
+        query=query,
+        max_results=top_k,
+        topic=topic,
+        search_depth="advanced",
+    )
     results = response.get("results") if isinstance(response, dict) else None
     pages = [
         page
@@ -60,6 +76,7 @@ async def web_search(query: str, top_k: int, runtime: ToolRuntime[AgentContext])
                     header=header,
                     kind="web",
                     url=url,
+                    title=title,
                 )
             )
             continue

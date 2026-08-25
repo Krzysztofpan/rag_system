@@ -1,7 +1,14 @@
+export type WebMessageSource = {
+    index: number;
+    kind: 'web';
+    url: string;
+    title: string;
+}
+
 export type MessageSource =
     | { index: number; kind: 'chunk'; chunkId: string }
     | { index: number; kind: 'summary'; documentId: string }
-    | { index: number; kind: 'web'; url: string }
+    | WebMessageSource
 
 export type Message = {
     id: string;

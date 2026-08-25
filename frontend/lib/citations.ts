@@ -78,3 +78,12 @@ export function sourceByIndex(
 ): MessageSource | undefined {
     return sources?.find((source) => source.index === index)
 }
+
+export function webArticleTitle(source: MessageSource): string {
+    if (source.kind !== 'web') {
+        return ''
+    }
+    const title = (source.title ?? '').trim()
+    return title && title !== source.url ? title : ''
+}
+

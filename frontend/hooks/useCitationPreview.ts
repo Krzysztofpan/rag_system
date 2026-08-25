@@ -45,7 +45,7 @@ async function getCitationPreview(
             }
         }
         case 'web':
-            return { title: source.url, body: source.url }
+            return { title: '', body: '' }
     }
 }
 
@@ -59,6 +59,7 @@ export function useCitationPreview(
             'citation-preview',
             conversationId,
             source.kind,
+            source.index,
             sourcePointer(source),
         ],
         queryFn: () => getCitationPreview(conversationId, source),

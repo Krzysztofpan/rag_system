@@ -24,6 +24,7 @@ class WebSource(TypedDict):
     index: int
     kind: Literal["web"]
     url: str
+    title: str
 
 
 MessageSource = ChunkSource | SummarySource | WebSource
@@ -42,6 +43,7 @@ def build_source(
     chunk_id: UUID | str | None = None,
     document_id: UUID | str | None = None,
     url: str | None = None,
+    title: str | None = None,
 ) -> MessageSource:
     """Build a citation pointer. The caller appends it to the turn's sources."""
     if kind == "chunk":
@@ -58,7 +60,7 @@ def build_source(
         }
     if not url:
         raise ValueError("web sources require url")
-    return {"index": index, "kind": "web", "url": url}
+    return {"index": index, "kind": "web", "url": url, "title": title or ""}
 
 
 def cite_excerpt(
@@ -70,6 +72,7 @@ def cite_excerpt(
     chunk_id: UUID | str | None = None,
     document_id: UUID | str | None = None,
     url: str | None = None,
+    title: str | None = None,
 ) -> str:
     """Append a turn source and wrap the excerpt with a [n] header."""
     sources = sources_from_context(context)
@@ -79,6 +82,7 @@ def cite_excerpt(
         chunk_id=chunk_id,
         document_id=document_id,
         url=url,
+        title=title,
     )
     sources.append(source)
     return wrap_untrusted_excerpt(text, header=f"[{source['index']}] {header}")

@@ -30,6 +30,7 @@ class SummaryMessageSource(MessageSourceBase):
 class WebMessageSource(MessageSourceBase):
     kind: Literal["web"] = "web"
     url: str
+    title: str = ""
 
 
 MessageSource = Annotated[

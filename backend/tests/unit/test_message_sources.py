@@ -18,7 +18,12 @@ def test_build_source_returns_pointer_without_mutating():
 
     chunk = build_source(kind="chunk", index=1, chunk_id=chunk_id)
     summary = build_source(kind="summary", index=2, document_id=document_id)
-    web = build_source(kind="web", index=3, url="https://example.com")
+    web = build_source(
+        kind="web",
+        index=3,
+        url="https://example.com",
+        title="Example article",
+    )
 
     assert chunk == {"index": 1, "kind": "chunk", "chunk_id": str(chunk_id)}
     assert summary == {
@@ -26,7 +31,12 @@ def test_build_source_returns_pointer_without_mutating():
         "kind": "summary",
         "document_id": str(document_id),
     }
-    assert web == {"index": 3, "kind": "web", "url": "https://example.com"}
+    assert web == {
+        "index": 3,
+        "kind": "web",
+        "url": "https://example.com",
+        "title": "Example article",
+    }
 
 
 def test_cite_excerpt_appends_source_and_wraps_header():
@@ -64,7 +74,7 @@ def test_build_source_requires_openable_pointer(kind, kwargs, message):
 def test_cite_documents_continues_numbering_and_skips_unopenable_source():
     context: dict = {
         "sources": [
-            {"index": 1, "kind": "web", "url": "https://example.com"},
+            {"index": 1, "kind": "web", "url": "https://example.com", "title": ""},
         ]
     }
     documents = [
@@ -85,7 +95,7 @@ def test_cite_documents_continues_numbering_and_skips_unopenable_source():
     assert "[3]" not in formatted
     assert "fallback without pointer" in formatted
     assert context["sources"] == [
-        {"index": 1, "kind": "web", "url": "https://example.com"},
+        {"index": 1, "kind": "web", "url": "https://example.com", "title": ""},
         {"index": 2, "kind": "chunk", "chunk_id": "a"},
     ]
 
@@ -117,3 +127,41 @@ def test_dump_message_sources_uses_camel_case_when_requested():
 def test_dump_message_sources_rejects_unknown_kind():
     with pytest.raises(ValidationError):
         dump_message_sources([{"index": 1, "kind": "file", "chunk_id": str(uuid4())}])
+
+
+def test_dump_message_sources_keeps_web_title():
+    dumped = dump_message_sources(
+        [
+            {
+                "index": 1,
+                "kind": "web",
+                "url": "https://example.com/article",
+                "title": "Article title",
+            }
+        ],
+        by_alias=True,
+    )
+
+    assert dumped == [
+        {
+            "index": 1,
+            "kind": "web",
+            "url": "https://example.com/article",
+            "title": "Article title",
+        }
+    ]
+
+
+def test_dump_message_sources_fills_missing_web_title():
+    dumped = dump_message_sources(
+        [{"index": 1, "kind": "web", "url": "https://example.com"}]
+    )
+
+    assert dumped == [
+        {
+            "index": 1,
+            "kind": "web",
+            "url": "https://example.com",
+            "title": "",
+        }
+    ]

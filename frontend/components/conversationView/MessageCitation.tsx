@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { useCitationPreview } from '@/hooks/useCitationPreview'
+import { webArticleTitle } from '@/lib/citations'
 import { cn } from '@/lib/utils'
 import type { MessageSource } from '@/types/Message'
 
@@ -25,7 +26,9 @@ const MessageCitation = ({
     variant = 'inline',
 }: MessageCitationProps) => {
     const [isOpen, setIsOpen] = useState(false)
-    const preview = useCitationPreview(conversationId, source, isOpen)
+    const isWeb = source.kind === 'web'
+    const preview = useCitationPreview(conversationId, source, isOpen && !isWeb)
+    const articleTitle = webArticleTitle(source)
 
     return (
         <Popover onOpenChange={setIsOpen}>
@@ -39,42 +42,53 @@ const MessageCitation = ({
                 {source.index}
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80 max-w-[min(20rem,calc(100vw-2rem))]">
-                {preview.isPending
-                    ? (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Spinner />
-                                Wczytywanie…
-                            </div>
-                        )
-                    : null}
-                {preview.isError
-                    ? <p className="text-destructive">Nie udało się wczytać źródła.</p>
-                    : null}
-                {preview.data
+                {isWeb
                     ? (
                             <>
-                                <PopoverHeader>
-                                    <PopoverTitle>{preview.data.title}</PopoverTitle>
-                                </PopoverHeader>
-                                {source.kind === 'web'
+                                {articleTitle
                                     ? (
-                                            <a
-                                                href={source.url}
-                                                className="break-all underline underline-offset-2"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                {source.url}
-                                            </a>
+                                            <PopoverHeader>
+                                                <PopoverTitle>{articleTitle}</PopoverTitle>
+                                            </PopoverHeader>
                                         )
-                                    : (
-                                            <PopoverDescription className="max-h-64 overflow-y-auto whitespace-pre-wrap text-foreground">
-                                                {preview.data.body}
-                                            </PopoverDescription>
-                                        )}
+                                    : null}
+                                <a
+                                    href={source.url}
+                                    className="break-all underline underline-offset-2"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {source.url}
+                                </a>
                             </>
                         )
-                    : null}
+                    : (
+                            <>
+                                {preview.isPending
+                                    ? (
+                                            <div className="flex items-center gap-2 text-muted-foreground">
+                                                <Spinner />
+                                                Wczytywanie…
+                                            </div>
+                                        )
+                                    : null}
+                                {preview.isError
+                                    ? <p className="text-destructive">Nie udało się wczytać źródła.</p>
+                                    : null}
+                                {preview.data
+                                    ? (
+                                            <>
+                                                <PopoverHeader>
+                                                    <PopoverTitle>{preview.data.title}</PopoverTitle>
+                                                </PopoverHeader>
+                                                <PopoverDescription className="max-h-64 overflow-y-auto whitespace-pre-wrap text-foreground">
+                                                    {preview.data.body}
+                                                </PopoverDescription>
+                                            </>
+                                        )
+                                    : null}
+                            </>
+                        )}
             </PopoverContent>
         </Popover>
     )
