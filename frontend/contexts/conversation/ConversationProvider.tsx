@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { useParams } from 'react-router';
 
+import { useConversationEvents } from '@/hooks/useConversationEvents'
 import { useConversationsClient } from '@/hooks/useConversations'
 import { useInfiniteMessagesClient } from '@/hooks/useInfiniteMessages'
 import { useSources } from '@/hooks/useSources';
@@ -22,6 +23,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     const { upsertMessage, invalidateMessages } = useInfiniteMessagesClient(activeConversationId, 5)
     const { markConversationUpdated } = useConversationsClient()
     const stream = useStreamResponse(activeConversationId)
+    const armConversationTitleEvents = useConversationEvents(conversationId, sources)
 
     useEffect(() => {
         if (stream.persistedMessage) {
@@ -104,6 +106,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             id: toolCall.callId,
             name: toolCall.name,
         })),
+        armConversationTitleEvents,
     }
 
     return <ConversationContext.Provider value={conversationContextObj}>{children}</ConversationContext.Provider>

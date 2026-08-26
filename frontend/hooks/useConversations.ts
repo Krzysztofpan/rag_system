@@ -1,6 +1,8 @@
+import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { useAuthQuery } from '@/hooks/useAuthQuery'
+import { userQueryKey } from '@/lib/queryKeys'
 import { apiService } from '@/services/api/apiService'
 import type { Conversation } from '@/types/conversation'
 
@@ -20,6 +22,7 @@ export const useConversations = () => {
 export const useConversationsClient = () => {
     const queryClient = useQueryClient()
     const queryKey = useUserQueryKey('conversations')
+    const userId = queryKey[0]
 
     const addConversation = (conversation: Conversation) => {
         queryClient.setQueryData<Conversation[]>(queryKey, (current = []) => [...current, conversation])
@@ -42,10 +45,11 @@ export const useConversationsClient = () => {
         return fallbackObj
     }
 
-    const editConversationTitle = (conversationId: string, updatedTitle: string) => {
+    const editConversationTitle = useCallback((conversationId: string, updatedTitle: string) => {
+        const listQueryKey = userQueryKey(userId, 'conversations')
         let previousName: string | null = null
 
-        queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
+        queryClient.setQueryData<Conversation[]>(listQueryKey, (current = []) =>
             current.map((conversation) => {
                 if (conversation.id !== conversationId) return conversation
                 previousName = conversation.title
@@ -53,14 +57,14 @@ export const useConversationsClient = () => {
             }),
         )
 
-        queryClient.setQueryData<Conversation>([...queryKey, conversationId], (current) => {
+        queryClient.setQueryData<Conversation>([...listQueryKey, conversationId], (current) => {
             if (!current) return current
             previousName ??= current.title
             return { ...current, title: updatedTitle }
         })
 
         return previousName
-    }
+    }, [queryClient, userId])
 
     const patchConversation = (
         conversationId: string,

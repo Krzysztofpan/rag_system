@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.auth.jwt import verify_auth_configuration
 from app.config import get_settings
-from app.container import get_run_registry
+from app.container import get_conversation_event_broker, get_run_registry
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
 from app.routes.chat_stream_routes import chat_stream_router
@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     await check_db_connection()
     yield
     await get_run_registry().close()
+    await get_conversation_event_broker().close()
     await dispose_engine()
 
 

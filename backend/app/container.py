@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.services.chunker.factory import ChunkerFactory
 from app.services.chat.run_registry import InMemoryRunRegistry
+from app.services.conversation_events import ConversationEventBroker
 from app.services.conversation_service import ConversationService
 from app.services.conversation_memory_service import ConversationMemoryService
 from app.services.document_service import DocumentService
@@ -14,6 +15,7 @@ from app.services.message_service import MessageService
 
 _vector_store: VectorStore | None = None
 _run_registry: InMemoryRunRegistry | None = None
+_conversation_event_broker: ConversationEventBroker | None = None
 
 
 def get_vector_store() -> VectorStore:
@@ -28,6 +30,13 @@ def get_run_registry() -> InMemoryRunRegistry:
     if _run_registry is None:
         _run_registry = InMemoryRunRegistry()
     return _run_registry
+
+
+def get_conversation_event_broker() -> ConversationEventBroker:
+    global _conversation_event_broker
+    if _conversation_event_broker is None:
+        _conversation_event_broker = ConversationEventBroker()
+    return _conversation_event_broker
 
 
 def create_indexing_service(

@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 from uuid import UUID
 
@@ -9,19 +10,23 @@ from fastapi import (
     File,
     HTTPException,
     Query,
+    Request,
     UploadFile,
 )
+from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
 
 from app.auth.deps import get_current_user
 from app.background_tasks.document_background import ingest_document_source
 from app.background_tasks.youtube_background import ingest_youtube_source
 from app.dependencies import (
+    ConversationEventBrokerDep,
     ConversationServiceDep,
     CurrentUserDep,
     DocumentServiceDep,
     MessageServiceDep,
 )
+from app.services.conversation_events import HEARTBEAT
 from app.lib.file_types import FileTypes, resolve_document_file_type
 from app.lib.upload_temp import save_upload_to_temp
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
@@ -94,6 +99,46 @@ async def get_conversation(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return conversation_from_model(conversation)
+
+
+@conversation_router.get("/{conversation_id}/events")
+async def conversation_events(
+    conversation_id: UUID,
+    request: Request,
+    current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
+    broker: ConversationEventBrokerDep,
+) -> StreamingResponse:
+    try:
+        await conversation_service.get_conversation(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    async def generate():
+        subscription = await broker.subscribe(conversation_id)
+        async for item in subscription.events():
+            if await request.is_disconnected():
+                break
+            if item is HEARTBEAT:
+                yield ": heartbeat\n\n"
+            else:
+                yield (
+                    f"data: {json.dumps(item, separators=(',', ':'))}\n\n"
+                )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 
 @conversation_router.delete('/{conversation_id}', response_model=DeleteConversationResponse)
 async def delete_conversation(

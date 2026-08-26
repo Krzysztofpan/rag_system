@@ -167,6 +167,31 @@ def test_get_conversation_requires_authentication():
     assert response.json()["detail"] == "Not authenticated"
 
 
+def test_conversation_events_requires_authentication():
+    conversation_id = uuid4()
+    app = FastAPI()
+    app.include_router(conversation_router)
+
+    with TestClient(app) as test_client:
+        response = test_client.get(f"/conversations/{conversation_id}/events")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_conversation_events_not_found_returns_404(client):
+    conversation_id = uuid4()
+
+    with patch(
+        "app.services.conversation_service.ConversationService.get_conversation",
+        new=AsyncMock(side_effect=ValueError(f"Conversation {conversation_id} not found")),
+    ):
+        response = client.get(f"/conversations/{conversation_id}/events")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == f"Conversation {conversation_id} not found"
+
+
 def test_get_messages_serializes_sources_with_api_aliases(client):
     conversation_id = uuid4()
     chunk_id = uuid4()

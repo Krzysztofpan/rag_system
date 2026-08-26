@@ -139,7 +139,7 @@ async def test_generate_conversation_title_updates_owned_conversation():
         ),
         patch("app.services.conversation_service.ChatOpenAI"),
     ):
-        await service.generate_conversation_title(
+        title = await service.generate_conversation_title(
             conversation.id,
             "A summary of invoices",
             user_id=user_id,
@@ -152,5 +152,6 @@ async def test_generate_conversation_title_updates_owned_conversation():
         },
         config={"run_name": "generate_conversation_title"},
     )
+    assert title == "Contracts and invoices"
     assert conversation.title == "Contracts and invoices"
     session.commit.assert_awaited_once()
