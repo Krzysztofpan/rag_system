@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import lru_cache
+from typing import TypedDict
 from uuid import UUID
 
 from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI
+from langsmith import traceable
 
 from app.config import get_settings
 
@@ -16,6 +18,14 @@ from app.services.security.policies import should_block_user_prompt
 from app.services.security.types import PromptGuardVerdict
 
 logger = logging.getLogger(__name__)
+
+
+class _PromptGuardTrace(TypedDict):
+    score: float | None
+    threshold: float
+    label: str
+    blocked: bool
+    failed_open: bool
 
 
 class PromptGuardService:
@@ -48,8 +58,21 @@ class PromptGuardService:
             user_id=user_id,
             tags=["security", "prompt_guard"],
         ):
-            verdict = await self.classify(text)
-        return should_block_user_prompt(verdict, threshold=self._threshold)
+            result = await self._prompt_guard(text)
+        return result["blocked"]
+
+    @traceable(name="prompt_guard", run_type="chain")
+    async def _prompt_guard(self, text: str) -> _PromptGuardTrace:
+        verdict = await self.classify(text)
+        return {
+            "score": verdict.score,
+            "threshold": self._threshold,
+            "label": verdict.label,
+            "blocked": should_block_user_prompt(
+                verdict, threshold=self._threshold
+            ),
+            "failed_open": verdict.failed_open,
+        }
 
     async def classify_messages(self, texts: list[str]) -> PromptGuardVerdict:
         non_empty = [text for text in texts if text.strip()]
