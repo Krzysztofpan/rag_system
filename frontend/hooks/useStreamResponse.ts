@@ -37,9 +37,12 @@ export function useStreamResponse(conversationId: string) {
         () => createChatStreamAdapter(conversationId),
         [conversationId],
     )
+    // Do not pass threadId: useStream would hydrate via LangGraph
+    // /threads/:id/history, which this backend does not implement.
+    // Conversation identity stays on the adapter paths; messages load
+    // through the conversations API instead.
     const stream = useStream<ChatStreamState>({
         transport: adapter,
-        threadId: conversationId,
         initialValues: { documentIds: [], messages: [] },
     })
     const [previousToolCallIds, setPreviousToolCallIds] = useState<Set<string>>(new Set())

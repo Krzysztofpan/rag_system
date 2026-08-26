@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { useParams } from 'react-router';
-import { useQueryClient } from '@tanstack/react-query'
 
+import { useConversationsClient } from '@/hooks/useConversations'
 import { useInfiniteMessagesClient } from '@/hooks/useInfiniteMessages'
 import { useSources } from '@/hooks/useSources';
 import { useStreamResponse } from '@/hooks/useStreamResponse'
@@ -14,13 +14,13 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     const { conversationId } = useParams<{ conversationId?: string }>()
     const activeConversationId = conversationId ?? ''
 
-    const queryClient = useQueryClient()
     const sourcesResponseObject = useSources(conversationId ?? null)
     const { data: sources = [] } = sourcesResponseObject
     const [unselectedSourcesIds, setUnselectedSourcesIds] = useState<string[]>([])
     const [submittedMessageId, setSubmittedMessageId] = useState<string | null>(null)
     const [localError, setLocalError] = useState<string | null>(null)
-    const { upsertMessage } = useInfiniteMessagesClient(queryClient, activeConversationId, 5)
+    const { upsertMessage, invalidateMessages } = useInfiniteMessagesClient(activeConversationId, 5)
+    const { markConversationUpdated } = useConversationsClient()
     const stream = useStreamResponse(activeConversationId)
 
     useEffect(() => {
@@ -61,12 +61,13 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         setLocalError(null)
         setSubmittedMessageId(messageId)
         upsertMessage(optimisticMessage)
+        markConversationUpdated(conversationId)
         try {
             await stream.sendMessage({ documentIds, message, messageId })
         }
         catch (error) {
             setLocalError(chatSendErrorMessage(error))
-            await queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+            await invalidateMessages()
         }
     }
 

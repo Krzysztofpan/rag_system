@@ -33,10 +33,6 @@ function SourceSection() {
 
     const isCollapsed = state === 'collapsed'
 
-    const handleSelectSource = (file: File) => {
-        void uploadSource(file)
-    }
-
     let selectedSourcesInfo = null
 
     if (!isCollapsed) {
@@ -50,7 +46,7 @@ function SourceSection() {
             )
         }
         else {
-            ;<div className="text-center text-muted-foreground text-sm">Select your first source</div>
+            selectedSourcesInfo = <div className="text-center text-muted-foreground text-sm">Select your first source</div>
         }
     }
 
@@ -63,7 +59,9 @@ function SourceSection() {
             <Separator />
             <div className={`min-h-0 flex-1 overflow-y-auto flex flex-col py-4 ${isCollapsed ? 'items-center gap-2' : 'px-7 gap-6'}`}>
                 <UploadFilePage
-                    handleSelectSource={handleSelectSource}
+                    handleSelectSource={(file) => {
+                        void uploadSource(file)
+                    }}
                     handleAddYoutubeUrl={(url) => {
                         void addUrlSource(url)
                     }}

@@ -2,6 +2,7 @@ import { isAxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { useAuthQuery } from '@/hooks/useAuthQuery'
+import { useConversationsClient } from '@/hooks/useConversations'
 import { useUserQueryKey } from '@/hooks/useUserQueryKey'
 import { createPendingSource, rejectSource } from '@/lib/source'
 import { apiService } from '@/services/api/apiService'
@@ -39,6 +40,7 @@ export const useSources = (conversationId: string | null) => {
 export const useSourcesClient = (conversationId: string) => {
     const queryClient = useQueryClient()
     const queryKey = useUserQueryKey('conversation-sources', conversationId)
+    const { bumpSourceCount } = useConversationsClient()
 
     const addSource = (source: Source) => {
         queryClient.setQueryData<Source[]>(queryKey, (current = []) => [...current, source])
@@ -81,6 +83,7 @@ export const useSourcesClient = (conversationId: string) => {
         try {
             const source = await apiService.addUrlSource(conversationId, url)
             replaceSource(pendingSource.id, source)
+            bumpSourceCount(conversationId, 1)
         }
         catch (error) {
             replaceSource(pendingSource.id, rejectSource(pendingSource, sourceRequestError(error)))
@@ -96,6 +99,7 @@ export const useSourcesClient = (conversationId: string) => {
             formData.append('file', file)
             const source = await apiService.uploadSource(conversationId, formData)
             replaceSource(pendingSource.id, source)
+            bumpSourceCount(conversationId, 1)
         }
         catch (error) {
             replaceSource(pendingSource.id, rejectSource(pendingSource, sourceRequestError(error)))
