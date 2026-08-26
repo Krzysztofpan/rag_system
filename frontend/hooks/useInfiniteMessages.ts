@@ -1,8 +1,9 @@
 'use client'
 
 import { type RefObject, useCallback, useEffect, useRef } from 'react'
-import { type InfiniteData, infiniteQueryOptions, QueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 
+import { useUserQueryKey } from '@/hooks/useUserQueryKey'
 import { apiService } from '@/services/api/apiService'
 import type { GetMessagesResponse } from '@/services/api/types'
 import type { Message, MessagesParams } from '@/types/Message'
@@ -102,9 +103,11 @@ export function getMessagesNextPageParam(lastPage: GetMessagesResponse): Message
     }
 }
 
-function messagesInfiniteQueryOptions(conversationId: string, limit = 10) {
-    return infiniteQueryOptions({
-        queryKey: ['messages', conversationId, limit] as const,
+export function useInfiniteMessages(conversationId: string, limit = 10) {
+    const queryKey = useUserQueryKey('messages', conversationId, limit)
+
+    return useInfiniteQuery({
+        queryKey,
         queryFn: ({ pageParam }) =>
             apiService.getMessages(conversationId, {
                 limit,
@@ -116,13 +119,12 @@ function messagesInfiniteQueryOptions(conversationId: string, limit = 10) {
     })
 }
 
-export function useInfiniteMessages(conversationId: string, limit = 10) {
-    return useInfiniteQuery(messagesInfiniteQueryOptions(conversationId, limit))
-}
+export const useInfiniteMessagesClient = (conversationId: string, limit: number) => {
+    const queryClient = useQueryClient()
+    const queryKey = useUserQueryKey('messages', conversationId, limit)
 
-export const useInfiniteMessagesClient = (queryClient: QueryClient, conversationId: string, limit: number) => {
     const upsertMessage = useCallback((newMessage: Message) => {
-        queryClient.setQueryData<InfiniteData<GetMessagesResponse>>(['messages', conversationId, limit], (messages) => {
+        queryClient.setQueryData<InfiniteData<GetMessagesResponse>>(queryKey, (messages) => {
             if (!messages?.pages.length) {
                 const messages = [newMessage]
                 return {
@@ -153,7 +155,11 @@ export const useInfiniteMessagesClient = (queryClient: QueryClient, conversation
 
             return { ...messages, pages }
         })
-    }, [conversationId, limit, queryClient])
+    }, [queryClient, queryKey])
 
-    return { upsertMessage }
+    const invalidateMessages = useCallback(() => {
+        return queryClient.invalidateQueries({ queryKey })
+    }, [queryClient, queryKey])
+
+    return { upsertMessage, invalidateMessages }
 }

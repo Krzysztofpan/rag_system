@@ -2,10 +2,12 @@ import { HttpAgentServerAdapter } from '@langchain/react'
 
 import { apiService } from '@/services/api/apiService'
 
-export const chatStreamPaths = {
-    commands: (id: string) => `/conversations/${id}/commands`,
-    stream: (id: string) => `/conversations/${id}/stream`,
-    state: (id: string) => `/conversations/${id}/state`,
+export function chatStreamPaths(conversationId: string) {
+    return {
+        commands: `/conversations/${conversationId}/commands`,
+        stream: `/conversations/${conversationId}/stream`,
+        state: `/conversations/${conversationId}/state`,
+    }
 }
 
 export function createChatStreamAdapter(conversationId: string) {
@@ -13,6 +15,6 @@ export function createChatStreamAdapter(conversationId: string) {
         apiUrl: apiService.getApiHost(),
         threadId: conversationId,
         fetch: apiService.authorizedFetch,
-        paths: chatStreamPaths,
+        paths: chatStreamPaths(conversationId),
     })
 }

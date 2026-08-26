@@ -13,7 +13,14 @@ import App from './App.tsx'
 
 import './index.css'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            refetchOnMount: false,
+            refetchOnWindowFocus: false,
+        },
+    },
+})
 
 createRoot(document.getElementById('root') as HTMLElement).render(
     <StrictMode>

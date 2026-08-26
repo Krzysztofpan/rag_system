@@ -49,11 +49,42 @@ export const useConversationsClient = () => {
             current.map((conversation) => {
                 if (conversation.id !== conversationId) return conversation
                 previousName = conversation.title
-                return { ...conversation, title: updatedTitle }
+                return { ...conversation, title: updatedTitle, updatedAt: new Date().toISOString() }
             }),
         )
 
         return previousName
+    }
+
+    const patchConversation = (
+        conversationId: string,
+        patch: Partial<Pick<Conversation, 'title' | 'updatedAt' | 'sourceCount'>>,
+    ) => {
+        queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
+            current.map((conversation) => {
+                if (conversation.id !== conversationId) return conversation
+
+                return { ...conversation, ...patch }
+            }),
+        )
+    }
+
+    const markConversationUpdated = (conversationId: string) => {
+        patchConversation(conversationId, { updatedAt: new Date().toISOString() })
+    }
+
+    const bumpSourceCount = (conversationId: string, delta: number) => {
+        queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
+            current.map((conversation) => {
+                if (conversation.id !== conversationId) return conversation
+
+                return {
+                    ...conversation,
+                    sourceCount: Math.max(0, conversation.sourceCount + delta),
+                    updatedAt: new Date().toISOString(),
+                }
+            }),
+        )
     }
 
     const insertConversationInIndex = (fallbackObj: { deletedConversation: Conversation; index: number }) => {
@@ -70,5 +101,7 @@ export const useConversationsClient = () => {
         deleteConversation,
         editConversationTitle,
         insertConversationInIndex,
+        bumpSourceCount,
+        markConversationUpdated,
     }
 }

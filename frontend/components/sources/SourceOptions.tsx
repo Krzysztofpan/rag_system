@@ -24,6 +24,7 @@ const SourceOptions = ({ editMode, setEditMode, sourceId }: SourceOptionsProps) 
     } = useConversationContext()
     const { mutate: deleteSource } = useDeleteSource(conversationId)
     const { state } = useSidebar()
+
     const isCollapsed = state === 'collapsed'
 
     return (
