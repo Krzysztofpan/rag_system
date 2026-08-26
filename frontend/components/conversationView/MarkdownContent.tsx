@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 
 import { citationIndexFromHref, remarkCitations, sourceByIndex } from '@/lib/citations'
+import { isHeadingLabelParagraph, isSectionOutlineList } from '@/lib/markdownHeadings'
 import { normalizeMathMarkdown } from '@/lib/normalizeMathMarkdown'
 import { cn } from '@/lib/utils'
 import type { MessageSource } from '@/types/citation'
@@ -31,20 +32,29 @@ const MarkdownContent = ({
                 remarkPlugins={[remarkMath, remarkGfm, remarkCitations]}
                 rehypePlugins={[[rehypeKatex, { strict: 'ignore' }]]}
                 components={{
-                    p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
-                    ul: ({ children }) => <ul className="mb-4 list-disc space-y-1 pl-6 last:mb-0">{children}</ul>,
-                    ol: ({ children }) => <ol className="mb-4 list-decimal space-y-1 pl-6 last:mb-0">{children}</ol>,
-                    li: ({ children }) => <li className="last:pb-4">{children}</li>,
-                    h1: ({ children }) => <h1 className="mb-4 text-xl font-bold last:mb-0">{children}</h1>,
-                    h2: ({ children }) => <h2 className="mb-3 text-lg font-bold last:mb-0">{children}</h2>,
-                    h3: ({ children }) => <h3 className="mb-2 text-base font-bold last:mb-0">{children}</h3>,
-                    strong: ({ children }) => (
-                        <strong className="font-bold text-xl">
+                    p: ({ children, node }) => (
+                        <p
+                            className={isHeadingLabelParagraph(node)
+                                ? 'mt-8 mb-6 text-2xl font-bold first:mt-0 last:mb-0'
+                                : 'mb-4 last:mb-0'}
+                        >
                             {children}
-                            {' '}
-                            <br />
-                        </strong>
+                        </p>
                     ),
+                    ul: ({ children }) => <ul className="mb-4 list-disc space-y-1.5 pl-6 last:mb-0">{children}</ul>,
+                    ol: ({ children, node }) => (
+                        <ol
+                            className={isSectionOutlineList(node)
+                                ? 'mt-6 mb-4 flex list-none flex-col gap-8 pl-0 last:mb-0'
+                                : 'mb-4 list-decimal space-y-1.5 pl-6 last:mb-0'}
+                        >
+                            {children}
+                        </ol>
+                    ),
+                    h1: ({ children }) => <h1 className="mt-8 mb-4 text-3xl font-bold first:mt-0 last:mb-0">{children}</h1>,
+                    h2: ({ children }) => <h2 className="mt-8 mb-4 text-2xl font-bold first:mt-0 last:mb-0">{children}</h2>,
+                    h3: ({ children }) => <h3 className="mt-6 mb-4 text-xl font-bold first:mt-0 last:mb-0">{children}</h3>,
+                    strong: ({ children }) => <strong className="font-bold">{children}</strong>,
                     em: ({ children }) => <em className="italic">{children}</em>,
                     hr: () => <hr className="my-4 border-mist-400" />,
                     blockquote: ({ children }) => <blockquote className="mb-4 border-l-4 border-mist-400 pl-4 italic last:mb-0">{children}</blockquote>,
