@@ -6,6 +6,7 @@ import { useEditConversationTitle } from '@/hooks/useEditConversationTitle'
 import type { Conversation } from '@/types/conversation'
 
 import { Card, CardContent, CardHeader } from '../ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import EditValueView from '../utils/EditValueView'
 import ConversationOptions from './ConversationOption'
 
@@ -18,7 +19,6 @@ const ConversationCard = ({ conversation }: ConversationCardProps) => {
     const { mutate: editConversationTitle } = useEditConversationTitle()
     const navigateTo = useNavigate()
     const [editMode, setEditMode] = useState(false)
-
 
     const handleEditConversationTitle = (newTitle: string) => {
         editConversationTitle({ conversationId: conversation.id, title: newTitle })
@@ -39,7 +39,12 @@ const ConversationCard = ({ conversation }: ConversationCardProps) => {
                                 </div>
                             )
                         : (
-                                <CardHeader className="text-2xl line-clamp-2 px-0 text-wrap">{conversation.title}</CardHeader>
+                                <Tooltip>
+                                    <TooltipTrigger delay={200} className="text-left">
+                                        <CardHeader className="text-2xl line-clamp-2 px-0 text-wrap">{conversation.title}</CardHeader>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">{conversation.title}</TooltipContent>
+                                </Tooltip>
                             )}
 
                     <div className="flex items-center text-foreground/70">
