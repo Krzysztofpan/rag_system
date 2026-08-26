@@ -123,6 +123,50 @@ def test_get_conversations_returns_service_result(client, authenticated_user):
     assert len(response.json()['conversations']) == 2
 
 
+def test_get_conversation_returns_serialized_conversation(client, authenticated_user):
+    conversation = Conversation(user_id=authenticated_user.user_id, title="My chat")
+
+    with patch(
+        "app.services.conversation_service.ConversationService.get_conversation",
+        new=AsyncMock(return_value=conversation),
+    ):
+        response = client.get(f"/conversations/{conversation.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == str(conversation.id)
+    assert payload["userId"] == str(authenticated_user.user_id)
+    assert payload["title"] == "My chat"
+    assert payload["sourceCount"] == 0
+    assert "createdAt" in payload
+    assert "updatedAt" in payload
+
+
+def test_get_conversation_not_found_returns_404(client):
+    conversation_id = uuid4()
+
+    with patch(
+        "app.services.conversation_service.ConversationService.get_conversation",
+        new=AsyncMock(side_effect=ValueError(f"Conversation {conversation_id} not found")),
+    ):
+        response = client.get(f"/conversations/{conversation_id}")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == f"Conversation {conversation_id} not found"
+
+
+def test_get_conversation_requires_authentication():
+    conversation_id = uuid4()
+    app = FastAPI()
+    app.include_router(conversation_router)
+
+    with TestClient(app) as test_client:
+        response = test_client.get(f"/conversations/{conversation_id}")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
 def test_get_messages_serializes_sources_with_api_aliases(client):
     conversation_id = uuid4()
     chunk_id = uuid4()

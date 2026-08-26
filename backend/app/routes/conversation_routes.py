@@ -27,6 +27,7 @@ from app.lib.upload_temp import save_upload_to_temp
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
 from app.schemas.chunk import ChunkResponse
 from app.schemas.conversation import (
+    ConversationResponse,
     CreateConversationResponse,
     DeleteConversationResponse,
     GetConversationsResponse,
@@ -76,6 +77,23 @@ async def get_conversations(
     return GetConversationsResponse(
         conversations=[conversation_from_model(c) for c in conversations],
     )
+
+
+@conversation_router.get("/{conversation_id}", response_model=ConversationResponse)
+async def get_conversation(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
+) -> ConversationResponse:
+    try:
+        conversation = await conversation_service.get_conversation(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return conversation_from_model(conversation)
 
 @conversation_router.delete('/{conversation_id}', response_model=DeleteConversationResponse)
 async def delete_conversation(

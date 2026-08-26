@@ -53,6 +53,12 @@ export const useConversationsClient = () => {
             }),
         )
 
+        queryClient.setQueryData<Conversation>([...queryKey, conversationId], (current) => {
+            if (!current) return current
+            previousName ??= current.title
+            return { ...current, title: updatedTitle }
+        })
+
         return previousName
     }
 
