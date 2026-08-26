@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import { ArrowLeftFromLine } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router'
@@ -6,21 +7,23 @@ import ConversationWindow from '@/components/conversationView/ConversationWindow
 import SourceSection from '@/components/sources/SourceSection'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { ConversationProvider } from '@/contexts/conversation/ConversationProvider'
-import { useConversations } from '@/hooks/useConversations'
+import { useConversation } from '@/hooks/useConversations'
 
 const ConversationPage = () => {
     const { conversationId } = useParams<{ conversationId?: string }>()
-    const { data: conversations = [], isLoading } = useConversations()
+    const { data: conversation, isLoading, error } = useConversation(conversationId)
 
     if (!conversationId) {
         return <div>Conversation not found</div>
     }
 
-    if (isLoading) {
-        return null
+    if (isAxiosError(error) && error.response?.status === 404) {
+        return <div>Conversation not found</div>
     }
 
-    const conversation = conversations.find((conversation) => conversation.id === conversationId)
+    if (isLoading && !conversation) {
+        return null
+    }
 
     return (
         <SidebarProvider

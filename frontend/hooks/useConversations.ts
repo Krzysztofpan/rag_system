@@ -17,6 +17,22 @@ export const useConversations = () => {
     })
 }
 
+export const useConversation = (conversationId: string | undefined) => {
+    const queryClient = useQueryClient()
+    const listQueryKey = useUserQueryKey('conversations')
+    const conversations = queryClient.getQueryData<Conversation[]>(listQueryKey)
+    const placeholderData = conversationId
+        ? conversations?.find((conversation) => conversation.id === conversationId)
+        : undefined
+
+    return useAuthQuery({
+        queryKey: ['conversations', conversationId],
+        queryFn: () => apiService.getConversation(conversationId as string),
+        enabled: !!conversationId,
+        placeholderData,
+    })
+}
+
 export const useConversationsClient = () => {
     const queryClient = useQueryClient()
     const queryKey = useUserQueryKey('conversations')
@@ -52,6 +68,12 @@ export const useConversationsClient = () => {
                 return { ...conversation, title: updatedTitle }
             }),
         )
+
+        queryClient.setQueryData<Conversation>([...queryKey, conversationId], (current) => {
+            if (!current) return current
+            previousName ??= current.title
+            return { ...current, title: updatedTitle }
+        })
 
         return previousName
     }

@@ -8,6 +8,8 @@ export type GetConversationResponse = {
     conversations: Conversation[];
 }
 
+export type ConversationResponse = Conversation
+
 export type CreateConversationResponse = {
     conversationId: string;
     userId: string;
