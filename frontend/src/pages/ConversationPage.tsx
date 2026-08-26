@@ -7,7 +7,7 @@ import ConversationWindow from '@/components/conversationView/ConversationWindow
 import SourceSection from '@/components/sources/SourceSection'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { ConversationProvider } from '@/contexts/conversation/ConversationProvider'
-import { useConversation } from '@/hooks/useConversations'
+import { useConversation } from '@/hooks/useConversation'
 
 const ConversationPage = () => {
     const { conversationId } = useParams<{ conversationId?: string }>()
