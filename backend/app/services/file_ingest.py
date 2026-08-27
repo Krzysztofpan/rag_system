@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from app.background_tasks.upload_background import summarize_document_and_update_title
+from app.background_tasks.upload_background import apply_document_summary
 from app.container import create_document_service, create_indexing_service
 from app.db.session import get_session_factory
 from app.lib.tracing import conversation_tracing
@@ -44,7 +44,7 @@ class FileIngestService:
                             conversation_id=conversation_id,
                             document_id=document_id,
                         )
-                    await summarize_document_and_update_title(
+                    await apply_document_summary(
                         result.parsed_content,
                         conversation_id,
                         document_id,

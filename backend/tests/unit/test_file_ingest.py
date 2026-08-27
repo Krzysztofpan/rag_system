@@ -44,7 +44,7 @@ async def test_file_ingest_indexes_and_cleans_up_temp(tmp_path):
             return_value=indexing,
         ),
         patch(
-            "app.services.file_ingest.summarize_document_and_update_title",
+            "app.services.file_ingest.apply_document_summary",
             new=summarize,
         ),
     ):
@@ -89,7 +89,7 @@ async def test_file_ingest_marks_failed_and_cleans_up_temp(tmp_path):
             return_value=document_service,
         ),
         patch(
-            "app.services.file_ingest.summarize_document_and_update_title",
+            "app.services.file_ingest.apply_document_summary",
             new=summarize,
         ),
         pytest.raises(RuntimeError, match="parse exploded"),
@@ -134,7 +134,7 @@ async def test_file_ingest_swallows_parse_quality_error_and_cleans_up_temp(tmp_p
             return_value=document_service,
         ),
         patch(
-            "app.services.file_ingest.summarize_document_and_update_title",
+            "app.services.file_ingest.apply_document_summary",
             new=summarize,
         ),
     ):

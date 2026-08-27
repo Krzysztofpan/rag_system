@@ -9,7 +9,7 @@ from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser.factory import ParserFactory
 
 
-async def summarize_document_and_update_title(
+async def apply_document_summary(
     parsed_content: str,
     conversation_id: UUID,
     document_id: UUID,
@@ -35,7 +35,7 @@ async def summarize_document_and_update_title(
         session_factory = get_session_factory()
         async with session_factory() as session:
             conversation_service = create_conversation_service(session)
-            title = await conversation_service.generate_conversation_title(
+            title = await conversation_service.update_from_summary(
                 conversation_id,
                 summary,
                 user_id=user_id,

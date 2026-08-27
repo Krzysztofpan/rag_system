@@ -155,3 +155,30 @@ async def test_generate_conversation_title_updates_owned_conversation():
     assert title == "Contracts and invoices"
     assert conversation.title == "Contracts and invoices"
     session.commit.assert_awaited_once()
+
+
+async def test_update_from_summary_generates_title_and_topic():
+    user_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock()
+    service = _service(session)
+    service.generate_conversation_title = AsyncMock(return_value="Contracts and invoices")
+    service.generate_conversation_topic = AsyncMock(return_value="general")
+
+    title = await service.update_from_summary(
+        conversation_id,
+        "A summary of invoices",
+        user_id=user_id,
+    )
+
+    assert title == "Contracts and invoices"
+    service.generate_conversation_title.assert_awaited_once_with(
+        conversation_id,
+        "A summary of invoices",
+        user_id=user_id,
+    )
+    service.generate_conversation_topic.assert_awaited_once_with(
+        conversation_id,
+        "A summary of invoices",
+        user_id=user_id,
+    )

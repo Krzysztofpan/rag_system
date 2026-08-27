@@ -26,6 +26,7 @@ class Conversation(SQLModel, table=True):
         ),
     )
     title: str | None = Field(default=None)
+    topic: str | None = Field(default=None)
     source_count: int = Field(default=0)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

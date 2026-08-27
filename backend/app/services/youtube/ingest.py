@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Callable
 from uuid import UUID
 
-from app.background_tasks.upload_background import summarize_document_and_update_title
+from app.background_tasks.upload_background import apply_document_summary
 from app.config import Settings, get_settings
 from app.container import create_document_service, create_indexing_service
 from app.db.session import get_session_factory
@@ -110,7 +110,7 @@ class YoutubeIngestService:
                         ),
                     )
 
-                await summarize_document_and_update_title(
+                await apply_document_summary(
                     result.parsed_content,
                     conversation_id,
                     document_id,

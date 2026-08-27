@@ -6,3 +6,9 @@ document summary: {doc_summary}
 
 current_title: {conversation_title}
 """
+
+CONVERSATION_TOPIC_TEMPLATE = """
+Based on document summary select relevant topic for it:
+
+document summary: {doc_summary}
+"""
