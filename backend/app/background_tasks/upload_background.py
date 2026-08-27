@@ -4,7 +4,7 @@ from app.container import create_conversation_service, get_conversation_event_br
 from app.db.session import get_session_factory
 from app.lib.tracing import conversation_tracing
 from app.services.chunker.factory import ChunkerFactory
-from app.services.conversation_events import conversation_title_event
+from app.services.conversation_events import conversation_updated_event
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser.factory import ParserFactory
 
@@ -35,7 +35,7 @@ async def apply_document_summary(
         session_factory = get_session_factory()
         async with session_factory() as session:
             conversation_service = create_conversation_service(session)
-            title = await conversation_service.update_from_summary(
+            title, topic = await conversation_service.update_from_summary(
                 conversation_id,
                 summary,
                 user_id=user_id,
@@ -43,5 +43,5 @@ async def apply_document_summary(
 
         await get_conversation_event_broker().publish(
             conversation_id,
-            conversation_title_event(conversation_id, title),
+            conversation_updated_event(conversation_id, title, topic),
         )

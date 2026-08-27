@@ -6,7 +6,7 @@ from uuid import uuid4
 from app.auth.deps import AuthenticatedUser
 from app.db.models.conversation import Conversation
 from app.routes.conversation_routes import conversation_events
-from app.services.conversation_events import HEARTBEAT, conversation_title_event
+from app.services.conversation_events import HEARTBEAT, conversation_updated_event
 
 
 def _current_user(user_id):
@@ -24,7 +24,7 @@ def _current_user(user_id):
 async def test_conversation_events_streams_title_and_heartbeat():
     user_id = uuid4()
     conversation_id = uuid4()
-    event = conversation_title_event(conversation_id, "Contracts and invoices")
+    event = conversation_updated_event(conversation_id, "Contracts and invoices", "finance")
     conversation_service = AsyncMock()
     conversation_service.get_conversation.return_value = Conversation(
         id=conversation_id,

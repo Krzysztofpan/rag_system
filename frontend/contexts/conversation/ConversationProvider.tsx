@@ -23,7 +23,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     const { upsertMessage, invalidateMessages } = useInfiniteMessagesClient(activeConversationId, 5)
     const { markConversationUpdated } = useConversationsClient()
     const stream = useStreamResponse(activeConversationId)
-    const armConversationTitleEvents = useConversationEvents(conversationId, sources)
+    const armConversationEvents = useConversationEvents(conversationId, sources)
 
     useEffect(() => {
         if (stream.persistedMessage) {
@@ -106,7 +106,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             id: toolCall.callId,
             name: toolCall.name,
         })),
-        armConversationTitleEvents,
+        armConversationEvents,
     }
 
     return <ConversationContext.Provider value={conversationContextObj}>{children}</ConversationContext.Provider>

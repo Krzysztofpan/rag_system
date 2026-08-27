@@ -80,7 +80,7 @@ export const useSourcesClient = (conversationId: string) => {
     }
 
     const addUrlSource = async (url: string) => {
-        conversation?.armConversationTitleEvents()
+        conversation?.armConversationEvents()
         const pendingSource = createPendingSource(url, 'video/youtube')
         addSource(pendingSource)
 
@@ -95,7 +95,7 @@ export const useSourcesClient = (conversationId: string) => {
     }
 
     const uploadSource = async (file: File) => {
-        conversation?.armConversationTitleEvents()
+        conversation?.armConversationEvents()
         const pendingSource = createPendingSource(file.name, file.type || null)
         addSource(pendingSource)
 
