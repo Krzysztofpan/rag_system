@@ -124,7 +124,7 @@ def test_get_conversations_returns_service_result(client, authenticated_user):
 
 
 def test_get_conversation_returns_serialized_conversation(client, authenticated_user):
-    conversation = Conversation(user_id=authenticated_user.user_id, title="My chat")
+    conversation = Conversation(user_id=authenticated_user.user_id, title="My chat", topic="ai")
 
     with patch(
         "app.services.conversation_service.ConversationService.get_conversation",
@@ -137,6 +137,7 @@ def test_get_conversation_returns_serialized_conversation(client, authenticated_
     assert payload["id"] == str(conversation.id)
     assert payload["userId"] == str(authenticated_user.user_id)
     assert payload["title"] == "My chat"
+    assert payload["topic"] == "ai"
     assert payload["sourceCount"] == 0
     assert "createdAt" in payload
     assert "updatedAt" in payload

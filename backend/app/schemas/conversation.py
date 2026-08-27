@@ -13,6 +13,7 @@ class ConversationResponse(APIModel):
     user_id: str
     source_count: int
     title: str | None = None
+    topic: str | None = None
 
 
 class GetConversationsResponse(APIModel):
@@ -35,4 +36,5 @@ def conversation_from_model(conversation: Conversation) -> ConversationResponse:
         user_id=str(conversation.user_id),
         source_count=conversation.source_count,
         title=conversation.title,
+        topic=conversation.topic,
     )

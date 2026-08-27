@@ -23,7 +23,7 @@ const ConversationOptions = ({ setEditMode, conversationId }: ConversationOption
     return (
         <div className="gap-2 items-center" onClick={(e) => { e.stopPropagation() }}>
             <Popover onOpenChange={setIsOpen}>
-                <PopoverTrigger className={` group-hover:block p-0 m-0 flex justify-center items-center cursor-pointer`}>
+                <PopoverTrigger className="m-0 flex cursor-pointer items-center justify-center p-0 text-muted-foreground hover:text-foreground">
                     <EllipsisVertical size={18} />
                 </PopoverTrigger>
                 <PopoverContent side="bottom" align="start" className={`${isOpen ? 'flex' : 'hidden'}  flex-col  gap-0 p-0`}>

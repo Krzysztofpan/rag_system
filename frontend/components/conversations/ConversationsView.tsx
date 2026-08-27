@@ -7,16 +7,16 @@ import ConversationCard from './ConversationCard'
 
 function ConversationCardSkeleton() {
     return (
-        <Card className="max-w-[320px]">
-            <CardContent className="w-full flex flex-col gap-10">
+        <Card className="h-[240px] w-full">
+            <CardContent className="flex h-full w-full flex-col justify-between">
                 <div className="flex justify-between">
-                    <Skeleton className="size-20 rounded" />
+                    <Skeleton className="size-12 rounded" />
                     <Skeleton className="size-8 rounded" />
                 </div>
                 <div className="flex flex-col gap-2">
                     <Skeleton className="h-8 w-4/5" />
                     <Skeleton className="h-8 w-3/5" />
-                    <Skeleton className="h-4 w-2/3 mt-1" />
+                    <Skeleton className="mt-1 h-4 w-2/3" />
                 </div>
             </CardContent>
         </Card>
@@ -31,12 +31,12 @@ const ConversationsView = () => {
     )
 
     return (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 w-full">
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             <AddNewConversationBtn />
             {!isLoading ? sortedConversations?.map((conversation) => <ConversationCard key={conversation.id} conversation={conversation} />) : Array.from({ length: 4 }).map((_, i) => <ConversationCardSkeleton key={i} />)}
             {error && (
-                <Card className="max-w-[320px] h-[250px]">
-                    <CardContent className="w-full flex justify-center h-full items-center text-destructive  text-2xl">
+                <Card className="h-[240px] w-full">
+                    <CardContent className="flex h-full w-full items-center justify-center text-2xl text-destructive">
                         <h1 className="text-center">
                             Failed To load Conversations
                         </h1>
