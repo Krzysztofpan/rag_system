@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.db.models.conversation import Conversation
-from app.services.conversation_service import ConversationService, ConversationTitle
+from app.services.conversation_service import ConversationMetadata, ConversationService
 from tests.helpers import FakeVectorStore
 
 
@@ -120,7 +120,7 @@ async def test_delete_conversation_skips_pinecone_when_missing():
     assert vector_store.deleted_namespaces == []
 
 
-async def test_generate_conversation_title_updates_owned_conversation():
+async def test_update_from_summary_updates_title_and_topic():
     user_id = uuid4()
     conversation = Conversation(user_id=user_id, title="New Conversation")
     session = _mock_session(scalar_one_or_none=conversation)
@@ -129,7 +129,7 @@ async def test_generate_conversation_title_updates_owned_conversation():
     chain = MagicMock()
     chain.__or__.return_value = chain
     chain.ainvoke = AsyncMock(
-        return_value=ConversationTitle(title="Contracts and invoices")
+        return_value=ConversationMetadata(title="Contracts and invoices", topic="finance")
     )
 
     with (
@@ -139,7 +139,7 @@ async def test_generate_conversation_title_updates_owned_conversation():
         ),
         patch("app.services.conversation_service.ChatOpenAI"),
     ):
-        title = await service.generate_conversation_title(
+        title, topic = await service.update_from_summary(
             conversation.id,
             "A summary of invoices",
             user_id=user_id,
@@ -150,35 +150,10 @@ async def test_generate_conversation_title_updates_owned_conversation():
             "doc_summary": "A summary of invoices",
             "conversation_title": "New Conversation",
         },
-        config={"run_name": "generate_conversation_title"},
+        config={"run_name": "generate_conversation_metadata"},
     )
     assert title == "Contracts and invoices"
+    assert topic == "finance"
     assert conversation.title == "Contracts and invoices"
+    assert conversation.topic == "finance"
     session.commit.assert_awaited_once()
-
-
-async def test_update_from_summary_generates_title_and_topic():
-    user_id = uuid4()
-    conversation_id = uuid4()
-    session = AsyncMock()
-    service = _service(session)
-    service.generate_conversation_title = AsyncMock(return_value="Contracts and invoices")
-    service.generate_conversation_topic = AsyncMock(return_value="general")
-
-    title = await service.update_from_summary(
-        conversation_id,
-        "A summary of invoices",
-        user_id=user_id,
-    )
-
-    assert title == "Contracts and invoices"
-    service.generate_conversation_title.assert_awaited_once_with(
-        conversation_id,
-        "A summary of invoices",
-        user_id=user_id,
-    )
-    service.generate_conversation_topic.assert_awaited_once_with(
-        conversation_id,
-        "A summary of invoices",
-        user_id=user_id,
-    )

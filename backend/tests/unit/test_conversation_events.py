@@ -5,7 +5,7 @@ from uuid import uuid4
 from app.services.conversation_events import (
     HEARTBEAT,
     ConversationEventBroker,
-    conversation_title_event,
+    conversation_updated_event,
 )
 
 
@@ -13,7 +13,7 @@ async def test_publish_reaches_only_matching_conversation_subscribers():
     broker = ConversationEventBroker()
     conversation_id = uuid4()
     other_id = uuid4()
-    event = conversation_title_event(conversation_id, "Contracts")
+    event = conversation_updated_event(conversation_id, "Contracts", "finance")
 
     matched = await broker.subscribe(conversation_id)
     other = await broker.subscribe(other_id)
@@ -29,7 +29,7 @@ async def test_publish_reaches_only_matching_conversation_subscribers():
 async def test_unsubscribe_drops_subscriber_before_later_publish():
     broker = ConversationEventBroker()
     conversation_id = uuid4()
-    event = conversation_title_event(conversation_id, "Invoices")
+    event = conversation_updated_event(conversation_id, "Invoices", "finance")
 
     subscription = await broker.subscribe(conversation_id)
     await broker.unsubscribe(subscription)
@@ -43,7 +43,7 @@ async def test_unsubscribe_drops_subscriber_before_later_publish():
 async def test_subscribe_replays_title_published_without_subscribers():
     broker = ConversationEventBroker(replay_ttl_seconds=30)
     conversation_id = uuid4()
-    event = conversation_title_event(conversation_id, "Contracts")
+    event = conversation_updated_event(conversation_id, "Contracts", "finance")
 
     await broker.publish(conversation_id, event)
     subscription = await broker.subscribe(conversation_id)
@@ -58,7 +58,7 @@ async def test_subscribe_replays_title_published_without_subscribers():
 async def test_replayed_title_is_not_delivered_to_a_later_subscribe():
     broker = ConversationEventBroker(replay_ttl_seconds=30)
     conversation_id = uuid4()
-    event = conversation_title_event(conversation_id, "Contracts")
+    event = conversation_updated_event(conversation_id, "Contracts", "finance")
 
     await broker.publish(conversation_id, event)
     first = await broker.subscribe(conversation_id)
@@ -73,7 +73,7 @@ async def test_replayed_title_is_not_delivered_to_a_later_subscribe():
 async def test_expired_pending_title_is_not_replayed():
     broker = ConversationEventBroker(replay_ttl_seconds=0.01)
     conversation_id = uuid4()
-    event = conversation_title_event(conversation_id, "Stale")
+    event = conversation_updated_event(conversation_id, "Stale", "finance")
 
     await broker.publish(conversation_id, event)
     await asyncio.sleep(0.02)
@@ -87,7 +87,7 @@ async def test_expired_pending_title_is_not_replayed():
 async def test_live_publish_is_not_replayed_to_a_later_subscriber():
     broker = ConversationEventBroker(replay_ttl_seconds=30)
     conversation_id = uuid4()
-    event = conversation_title_event(conversation_id, "Live")
+    event = conversation_updated_event(conversation_id, "Live", "finance")
 
     first = await broker.subscribe(conversation_id)
     await broker.publish(conversation_id, event)
@@ -103,7 +103,7 @@ async def test_live_publish_is_not_replayed_to_a_later_subscriber():
 async def test_events_yields_queued_title_payload():
     broker = ConversationEventBroker()
     conversation_id = uuid4()
-    event = conversation_title_event(conversation_id, "Payroll")
+    event = conversation_updated_event(conversation_id, "Payroll", "finance")
     subscription = await broker.subscribe(conversation_id)
     await broker.publish(conversation_id, event)
 

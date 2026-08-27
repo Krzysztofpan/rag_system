@@ -66,18 +66,23 @@ export const useConversationsClient = () => {
         return previousName
     }, [queryClient, userId])
 
-    const patchConversation = (
+    const patchConversation = useCallback((
         conversationId: string,
         patch: Partial<Pick<Conversation, 'title' | 'updatedAt' | 'sourceCount' | 'topic'>>,
     ) => {
-        queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
+        const listQueryKey = userQueryKey(userId, 'conversations')
+        queryClient.setQueryData<Conversation[]>(listQueryKey, (current = []) =>
             current.map((conversation) => {
                 if (conversation.id !== conversationId) return conversation
 
                 return { ...conversation, ...patch }
             }),
         )
-    }
+        queryClient.setQueryData<Conversation>([...listQueryKey, conversationId], (current) => {
+            if (!current) return current
+            return { ...current, ...patch }
+        })
+    }, [queryClient, userId])
 
     const markConversationUpdated = (conversationId: string) => {
         patchConversation(conversationId, { updatedAt: new Date().toISOString() })
@@ -110,6 +115,7 @@ export const useConversationsClient = () => {
         addConversation,
         deleteConversation,
         editConversationTitle,
+        patchConversation,
         insertConversationInIndex,
         bumpSourceCount,
         markConversationUpdated,

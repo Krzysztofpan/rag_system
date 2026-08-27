@@ -1,10 +1,13 @@
-export type ConversationTitleEvent = {
-    event: 'conversation.title';
+import { CONVERSATION_TOPICS, type ConversationTopicName } from '@/lib/conversationTopic'
+
+export type ConversationUpdatedEvent = {
+    event: 'conversation.updated';
     conversationId: string;
     title: string;
+    topic: ConversationTopicName;
 }
 
-export function parseConversationTitleEvent(data: string): ConversationTitleEvent | null {
+export function parseConversationUpdatedEvent(data: string): ConversationUpdatedEvent | null {
     let parsed: unknown
     try {
         parsed = JSON.parse(data) as unknown
@@ -16,18 +19,27 @@ export function parseConversationTitleEvent(data: string): ConversationTitleEven
         return null
     }
     const record = parsed as Record<string, unknown>
-    if (record.event !== 'conversation.title') {
+    if (record.event !== 'conversation.updated') {
         return null
     }
     const conversationId = record.conversationId
     const title = record.title
+    const topic = record.topic
     if (typeof conversationId !== 'string' || typeof title !== 'string' || !title) {
         return null
     }
+    if (typeof topic !== 'string') {
+        return null
+    }
+    const allowedTopics: readonly string[] = CONVERSATION_TOPICS
+    if (!allowedTopics.includes(topic)) {
+        return null
+    }
     return {
-        event: 'conversation.title',
+        event: 'conversation.updated',
         conversationId,
         title,
+        topic: topic as ConversationTopicName,
     }
 }
 

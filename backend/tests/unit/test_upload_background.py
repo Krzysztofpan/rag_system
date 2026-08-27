@@ -13,7 +13,7 @@ async def test_apply_document_summary_chains_existing_methods():
     indexing_service.summarize_document = AsyncMock(return_value="A short summary")
     conversation_service = MagicMock()
     conversation_service.update_from_summary = AsyncMock(
-        return_value="Contracts and invoices"
+        return_value=("Contracts and invoices", "finance")
     )
     broker = MagicMock()
     broker.publish = AsyncMock()
@@ -64,8 +64,9 @@ async def test_apply_document_summary_chains_existing_methods():
     broker.publish.assert_awaited_once_with(
         conversation_id,
         {
-            "event": "conversation.title",
+            "event": "conversation.updated",
             "conversationId": str(conversation_id),
             "title": "Contracts and invoices",
+            "topic": "finance",
         },
     )

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { parseConversationTitleEvent, readSseDataFrames } from '@/lib/sse'
+import type { ConversationTopicName } from '@/lib/conversationTopic'
+import { parseConversationUpdatedEvent, readSseDataFrames } from '@/lib/sse'
 import { apiService } from '@/services/api/apiService'
 import type { Source } from '@/types/source'
 
 import { useConversationsClient } from './useConversations'
 
 const RECONNECT_MS = 1500
-const TITLE_EVENTS_IDLE_MS = 30_000
+const CONVERSATION_EVENTS_IDLE_MS = 30_000
 
 function isAbortError(error: unknown): boolean {
     return error instanceof DOMException && error.name === 'AbortError'
@@ -27,10 +28,10 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
     })
 }
 
-async function listenForConversationTitle(
+async function listenForConversationUpdates(
     conversationId: string,
     signal: AbortSignal,
-    onTitle: (title: string) => void,
+    onUpdated: (title: string, topic: ConversationTopicName) => void,
 ): Promise<void> {
     while (!signal.aborted) {
         try {
@@ -44,9 +45,9 @@ async function listenForConversationTitle(
             }
 
             await readSseDataFrames(response.body, (data) => {
-                const event = parseConversationTitleEvent(data)
+                const event = parseConversationUpdatedEvent(data)
                 if (event?.conversationId === conversationId) {
-                    onTitle(event.title)
+                    onUpdated(event.title, event.topic)
                 }
             })
             if (signal.aborted) {
@@ -67,12 +68,12 @@ export function useConversationEvents(
     conversationId: string | undefined,
     sources: Source[],
 ) {
-    const { editConversationTitle } = useConversationsClient()
+    const { patchConversation } = useConversationsClient()
     const [armed, setArmed] = useState(false)
     const sourceInFlight = sources.some(
         (source) => source.status === 'pending' || source.status === 'processing',
     )
-    const armConversationTitleEvents = useCallback(() => {
+    const armConversationEvents = useCallback(() => {
         setArmed(true)
     }, [])
 
@@ -83,14 +84,18 @@ export function useConversationEvents(
         }
 
         const controller = new AbortController()
-        void listenForConversationTitle(activeConversationId, controller.signal, (title) => {
-            editConversationTitle(activeConversationId, title)
+        void listenForConversationUpdates(activeConversationId, controller.signal, (title, topic) => {
+            patchConversation(activeConversationId, {
+                title,
+                topic,
+                updatedAt: new Date().toISOString(),
+            })
         })
 
         return () => {
             controller.abort()
         }
-    }, [armed, conversationId, editConversationTitle])
+    }, [armed, conversationId, patchConversation])
 
     useEffect(() => {
         if (!armed || sourceInFlight) {
@@ -98,11 +103,11 @@ export function useConversationEvents(
         }
         const timeout = window.setTimeout(() => {
             setArmed(false)
-        }, TITLE_EVENTS_IDLE_MS)
+        }, CONVERSATION_EVENTS_IDLE_MS)
         return () => {
             window.clearTimeout(timeout)
         }
     }, [armed, sourceInFlight])
 
-    return armConversationTitleEvents
+    return armConversationEvents
 }

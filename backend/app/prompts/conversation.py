@@ -1,14 +1,10 @@
-CONVERSATION_TITLE_TEMPLATE = """\
-Based on actual title and new document summary you have to create new conversation title.
-Title should be general and short, it's just for user to know what is about:
+CONVERSATION_METADATA_TEMPLATE = """\
+Based on the current title and a new document summary, create a conversation title and select a topic.
+
+Title should be general and short, so the user knows what the conversation is about.
+If the document is not related to any of the topics, return topic 'general'.
 
 document summary: {doc_summary}
 
 current_title: {conversation_title}
-"""
-
-CONVERSATION_TOPIC_TEMPLATE = """
-Based on document summary select relevant topic for it:
-
-document summary: {doc_summary}
 """
