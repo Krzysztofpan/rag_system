@@ -105,7 +105,7 @@ class ConversationService:
         await self.session.refresh(conversation)
         return conversation.title
 
-    async def generate_conversation_title(self, conversation_id: UUID, doc_summary: str, *, user_id: UUID):
+    async def generate_conversation_title(self, conversation_id: UUID, doc_summary: str, *, user_id: UUID) -> str:
         prompt = ChatPromptTemplate.from_template(CONVERSATION_TITLE_TEMPLATE)
 
         conversation = await self.get_conversation(conversation_id, user_id=user_id)
@@ -120,4 +120,9 @@ class ConversationService:
             config={"run_name": "generate_conversation_title"},
         )
 
-        await self.change_conversation_title(conversation_id, user_id=user_id, title=result.title)
+        await self.change_conversation_title(
+            conversation_id,
+            user_id=user_id,
+            title=result.title,
+        )
+        return result.title

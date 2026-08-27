@@ -1,6 +1,8 @@
+import { useContext } from 'react'
 import { isAxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { ConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useAuthQuery } from '@/hooks/useAuthQuery'
 import { useConversationsClient } from '@/hooks/useConversations'
 import { useUserQueryKey } from '@/hooks/useUserQueryKey'
@@ -41,6 +43,7 @@ export const useSourcesClient = (conversationId: string) => {
     const queryClient = useQueryClient()
     const queryKey = useUserQueryKey('conversation-sources', conversationId)
     const { bumpSourceCount } = useConversationsClient()
+    const conversation = useContext(ConversationContext)
 
     const addSource = (source: Source) => {
         queryClient.setQueryData<Source[]>(queryKey, (current = []) => [...current, source])
@@ -77,6 +80,7 @@ export const useSourcesClient = (conversationId: string) => {
     }
 
     const addUrlSource = async (url: string) => {
+        conversation?.armConversationTitleEvents()
         const pendingSource = createPendingSource(url, 'video/youtube')
         addSource(pendingSource)
 
@@ -91,6 +95,7 @@ export const useSourcesClient = (conversationId: string) => {
     }
 
     const uploadSource = async (file: File) => {
+        conversation?.armConversationTitleEvents()
         const pendingSource = createPendingSource(file.name, file.type || null)
         addSource(pendingSource)
 

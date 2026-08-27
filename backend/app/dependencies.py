@@ -4,6 +4,7 @@ from fastapi import Depends
 
 from app.auth.deps import AuthenticatedUser, get_current_user
 from app.container import (
+    get_conversation_event_broker,
     get_conversation_memory_service,
     get_conversation_service,
     get_document_indexing_service,
@@ -12,6 +13,7 @@ from app.container import (
     get_run_registry,
 )
 from app.services.chat.run_registry import InMemoryRunRegistry
+from app.services.conversation_events import ConversationEventBroker
 from app.services.conversation_service import ConversationService
 from app.services.conversation_memory_service import ConversationMemoryService
 from app.services.document_indexing_service import DocumentIndexingService
@@ -40,10 +42,14 @@ PromptGuardServiceDep = Annotated[
 RunRegistryDep = Annotated[
     InMemoryRunRegistry, Depends(get_run_registry)
 ]
+ConversationEventBrokerDep = Annotated[
+    ConversationEventBroker, Depends(get_conversation_event_broker)
+]
 CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
 
 __all__ = [
     "AuthenticatedUser",
+    "ConversationEventBrokerDep",
     "ConversationServiceDep",
     "ConversationMemoryServiceDep",
     "CurrentUserDep",

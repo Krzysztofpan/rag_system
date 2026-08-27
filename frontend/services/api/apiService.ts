@@ -137,6 +137,13 @@ class ApiService {
         return data
     }
 
+    streamConversationEvents = (conversationId: string, init?: RequestInit): Promise<Response> => {
+        return this.authorizedFetch(
+            `${this.apiHost}/conversations/${conversationId}/events`,
+            init,
+        )
+    }
+
     createConversation = async (): Promise<CreateConversationResponse> => {
         const { data } = await this.client.post<CreateConversationResponse>('/conversations')
         return data

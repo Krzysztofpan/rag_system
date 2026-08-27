@@ -12,7 +12,11 @@ async def test_summarize_document_and_update_title_chains_existing_methods():
     indexing_service = MagicMock()
     indexing_service.summarize_document = AsyncMock(return_value="A short summary")
     conversation_service = MagicMock()
-    conversation_service.generate_conversation_title = AsyncMock()
+    conversation_service.generate_conversation_title = AsyncMock(
+        return_value="Contracts and invoices"
+    )
+    broker = MagicMock()
+    broker.publish = AsyncMock()
 
     session = MagicMock()
     session_cm = MagicMock()
@@ -33,6 +37,10 @@ async def test_summarize_document_and_update_title_chains_existing_methods():
             "app.background_tasks.upload_background.create_conversation_service",
             return_value=conversation_service,
         ) as create_conversation,
+        patch(
+            "app.background_tasks.upload_background.get_conversation_event_broker",
+            return_value=broker,
+        ),
     ):
         await summarize_document_and_update_title(
             "# Doc",
@@ -52,4 +60,12 @@ async def test_summarize_document_and_update_title_chains_existing_methods():
         conversation_id,
         "A short summary",
         user_id=user_id,
+    )
+    broker.publish.assert_awaited_once_with(
+        conversation_id,
+        {
+            "event": "conversation.title",
+            "conversationId": str(conversation_id),
+            "title": "Contracts and invoices",
+        },
     )
