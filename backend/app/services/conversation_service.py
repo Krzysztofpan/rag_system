@@ -7,19 +7,25 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Literal
+from app.config import ConversationTopicName
 from app.db.models.conversation import Conversation
 from app.prompts import CONVERSATION_TITLE_TEMPLATE, CONVERSATION_TOPIC_TEMPLATE
 from app.services.vector_store import VectorStore
-from app.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 
 class ConversationTitle(BaseModel):
     title: str = Field(description="Conversation title")
 
+
 class ConversationTopic(BaseModel):
-    topic: Literal[get_settings().accessed_topics] = Field(description="Document topic, if document is not related to any of the topics, return 'general'")
+    topic: ConversationTopicName = Field(
+        description=(
+            "Document topic. If the document is not related to any of the topics, "
+            "return 'general'."
+        ),
+    )
 
 
 class ConversationService:
@@ -149,14 +155,26 @@ class ConversationService:
         )
         return title
 
-    async def change_conversation_topic(self, conversation_id: UUID, *, user_id: UUID, topic: str):
+    async def change_conversation_topic(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+        topic: ConversationTopicName,
+    ) -> ConversationTopicName:
         conversation = await self.get_conversation(conversation_id, user_id=user_id)
         conversation.topic = topic
         await self.session.commit()
         await self.session.refresh(conversation)
         return conversation.topic
 
-    async def generate_conversation_topic(self, conversation_id: UUID, doc_summary: str, *, user_id: UUID) -> str:
+    async def generate_conversation_topic(
+        self,
+        conversation_id: UUID,
+        doc_summary: str,
+        *,
+        user_id: UUID,
+    ) -> ConversationTopicName:
         prompt = ChatPromptTemplate.from_template(CONVERSATION_TOPIC_TEMPLATE)
         topic_llm = ChatOpenAI(model="gpt-4o-mini").with_structured_output(ConversationTopic)
         topic_chain = prompt | topic_llm

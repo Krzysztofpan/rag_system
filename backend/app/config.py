@@ -10,6 +10,8 @@ ENV_FILE = ROOT_DIR / ".env"
 
 load_dotenv(ENV_FILE, override=True, interpolate=True)
 
+ConversationTopicName = Literal["legal", "learning", "ai", "sport", "nature", "general", "finance", "health", "tech", "work", "science", "history", "travel", "politics", "food", "art", "career", "personal"]
+
 
 class Settings(BaseSettings):
     uvicorn_host: str = "0.0.0.0"
@@ -86,8 +88,6 @@ class Settings(BaseSettings):
     youtube_stt_chunk_sec: int = 9 * 60
     youtube_stt_chunk_overlap_sec: int = 15
 
-    accessed_topics: list[str] = ["legal", "learning", "ai", "sport", "nature", "general", "finance", "health", "tech", "work", "science", "history", "travel", "politics", "food", "art", "career", "presonal"]
-    
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
