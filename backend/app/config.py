@@ -10,6 +10,8 @@ ENV_FILE = ROOT_DIR / ".env"
 
 load_dotenv(ENV_FILE, override=True, interpolate=True)
 
+ConversationTopicName = Literal["legal", "learning", "ai", "sport", "nature", "general", "finance", "health", "tech", "work", "science", "history", "travel", "politics", "food", "art", "career", "personal"]
+
 
 class Settings(BaseSettings):
     uvicorn_host: str = "0.0.0.0"

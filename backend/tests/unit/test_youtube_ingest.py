@@ -89,7 +89,7 @@ async def _run_ingest(service, *, document_id, document_service, indexing=None):
         )
         patches.append(
             patch(
-                "app.services.youtube.ingest.summarize_document_and_update_title",
+                "app.services.youtube.ingest.apply_document_summary",
                 new=summarize,
             )
         )

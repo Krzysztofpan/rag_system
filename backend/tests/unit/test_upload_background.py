@@ -1,10 +1,10 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from app.background_tasks.upload_background import summarize_document_and_update_title
+from app.background_tasks.upload_background import apply_document_summary
 
 
-async def test_summarize_document_and_update_title_chains_existing_methods():
+async def test_apply_document_summary_chains_existing_methods():
     conversation_id = uuid4()
     document_id = uuid4()
     user_id = uuid4()
@@ -12,7 +12,7 @@ async def test_summarize_document_and_update_title_chains_existing_methods():
     indexing_service = MagicMock()
     indexing_service.summarize_document = AsyncMock(return_value="A short summary")
     conversation_service = MagicMock()
-    conversation_service.generate_conversation_title = AsyncMock(
+    conversation_service.update_from_summary = AsyncMock(
         return_value="Contracts and invoices"
     )
     broker = MagicMock()
@@ -42,7 +42,7 @@ async def test_summarize_document_and_update_title_chains_existing_methods():
             return_value=broker,
         ),
     ):
-        await summarize_document_and_update_title(
+        await apply_document_summary(
             "# Doc",
             conversation_id,
             document_id,
@@ -56,7 +56,7 @@ async def test_summarize_document_and_update_title_chains_existing_methods():
         user_id,
     )
     create_conversation.assert_called_once_with(session)
-    conversation_service.generate_conversation_title.assert_awaited_once_with(
+    conversation_service.update_from_summary.assert_awaited_once_with(
         conversation_id,
         "A short summary",
         user_id=user_id,

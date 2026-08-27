@@ -7,9 +7,9 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.config import ConversationTopicName
 from app.db.models.conversation import Conversation
-from app.prompts import CONVERSATION_TITLE_TEMPLATE
+from app.prompts import CONVERSATION_TITLE_TEMPLATE, CONVERSATION_TOPIC_TEMPLATE
 from app.services.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,15 @@ logger = logging.getLogger(__name__)
 
 class ConversationTitle(BaseModel):
     title: str = Field(description="Conversation title")
+
+
+class ConversationTopic(BaseModel):
+    topic: ConversationTopicName = Field(
+        description=(
+            "Document topic. If the document is not related to any of the topics, "
+            "return 'general'."
+        ),
+    )
 
 
 class ConversationService:
@@ -126,3 +135,56 @@ class ConversationService:
             title=result.title,
         )
         return result.title
+
+    async def update_from_summary(
+        self,
+        conversation_id: UUID,
+        doc_summary: str,
+        *,
+        user_id: UUID,
+    ) -> str:
+        title = await self.generate_conversation_title(
+            conversation_id,
+            doc_summary,
+            user_id=user_id,
+        )
+        await self.generate_conversation_topic(
+            conversation_id,
+            doc_summary,
+            user_id=user_id,
+        )
+        return title
+
+    async def change_conversation_topic(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+        topic: ConversationTopicName,
+    ) -> ConversationTopicName:
+        conversation = await self.get_conversation(conversation_id, user_id=user_id)
+        conversation.topic = topic
+        await self.session.commit()
+        await self.session.refresh(conversation)
+        return conversation.topic
+
+    async def generate_conversation_topic(
+        self,
+        conversation_id: UUID,
+        doc_summary: str,
+        *,
+        user_id: UUID,
+    ) -> ConversationTopicName:
+        prompt = ChatPromptTemplate.from_template(CONVERSATION_TOPIC_TEMPLATE)
+        topic_llm = ChatOpenAI(model="gpt-4o-mini").with_structured_output(ConversationTopic)
+        topic_chain = prompt | topic_llm
+        result = await topic_chain.ainvoke(
+            {"doc_summary": doc_summary},
+            config={"run_name": "generate_conversation_topic"},
+        )
+        await self.change_conversation_topic(
+            conversation_id,
+            user_id=user_id,
+            topic=result.topic,
+        )
+        return result.topic
