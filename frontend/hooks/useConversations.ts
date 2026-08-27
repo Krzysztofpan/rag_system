@@ -68,7 +68,7 @@ export const useConversationsClient = () => {
 
     const patchConversation = (
         conversationId: string,
-        patch: Partial<Pick<Conversation, 'title' | 'updatedAt' | 'sourceCount'>>,
+        patch: Partial<Pick<Conversation, 'title' | 'updatedAt' | 'sourceCount' | 'topic'>>,
     ) => {
         queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
             current.map((conversation) => {

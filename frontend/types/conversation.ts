@@ -5,4 +5,5 @@ export type Conversation = {
     userId: string;
     sourceCount: number;
     title: string;
+    topic: string | null;
 }

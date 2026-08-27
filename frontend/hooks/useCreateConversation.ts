@@ -17,6 +17,7 @@ const useCreateConveration = () => {
                 id: data.conversationId,
                 sourceCount: 0,
                 title: 'New Conversation',
+                topic: null,
                 userId: data.userId,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),

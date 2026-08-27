@@ -8,10 +8,12 @@ import SourceSection from '@/components/sources/SourceSection'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { ConversationProvider } from '@/contexts/conversation/ConversationProvider'
 import { useConversation } from '@/hooks/useConversation'
+import { getConversationTopicStyle } from '@/lib/conversationTopic'
 
 const ConversationPage = () => {
     const { conversationId } = useParams<{ conversationId?: string }>()
     const { data: conversation, isLoading, error } = useConversation(conversationId)
+    const { icon } = getConversationTopicStyle(conversation?.topic)
 
     if (!conversationId) {
         return <div>Conversation not found</div>
@@ -38,7 +40,12 @@ const ConversationPage = () => {
                 <Link to="/conversations">
                     <ArrowLeftFromLine />
                 </Link>
-                <h1 className="text-xl font-medium">{conversation ? conversation.title : 'Default title'}</h1>
+                <h1 className="flex min-w-0 items-center gap-2 text-xl font-medium">
+                    <span className="shrink-0 leading-none" aria-hidden>
+                        {icon}
+                    </span>
+                    <span className="truncate">{conversation ? conversation.title : 'Default title'}</span>
+                </h1>
             </header>
             <ConversationProvider>
                 <div className="flex min-h-0 flex-1 gap-2 pt-0 mb-5">
