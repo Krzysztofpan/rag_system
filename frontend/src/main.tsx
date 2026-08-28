@@ -9,6 +9,7 @@ import { AuthProvider } from '@/contexts/auth/AuthProvider.tsx'
 import ConversationPage from './pages/ConversationPage.tsx'
 import ConversationsPage from './pages/ConversationsPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
+import NotFoundPage from './pages/NotFoundPage.tsx'
 import App from './App.tsx'
 
 import './index.css'
@@ -34,6 +35,7 @@ createRoot(document.getElementById('root') as HTMLElement).render(
                             <Route path="/conversations" element={<ConversationsPage />} />
                             <Route path="/conversations/:conversationId" element={<ConversationPage />} />
                         </Route>
+                        <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </BrowserRouter>
             </AuthProvider>
