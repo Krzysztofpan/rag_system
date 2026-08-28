@@ -33,6 +33,7 @@ dependencies = [
     "rapidocr>=3.9.2",
     "rapidocr-onnxruntime>=1.4.4",
     "sentencepiece>=0.2.2",
+    "slowapi>=0.1.10",
     "sqlmodel>=0.0.39",
     "tavily-python>=0.8.0",
     "tiktoken>=0.13.0",

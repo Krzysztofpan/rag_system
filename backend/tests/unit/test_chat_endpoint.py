@@ -15,6 +15,8 @@ from app.routes.chat_stream_routes import (
 )
 from app.schemas.chat import ProtocolCommand, StreamSubscriptionRequest
 from app.services.chat.run_session import HEARTBEAT
+from app.services.usage_limits import LimitCode, LimitExceededError
+from tests.helpers import rate_limit_request
 
 
 def _current_user(user_id):
@@ -57,6 +59,8 @@ async def test_run_start_persists_user_and_returns_protocol_response():
     ]
     registry = AsyncMock()
     registry.start.return_value = SimpleNamespace(task=None)
+    usage_limits = AsyncMock()
+    request, http_response = rate_limit_request(user_id)
     command = ProtocolCommand(
         id=7,
         method="run.start",
@@ -74,7 +78,9 @@ async def test_run_start_persists_user_and_returns_protocol_response():
         },
     )
 
-    response = await chat_commands(
+    payload = await chat_commands(
+        request=request,
+        response=http_response,
         conversation_id=conversation_id,
         command=command,
         current_user=current_user,
@@ -84,11 +90,15 @@ async def test_run_start_persists_user_and_returns_protocol_response():
         document_service=document_service,
         registry=registry,
         prompt_guard=guard,
+        usage_limits=usage_limits,
     )
 
-    assert response["type"] == "success"
-    assert response["id"] == 7
-    assert response["result"]["run_id"]
+    assert payload["type"] == "success"
+    assert payload["id"] == 7
+    assert payload["result"]["run_id"]
+    usage_limits.enforce_conversation_messages.assert_awaited_once_with(
+        conversation_id
+    )
     persisted = message_service.create_message.await_args.args[0]
     assert persisted.id == message_id
     assert persisted.text == "Current question"
@@ -119,6 +129,7 @@ async def test_run_start_blocks_prompt_attack_without_persist_or_run():
     registry = AsyncMock()
     guard = MagicMock()
     guard.should_block_message = AsyncMock(return_value=True)
+    request, http_response = rate_limit_request(user_id)
     command = ProtocolCommand(
         id=3,
         method="run.start",
@@ -136,7 +147,9 @@ async def test_run_start_blocks_prompt_attack_without_persist_or_run():
         },
     )
 
-    response = await chat_commands(
+    payload = await chat_commands(
+        request=request,
+        response=http_response,
         conversation_id=conversation_id,
         command=command,
         current_user=current_user,
@@ -146,9 +159,10 @@ async def test_run_start_blocks_prompt_attack_without_persist_or_run():
         document_service=AsyncMock(),
         registry=registry,
         prompt_guard=guard,
+        usage_limits=AsyncMock(),
     )
 
-    assert response == {
+    assert payload == {
         "type": "error",
         "id": 3,
         "error": "prompt_attack",
@@ -157,6 +171,70 @@ async def test_run_start_blocks_prompt_attack_without_persist_or_run():
     message_service.create_message.assert_not_awaited()
     registry.start.assert_not_awaited()
     memory_service.build_context_for_agent.assert_not_awaited()
+
+
+async def test_run_start_blocks_message_limit_without_persist_or_run():
+    user_id = uuid4()
+    conversation_id = uuid4()
+    current_user = _current_user(user_id)
+    conversation_service = AsyncMock()
+    conversation_service.get_conversation.return_value = Conversation(
+        id=conversation_id,
+        user_id=user_id,
+    )
+    message_service = AsyncMock()
+    memory_service = AsyncMock()
+    registry = AsyncMock()
+    guard = MagicMock()
+    guard.should_block_message = AsyncMock(return_value=False)
+    usage_limits = AsyncMock()
+    usage_limits.enforce_conversation_messages.side_effect = LimitExceededError(
+        LimitCode.max_messages_per_conversation,
+        limit=20,
+        current=20,
+        message="This conversation has reached the 20 message limit.",
+    )
+    request, http_response = rate_limit_request(user_id)
+    command = ProtocolCommand(
+        id=3,
+        method="run.start",
+        params={
+            "input": {
+                "messages": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "human",
+                        "content": "Hello",
+                    }
+                ],
+                "documentIds": [],
+            }
+        },
+    )
+
+    payload = await chat_commands(
+        request=request,
+        response=http_response,
+        conversation_id=conversation_id,
+        command=command,
+        current_user=current_user,
+        conversation_service=conversation_service,
+        message_service=message_service,
+        memory_service=memory_service,
+        document_service=AsyncMock(),
+        registry=registry,
+        prompt_guard=guard,
+        usage_limits=usage_limits,
+    )
+
+    assert payload == {
+        "type": "error",
+        "id": 3,
+        "error": "max_messages_per_conversation",
+        "message": "This conversation has reached the 20 message limit.",
+    }
+    message_service.create_message.assert_not_awaited()
+    registry.start.assert_not_awaited()
 
 
 async def test_state_is_an_empty_technical_snapshot():

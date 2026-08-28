@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.jwt import decode_access_token
@@ -22,6 +22,7 @@ class AuthenticatedUser:
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AuthenticatedUser:
     """Sync on purpose: FastAPI runs it in a threadpool, so the blocking JWKS
@@ -34,7 +35,7 @@ def get_current_user(
         )
     access_token = credentials.credentials
     claims = decode_access_token(access_token)
-    return AuthenticatedUser(
+    user = AuthenticatedUser(
         access_token=access_token,
         user_id=claims.user_id,
         email=claims.email,
@@ -43,3 +44,5 @@ def get_current_user(
         app_metadata=claims.app_metadata,
         user_metadata=claims.user_metadata,
     )
+    request.state.user_id = str(user.user_id)
+    return user

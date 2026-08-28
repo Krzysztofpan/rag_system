@@ -11,6 +11,7 @@ from app.container import (
     get_document_service,
     get_message_service,
     get_run_registry,
+    get_usage_limit_service,
 )
 from app.services.chat.run_registry import InMemoryRunRegistry
 from app.services.conversation_events import ConversationEventBroker
@@ -20,6 +21,7 @@ from app.services.document_indexing_service import DocumentIndexingService
 from app.services.document_service import DocumentService
 from app.services.message_service import MessageService
 from app.services.security import PromptGuardService, get_prompt_guard_service
+from app.services.usage_limits import UsageLimitService
 
 DocumentIndexingServiceDep = Annotated[
     DocumentIndexingService, Depends(get_document_indexing_service)
@@ -35,6 +37,9 @@ DocumentServiceDep = Annotated[
 ]
 MessageServiceDep = Annotated[
     MessageService, Depends(get_message_service)
+]
+UsageLimitServiceDep = Annotated[
+    UsageLimitService, Depends(get_usage_limit_service)
 ]
 PromptGuardServiceDep = Annotated[
     PromptGuardService, Depends(get_prompt_guard_service)
@@ -58,8 +63,10 @@ __all__ = [
     "MessageServiceDep",
     "PromptGuardServiceDep",
     "RunRegistryDep",
+    "UsageLimitServiceDep",
     "get_conversation_service",
     "get_current_user",
     "get_document_indexing_service",
     "get_document_service",
+    "get_usage_limit_service",
 ]

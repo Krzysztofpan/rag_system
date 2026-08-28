@@ -10,6 +10,7 @@ from app.services.conversation_memory_service import ConversationMemoryService
 from app.services.document_service import DocumentService
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.parser.factory import ParserFactory
+from app.services.usage_limits import UsageLimitService
 from app.services.vector_store import VectorStore
 from app.services.message_service import MessageService
 
@@ -100,6 +101,18 @@ def get_message_service(
     session: AsyncSession = Depends(get_session),
 ) -> MessageService:
     return create_message_service(session)
+
+
+def create_usage_limit_service(
+    session: AsyncSession,
+) -> UsageLimitService:
+    return UsageLimitService(session)
+
+
+def get_usage_limit_service(
+    session: AsyncSession = Depends(get_session),
+) -> UsageLimitService:
+    return create_usage_limit_service(session)
 
 
 def create_conversation_memory_service(

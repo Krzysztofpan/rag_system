@@ -3,7 +3,7 @@ import json
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
@@ -16,7 +16,9 @@ from app.dependencies import (
     MessageServiceDep,
     PromptGuardServiceDep,
     RunRegistryDep,
+    UsageLimitServiceDep,
 )
+from app.lib.rate_limit import limiter, message_error_message, message_limit_value
 from app.schemas.chat import (
     ChatRunInput,
     ProtocolCommand,
@@ -26,6 +28,7 @@ from app.services.chat.run_session import HEARTBEAT, RunSession
 from app.services.chat.stream_runner import ChatStreamRunner
 from app.services.conversation_documents_summary import format_agent_document_catalog
 from app.services.security import PROMPT_ATTACK_MESSAGE
+from app.services.usage_limits import LimitExceededError
 
 chat_stream_router = APIRouter(
     prefix="/conversations",
@@ -48,7 +51,10 @@ def _command_error(
 
 
 @chat_stream_router.post("/{conversation_id}/commands")
+@limiter.limit(message_limit_value, error_message=message_error_message)
 async def chat_commands(
+    request: Request,
+    response: Response,
     conversation_id: UUID,
     command: ProtocolCommand,
     current_user: CurrentUserDep,
@@ -58,6 +64,7 @@ async def chat_commands(
     document_service: DocumentServiceDep,
     registry: RunRegistryDep,
     prompt_guard: PromptGuardServiceDep,
+    usage_limits: UsageLimitServiceDep,
 ) -> dict[str, Any]:
     if command.method != "run.start":
         return _command_error(
@@ -92,6 +99,15 @@ async def chat_commands(
             command.id,
             PROMPT_ATTACK_MESSAGE,
             code="prompt_attack",
+        )
+
+    try:
+        await usage_limits.enforce_conversation_messages(conversation_id)
+    except LimitExceededError as exc:
+        return _command_error(
+            command.id,
+            str(exc),
+            code=exc.code.value,
         )
 
     run_id = str(uuid4())

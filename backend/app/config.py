@@ -88,9 +88,22 @@ class Settings(BaseSettings):
     youtube_stt_chunk_sec: int = 9 * 60
     youtube_stt_chunk_overlap_sec: int = 15
 
+    # Per-user product limits. Daily windows are UTC (SlowAPI).
+    max_upload_bytes: int = 5 * 1024 * 1024
+    upload_read_chunk_bytes: int = 64 * 1024
+    max_ingests_per_day: int = 3
+    max_messages_per_day: int = 20
+    max_conversations: int = 10
+    max_messages_per_conversation: int = 20
+    rate_limit_storage_uri: str = "memory://"
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def limits_enabled(self) -> bool:
+        return self.is_production
 
     @property
     def cors_origins(self) -> list[str]:

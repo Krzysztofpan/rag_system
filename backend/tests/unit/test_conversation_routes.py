@@ -13,14 +13,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
 from app.auth.deps import AuthenticatedUser, get_current_user
-from app.container import get_vector_store
+from app.container import get_usage_limit_service, get_vector_store
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.db.models.message import Message, MessageRole
 from app.db.session import get_session
+from app.lib.rate_limit import configure_rate_limiting, limiter
+from app.lib.upload_temp import UploadTooLargeError
 from app.routes.conversation_routes import conversation_router
-from tests.helpers import FakeVectorStore
+from app.services.usage_limits import LimitCode, LimitExceededError
+from tests.helpers import FakeVectorStore, override_authenticated_user
 
 
 def _mark_processing(document: Document) -> AsyncMock:
@@ -55,16 +58,29 @@ def mock_session():
 
 
 @pytest.fixture
-def client(authenticated_user, mock_session):
+def usage_limits():
+    service = AsyncMock()
+    service.enabled = True
+    service.settings.max_upload_bytes = 5 * 1024 * 1024
+    return service
+
+
+@pytest.fixture
+def client(authenticated_user, mock_session, usage_limits):
+    limiter.reset()
     app = FastAPI()
+    configure_rate_limiting(app)
     app.include_router(conversation_router)
 
     async def override_session():
         yield mock_session
 
-    app.dependency_overrides[get_current_user] = lambda: authenticated_user
+    app.dependency_overrides[get_current_user] = override_authenticated_user(
+        authenticated_user
+    )
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
+    app.dependency_overrides[get_usage_limit_service] = lambda: usage_limits
 
     with TestClient(app) as test_client:
         yield test_client
@@ -81,7 +97,7 @@ def test_conversation_routes_require_authentication():
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_create_conversation_returns_ids(client, authenticated_user):
+def test_create_conversation_returns_ids(client, authenticated_user, usage_limits):
     conversation = Conversation(user_id=authenticated_user.user_id)
 
     with patch(
@@ -94,6 +110,26 @@ def test_create_conversation_returns_ids(client, authenticated_user):
     payload = response.json()
     assert payload["conversationId"] == str(conversation.id)
     assert payload["userId"] == str(authenticated_user.user_id)
+    usage_limits.enforce_create_conversation.assert_awaited_once_with(
+        authenticated_user.user_id
+    )
+
+
+def test_create_conversation_limit_returns_429(client, usage_limits):
+    usage_limits.enforce_create_conversation.side_effect = LimitExceededError(
+        LimitCode.max_conversations,
+        limit=10,
+        current=10,
+        message="Conversation limit reached (10).",
+    )
+
+    response = client.post("/conversations/")
+
+    assert response.status_code == 429
+    payload = response.json()["detail"]
+    assert payload["code"] == "max_conversations"
+    assert payload["limit"] == 10
+    assert payload["current"] == 10
 
 
 def test_create_conversation_unknown_user_returns_400(client):
@@ -265,6 +301,7 @@ def test_ingest_source_url_rejects_invalid_url_without_creating_document(client)
 def test_ingest_source_url_returns_202_and_queues_background(
     client,
     authenticated_user,
+    usage_limits,
 ):
     conversation_id = uuid4()
     document = Document(
@@ -332,6 +369,7 @@ def test_ingest_source_document_rejects_unsupported_type_without_creating_docume
 def test_ingest_source_document_returns_202_and_queues_background(
     client,
     authenticated_user,
+    usage_limits,
 ):
     conversation_id = uuid4()
     document = Document(
@@ -383,6 +421,37 @@ def test_ingest_source_document_returns_202_and_queues_background(
     assert background.await_args.args[2] == authenticated_user.user_id
     assert background.await_args.args[3] == str(tmp_path)
     assert background.await_args.args[4] == "note.md"
+
+
+def test_ingest_source_document_oversize_returns_413(client, usage_limits):
+    conversation_id = uuid4()
+
+    with (
+        patch(
+            "app.services.conversation_service.ConversationService.get_conversation",
+            new=AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.routes.conversation_routes.save_upload_to_temp",
+            new=AsyncMock(
+                side_effect=UploadTooLargeError(max_bytes=5 * 1024 * 1024, size=6_000_000)
+            ),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(),
+        ) as create_document,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/document",
+            files={"file": ("note.md", b"# hello world", "text/markdown")},
+        )
+
+    assert response.status_code == 413
+    payload = response.json()["detail"]
+    assert payload["code"] == "max_upload_bytes"
+    assert payload["current"] == 6_000_000
+    create_document.assert_not_called()
 
 
 def test_ingest_source_document_missing_conversation_returns_404(client):
