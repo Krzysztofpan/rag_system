@@ -101,6 +101,31 @@ class DocumentService:
             if summary
         ]
 
+    async def get_ready_document_catalog_entries(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> list[tuple[UUID, str, str | None]]:
+        await self.get_conversation_documents(
+            conversation_id,
+            user_id=user_id,
+        )
+
+        rows = await self.session.execute(
+            select(Document.id, Document.filename, DocumentReport.summary)
+            .outerjoin(DocumentReport, DocumentReport.document_id == Document.id)
+            .where(
+                Document.conversation_id == conversation_id,
+                Document.status == DocumentStatus.ready,
+            )
+            .order_by(Document.created_at.asc())
+        )
+        return [
+            (document_id, filename, summary)
+            for document_id, filename, summary in rows.all()
+        ]
+
     async def delete_document(
         self,
         conversation_id: UUID,

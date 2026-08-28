@@ -12,6 +12,7 @@ from app.dependencies import (
     ConversationMemoryServiceDep,
     ConversationServiceDep,
     CurrentUserDep,
+    DocumentServiceDep,
     MessageServiceDep,
     PromptGuardServiceDep,
     RunRegistryDep,
@@ -23,6 +24,7 @@ from app.schemas.chat import (
 )
 from app.services.chat.run_session import HEARTBEAT, RunSession
 from app.services.chat.stream_runner import ChatStreamRunner
+from app.services.conversation_documents_summary import format_agent_document_catalog
 from app.services.security import PROMPT_ATTACK_MESSAGE
 
 chat_stream_router = APIRouter(
@@ -53,6 +55,7 @@ async def chat_commands(
     conversation_service: ConversationServiceDep,
     message_service: MessageServiceDep,
     memory_service: ConversationMemoryServiceDep,
+    document_service: DocumentServiceDep,
     registry: RunRegistryDep,
     prompt_guard: PromptGuardServiceDep,
 ) -> dict[str, Any]:
@@ -124,8 +127,16 @@ async def chat_commands(
                 role="user",
             )
         )
+        catalog_entries = await document_service.get_ready_document_catalog_entries(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
         conversation_context = await memory_service.build_context_for_agent(
             conversation,
+            documents_catalog=format_agent_document_catalog(
+                catalog_entries,
+                run_input.document_ids,
+            ),
         )
         prepared.set_result(conversation_context)
     except BaseException:

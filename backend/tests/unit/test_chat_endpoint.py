@@ -48,6 +48,13 @@ async def test_run_start_persists_user_and_returns_protocol_response():
         AIMessage(content="Previous answer"),
         HumanMessage(content="Current question"),
     ]
+    dogs_id = uuid4()
+    cats_id = uuid4()
+    document_service = AsyncMock()
+    document_service.get_ready_document_catalog_entries.return_value = [
+        (dogs_id, "dogs.pdf", "A guide to dogs."),
+        (cats_id, "cats.pdf", "A guide to cats."),
+    ]
     registry = AsyncMock()
     registry.start.return_value = SimpleNamespace(task=None)
     command = ProtocolCommand(
@@ -62,7 +69,7 @@ async def test_run_start_persists_user_and_returns_protocol_response():
                         "content": "Current question",
                     }
                 ],
-                "documentIds": [],
+                "documentIds": [str(dogs_id)],
             }
         },
     )
@@ -74,6 +81,7 @@ async def test_run_start_persists_user_and_returns_protocol_response():
         conversation_service=conversation_service,
         message_service=message_service,
         memory_service=memory_service,
+        document_service=document_service,
         registry=registry,
         prompt_guard=guard,
     )
@@ -84,7 +92,17 @@ async def test_run_start_persists_user_and_returns_protocol_response():
     persisted = message_service.create_message.await_args.args[0]
     assert persisted.id == message_id
     assert persisted.text == "Current question"
-    memory_service.build_context_for_agent.assert_awaited_once_with(conversation)
+    document_service.get_ready_document_catalog_entries.assert_awaited_once_with(
+        conversation_id,
+        user_id=user_id,
+    )
+    catalog = memory_service.build_context_for_agent.await_args.kwargs[
+        "documents_catalog"
+    ]
+    assert "dogs.pdf" in catalog
+    assert "A guide to dogs." in catalog
+    assert "cats.pdf" in catalog
+    assert "A guide to cats." not in catalog
 
 
 async def test_run_start_blocks_prompt_attack_without_persist_or_run():
@@ -125,6 +143,7 @@ async def test_run_start_blocks_prompt_attack_without_persist_or_run():
         conversation_service=conversation_service,
         message_service=message_service,
         memory_service=memory_service,
+        document_service=AsyncMock(),
         registry=registry,
         prompt_guard=guard,
     )

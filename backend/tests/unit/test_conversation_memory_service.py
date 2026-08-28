@@ -208,7 +208,7 @@ async def test_compaction_skips_short_buffer():
     compactor.merge.assert_not_awaited()
 
 
-async def test_build_context_includes_documents_catalog_when_memory_disabled():
+async def test_build_context_includes_selected_documents_catalog_when_memory_disabled():
     conversation = Conversation(id=uuid4(), user_id=uuid4())
     message_service = AsyncMock()
     message_service.get_messages_after.return_value = [
@@ -228,13 +228,46 @@ async def test_build_context_includes_documents_catalog_when_memory_disabled():
         )
     )
 
-    messages = await service.build_context_for_agent(conversation)
+    messages = await service.build_context_for_agent(
+        conversation,
+        documents_catalog=(
+            "Selected this turn (searchable with search_documents)\n"
+            "<<UNTRUSTED_DOCUMENT>>\n- dogs.pdf\n<</UNTRUSTED_DOCUMENT>>"
+        ),
+    )
 
     assert [type(message) for message in messages] == [SystemMessage, HumanMessage]
-    assert "Document catalog" in messages[0].content
+    assert "dogs.pdf" in messages[0].content
     assert "<<UNTRUSTED_DOCUMENT>>" in messages[0].content
-    assert "A video about Go 1.27." in messages[0].content
+    assert "A video about Go 1.27." not in messages[0].content
     assert "not evidence" in messages[0].content.lower()
+    assert "not selected" in messages[0].content
+
+
+async def test_build_context_omits_stored_documents_summary_without_turn_catalog():
+    conversation = Conversation(id=uuid4(), user_id=uuid4())
+    message_service = AsyncMock()
+    message_service.get_messages_after.return_value = [
+        _message(conversation.id, MessageRole.user, "Hello")
+    ]
+    service = ConversationMemoryService(
+        session=AsyncMock(),
+        conversation_service=AsyncMock(),
+        message_service=message_service,
+        settings=Settings(memory_enabled=False),
+        compactor=AsyncMock(),
+    )
+    service._get_summary_state = AsyncMock(
+        return_value=ConversationSummary(
+            conversation_id=conversation.id,
+            documents_summary="A video about Go 1.27.",
+        )
+    )
+
+    messages = await service.build_context_for_agent(conversation)
+
+    assert [type(message) for message in messages] == [HumanMessage]
+    assert messages[0].content == "Hello"
 
 
 async def test_upsert_documents_summary_writes_catalog_column():

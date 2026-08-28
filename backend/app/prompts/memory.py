@@ -17,12 +17,15 @@ def conversation_memory_system_message(summary_json: str) -> str:
     )
 
 
-def conversation_documents_catalog_message(wrapped_catalog: str) -> str:
+def conversation_documents_catalog_message(catalog: str) -> str:
     return (
-        "Catalog of documents available for this conversation. "
-        "Use it only to decide whether to call search_documents. "
-        "It is not evidence; do not answer from it.\n"
-        f"{wrapped_catalog}"
+        "Catalog of documents for this turn. "
+        "Use selected files only to decide whether to call search_documents. "
+        "If the question is about an uploaded file that is not selected, "
+        "ask the user to select it — do not web_search that topic and do not "
+        "treat unselected files as searchable. "
+        "The catalog is not evidence; do not answer from it.\n"
+        f"{catalog}"
     )
 
 

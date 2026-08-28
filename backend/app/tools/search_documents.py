@@ -21,12 +21,12 @@ async def search_documents(
     runtime: ToolRuntime[AgentContext],
 ) -> str:
     """
-    Search the documents already selected for this conversation.
+    Search the documents selected for this turn.
 
-    Call this when the question could be answered from those files —
+    Call this when the question could be answered from those selected files —
     articles, videos, transcripts, notes, policies, or any document facts.
     Do not skip this tool because the topic sounds like general knowledge
-    or current events.
+    or current events. Do not use it for uploaded files that are not selected.
 
     Args:
     query: The search query. informations that user's looking for.
