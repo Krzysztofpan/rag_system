@@ -90,6 +90,7 @@ class Settings(BaseSettings):
 
     # Per-user product limits. Daily windows are UTC (SlowAPI).
     max_upload_bytes: int = 5 * 1024 * 1024
+    upload_read_chunk_bytes: int = 64 * 1024
     max_ingests_per_day: int = 3
     max_messages_per_day: int = 20
     max_conversations: int = 10

@@ -35,8 +35,13 @@ async def test_save_upload_to_temp_and_reopen_roundtrip():
         assert not path.exists()
 
 
-async def test_save_upload_to_temp_rejects_oversize_before_writing():
+async def test_save_upload_to_temp_rejects_declared_size_without_reading():
     upload = make_upload_file("too big", content_type=FileTypes.MD, filename="note.md")
+
+    async def fail_read(*_args, **_kwargs):
+        raise AssertionError("declared oversize uploads must not be read")
+
+    upload.read = fail_read  # type: ignore[method-assign]
     with pytest.raises(UploadTooLargeError) as exc_info:
         await save_upload_to_temp(upload, max_bytes=3)
     assert exc_info.value.max_bytes == 3
@@ -46,6 +51,14 @@ async def test_save_upload_to_temp_rejects_oversize_before_writing():
 async def test_save_upload_to_temp_rejects_oversize_while_streaming():
     upload = make_upload_file("hello world", content_type=FileTypes.MD, filename="note.md")
     upload.size = None
+    with pytest.raises(UploadTooLargeError) as exc_info:
+        await save_upload_to_temp(upload, max_bytes=5)
+    assert exc_info.value.size > 5
+
+
+async def test_save_upload_to_temp_rejects_when_declared_size_understates_body():
+    upload = make_upload_file("hello world", content_type=FileTypes.MD, filename="note.md")
+    upload.size = 3
     with pytest.raises(UploadTooLargeError) as exc_info:
         await save_upload_to_temp(upload, max_bytes=5)
     assert exc_info.value.size > 5
