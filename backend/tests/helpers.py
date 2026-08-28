@@ -7,8 +7,10 @@ from io import BytesIO
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
-from fastapi import UploadFile
+from fastapi import FastAPI, Request, Response, UploadFile
 from starlette.datastructures import Headers
+
+from app.auth.deps import AuthenticatedUser
 
 from app.db.models.document import Document, DocumentStatus
 from app.schemas.origin import FileOrigin, YoutubeOrigin, dump_origin
@@ -260,3 +262,40 @@ class FakeVectorStore:
         self.updated_source_filenames.append(
             (conversation_id, document_id, source_filename)
         )
+
+
+def override_authenticated_user(user: AuthenticatedUser):
+    def override(request: Request) -> AuthenticatedUser:
+        request.state.user_id = str(user.user_id)
+        return user
+
+    return override
+
+
+def rate_limit_request(
+    user_id: UUID,
+    *,
+    path: str = "/conversations/test/commands",
+) -> tuple[Request, Response]:
+    from app.lib.rate_limit import configure_rate_limiting
+
+    app = FastAPI()
+    configure_rate_limiting(app)
+    request = Request(
+        {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode(),
+            "query_string": b"",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+            "app": app,
+        }
+    )
+    request.state.user_id = str(user_id)
+    return request, Response()

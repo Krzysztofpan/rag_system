@@ -11,6 +11,7 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    Response,
     UploadFile,
 )
 from fastapi.responses import StreamingResponse
@@ -26,10 +27,12 @@ from app.dependencies import (
     CurrentUserDep,
     DocumentServiceDep,
     MessageServiceDep,
+    UsageLimitServiceDep,
 )
 from app.services.conversation_events import HEARTBEAT
 from app.lib.file_types import FileTypes, resolve_document_file_type
-from app.lib.upload_temp import save_upload_to_temp
+from app.lib.rate_limit import ingest_error_message, ingest_limit_value, limiter
+from app.lib.upload_temp import UploadTooLargeError, save_upload_to_temp
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
 from app.schemas.chunk import ChunkResponse
 from app.schemas.conversation import (
@@ -50,6 +53,7 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
+from app.services.usage_limits import LimitCode, LimitExceededError
 
 conversation_router = APIRouter(
     prefix="/conversations",
@@ -58,12 +62,24 @@ conversation_router = APIRouter(
 )
 
 
+def _http_limit(exc: LimitExceededError) -> HTTPException:
+    return HTTPException(
+        status_code=exc.status_code,
+        detail=exc.as_detail(),
+    )
+
+
 @conversation_router.post("/", response_model=CreateConversationResponse)
 async def create_conversation(
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
+    usage_limits: UsageLimitServiceDep,
 ) -> CreateConversationResponse:
     """Create a conversation for the authenticated Supabase Auth user."""
+    try:
+        await usage_limits.enforce_create_conversation(current_user.user_id)
+    except LimitExceededError as exc:
+        raise _http_limit(exc) from exc
     try:
         conversation = await conversation_service.create_conversation(user_id=current_user.user_id)
     except IntegrityError as exc:
@@ -234,7 +250,14 @@ async def get_chunk(
     response_model=SourceResponse,
     status_code=202,
 )
+@limiter.shared_limit(
+    ingest_limit_value,
+    scope="ingest",
+    error_message=ingest_error_message,
+)
 async def ingest_source_url(
+    request: Request,
+    response: Response,
     conversation_id: UUID,
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
@@ -279,11 +302,19 @@ async def ingest_source_url(
     response_model=SourceResponse,
     status_code=202,
 )
+@limiter.shared_limit(
+    ingest_limit_value,
+    scope="ingest",
+    error_message=ingest_error_message,
+)
 async def ingest_source_document(
+    request: Request,
+    response: Response,
     conversation_id: UUID,
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
     document_service: DocumentServiceDep,
+    usage_limits: UsageLimitServiceDep,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
 ) -> SourceResponse:
@@ -302,7 +333,24 @@ async def ingest_source_document(
 
     filename = file.filename or "unknown"
     content_type = file.content_type
-    path, size = await save_upload_to_temp(file)
+    try:
+        path, size = await save_upload_to_temp(
+            file,
+            max_bytes=(
+                usage_limits.settings.max_upload_bytes
+                if usage_limits.enabled
+                else None
+            ),
+        )
+    except UploadTooLargeError as exc:
+        raise _http_limit(
+            LimitExceededError(
+                LimitCode.max_upload_bytes,
+                limit=usage_limits.settings.max_upload_bytes,
+                current=exc.size,
+                message=f"File exceeds the {usage_limits.settings.max_upload_bytes} byte upload limit.",
+            )
+        ) from exc
     try:
         document = await document_service.create_document(
             conversation_id=conversation_id,

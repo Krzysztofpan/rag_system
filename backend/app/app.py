@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,8 +9,10 @@ from app.config import get_settings
 from app.container import get_conversation_event_broker, get_run_registry
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
+from app.lib.rate_limit import configure_rate_limiting
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
+from app.services.usage_limits import LimitExceededError
 
 
 @asynccontextmanager
@@ -38,6 +40,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+configure_rate_limiting(app)
+
+
+@app.exception_handler(LimitExceededError)
+async def limit_exceeded_handler(
+    _request: Request,
+    exc: LimitExceededError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.as_detail()},
+    )
+
 
 @app.get("/")
 async def root():

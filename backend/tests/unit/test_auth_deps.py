@@ -1,8 +1,4 @@
-"""Unit tests for FastAPI auth dependencies."""
-
-from __future__ import annotations
-
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -19,7 +15,7 @@ def _bearer(token: str = "access-token") -> HTTPAuthorizationCredentials:
 
 def test_get_current_user_requires_credentials():
     with pytest.raises(HTTPException) as exc_info:
-        get_current_user(None)
+        get_current_user(MagicMock(), None)
 
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Not authenticated"
@@ -29,7 +25,7 @@ def test_get_current_user_rejects_non_bearer_scheme():
     credentials = HTTPAuthorizationCredentials(scheme="Basic", credentials="abc")
 
     with pytest.raises(HTTPException) as exc_info:
-        get_current_user(credentials)
+        get_current_user(MagicMock(), credentials)
 
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Not authenticated"
@@ -46,9 +42,10 @@ def test_get_current_user_decodes_bearer_token():
         user_metadata={},
         raw={"sub": str(user_id)},
     )
+    request = MagicMock()
 
     with patch("app.auth.deps.decode_access_token", return_value=claims):
-        user = get_current_user(_bearer("signed-token"))
+        user = get_current_user(request, _bearer("signed-token"))
 
     assert user == AuthenticatedUser(
         access_token="signed-token",
@@ -59,3 +56,4 @@ def test_get_current_user_decodes_bearer_token():
         app_metadata={},
         user_metadata={},
     )
+    assert request.state.user_id == str(user_id)
