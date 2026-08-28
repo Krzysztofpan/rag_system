@@ -35,7 +35,10 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         throw new Error('ConversationProvider only can be used in Conversation route')
     }
 
-    const selectedSources = sources.map((source) => source.id).filter((id) => !unselectedSourcesIds.includes(id))
+    const ingestedSources = sources.filter((source) => source.status === 'ready')
+    const selectedSources = ingestedSources
+        .map((source) => source.id)
+        .filter((id) => !unselectedSourcesIds.includes(id))
 
     const handleToogleSelectAllSources = (checked: boolean) => {
         if (checked) {
@@ -43,7 +46,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             return
         }
 
-        setUnselectedSourcesIds(sources.map((source) => source.id))
+        setUnselectedSourcesIds(ingestedSources.map((source) => source.id))
     }
 
     const handleToogleSelectSource = (sourceId: string) => {

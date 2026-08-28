@@ -36,6 +36,7 @@ def test_system_prompt_forbids_answering_from_general_knowledge():
     assert "call search_documents" in prompt
     assert "even if the answer seems obvious" in prompt
     assert "document catalog" in prompt
+    assert "not selected" in prompt
     assert "labeled [n]" in prompt
 
 
@@ -60,6 +61,15 @@ def test_search_documents_description_requires_lookup_before_answering():
     assert "do not skip" in description
     assert "general knowledge" in description
     assert "do not ask the user" in description
+    assert "not selected" in description
+
+
+def test_web_search_description_defers_to_unselected_files():
+    description = web_search.description.lower()
+
+    assert "selected documents" in description
+    assert "not selected" in description
+    assert "select that file" in description
 
 
 @patch("app.agent.agent_orchestrator.create_agent")

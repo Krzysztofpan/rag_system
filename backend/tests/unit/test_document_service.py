@@ -389,6 +389,44 @@ async def test_get_conversation_document_summaries_skips_empty_and_orders():
     ]
 
 
+async def test_get_ready_document_catalog_entries_includes_ready_without_summary():
+    user_id = uuid4()
+    conversation = Conversation(user_id=user_id)
+    go_id = uuid4()
+    history_id = uuid4()
+    documents = [
+        Document(
+            conversation_id=conversation.id,
+            filename="a.md",
+            status=DocumentStatus.ready,
+        )
+    ]
+    session = AsyncMock()
+    ownership_result = MagicMock()
+    ownership_result.scalar_one_or_none.return_value = conversation
+    documents_result = MagicMock()
+    documents_result.scalars.return_value.all.return_value = documents
+    rows_result = MagicMock()
+    rows_result.all.return_value = [
+        (go_id, "go.md", "Go 1.27 notes"),
+        (history_id, "history.pdf", None),
+    ]
+    session.execute = AsyncMock(
+        side_effect=[ownership_result, documents_result, rows_result]
+    )
+    service = DocumentService(session)
+
+    result = await service.get_ready_document_catalog_entries(
+        conversation.id,
+        user_id=user_id,
+    )
+
+    assert result == [
+        (go_id, "go.md", "Go 1.27 notes"),
+        (history_id, "history.pdf", None),
+    ]
+
+
 async def test_get_report_requires_document_in_conversation():
     user_id = uuid4()
     conversation_id = uuid4()

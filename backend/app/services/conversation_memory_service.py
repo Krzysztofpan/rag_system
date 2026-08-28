@@ -23,7 +23,6 @@ from app.services.conversation_memory_compactor import (
 )
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
-from app.services.security import wrap_untrusted_excerpt
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +45,8 @@ class ConversationMemoryService:
     async def build_context_for_agent(
         self,
         conversation: Conversation,
+        *,
+        documents_catalog: str | None = None,
     ) -> list[BaseMessage]:
         conversation_id = conversation.id
         user_id = conversation.user_id
@@ -68,15 +69,10 @@ class ConversationMemoryService:
         )
 
         conversation_context: list[BaseMessage] = []
-        if summary_state is not None and summary_state.documents_summary:
+        if documents_catalog:
             conversation_context.append(
                 SystemMessage(
-                    content=conversation_documents_catalog_message(
-                        wrap_untrusted_excerpt(
-                            summary_state.documents_summary,
-                            header="Document catalog",
-                        )
-                    )
+                    content=conversation_documents_catalog_message(documents_catalog)
                 )
             )
         summary = (
