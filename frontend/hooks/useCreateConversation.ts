@@ -18,6 +18,7 @@ const useCreateConveration = () => {
                 sourceCount: 0,
                 title: 'New Conversation',
                 topic: null,
+                documentsSummary: null,
                 userId: data.userId,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),

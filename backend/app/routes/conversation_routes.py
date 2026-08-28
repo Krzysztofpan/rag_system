@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.auth.deps import get_current_user
 from app.background_tasks.document_background import ingest_document_source
+from app.background_tasks.upload_background import refresh_and_publish_documents_summary
 from app.background_tasks.youtube_background import ingest_youtube_source
 from app.dependencies import (
     ConversationEventBrokerDep,
@@ -358,6 +359,7 @@ async def delete_source(
     document_id: UUID,
     current_user: CurrentUserDep,
     document_service: DocumentServiceDep,
+    background_tasks: BackgroundTasks,
 ):
     try:
         deleted_document = await document_service.delete_document(
@@ -368,6 +370,11 @@ async def delete_source(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    background_tasks.add_task(
+        refresh_and_publish_documents_summary,
+        conversation_id,
+        current_user.user_id,
+    )
     return DeleteSourceResponse(deleted_document=deleted_document)
 
 

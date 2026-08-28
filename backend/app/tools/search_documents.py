@@ -23,9 +23,10 @@ async def search_documents(
     """
     Search the documents already selected for this conversation.
 
-    Call this before answering questions about policies, procedures, rules,
-    permissions, remote work, security, or any document facts. Do not skip
-    this tool because the answer seems obvious from general knowledge.
+    Call this when the question could be answered from those files —
+    articles, videos, transcripts, notes, policies, or any document facts.
+    Do not skip this tool because the topic sounds like general knowledge
+    or current events.
 
     Args:
     query: The search query. informations that user's looking for.

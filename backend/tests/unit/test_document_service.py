@@ -352,6 +352,43 @@ async def test_get_conversation_documents_requires_ownership():
     assert session.execute.await_count == 2
 
 
+async def test_get_conversation_document_summaries_skips_empty_and_orders():
+    user_id = uuid4()
+    conversation = Conversation(user_id=user_id)
+    documents = [
+        Document(
+            conversation_id=conversation.id,
+            filename="a.md",
+            status=DocumentStatus.ready,
+        )
+    ]
+    session = AsyncMock()
+    ownership_result = MagicMock()
+    ownership_result.scalar_one_or_none.return_value = conversation
+    documents_result = MagicMock()
+    documents_result.scalars.return_value.all.return_value = documents
+    rows_result = MagicMock()
+    rows_result.all.return_value = [
+        ("go.md", "Go 1.27 notes"),
+        ("empty.md", None),
+        ("history.pdf", "Uprising sources"),
+    ]
+    session.execute = AsyncMock(
+        side_effect=[ownership_result, documents_result, rows_result]
+    )
+    service = DocumentService(session)
+
+    result = await service.get_conversation_document_summaries(
+        conversation.id,
+        user_id=user_id,
+    )
+
+    assert result == [
+        ("go.md", "Go 1.27 notes"),
+        ("history.pdf", "Uprising sources"),
+    ]
+
+
 async def test_get_report_requires_document_in_conversation():
     user_id = uuid4()
     conversation_id = uuid4()

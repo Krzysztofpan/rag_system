@@ -3,6 +3,7 @@ import { flattenMessagePages, useInfiniteMessages, useInfiniteScrollSentinel } f
 import { useMessageListScroll } from '@/hooks/useMessageListScroll'
 
 import { Skeleton } from '../ui/skeleton'
+import ConversationDocumentsOverview from './ConversationDocumentsOverview'
 import MessageItem from './MessageItem'
 import ToolInvocationNotice from './ToolInvocationNotice'
 import TypingIndicator from './TypingIndicator'
@@ -46,6 +47,7 @@ const MessagesView = ({ conversationId }: { conversationId: string }) => {
                         <Skeleton className="ml-auto h-12 w-1/2 rounded-full" />
                     </div>
                 )}
+                {!hasNextPage && <ConversationDocumentsOverview />}
                 {historyMessages.map((message) => (
                     <div key={message.id} data-message-id={message.id} className="scroll-mt-4">
                         <MessageItem message={message} />

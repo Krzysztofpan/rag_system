@@ -44,7 +44,7 @@ async def test_build_context_for_agent_includes_summary_history_and_current():
     service._get_summary_state = AsyncMock(
         return_value=ConversationSummary(
             conversation_id=conversation_id,
-            summary={
+            messages_summary={
                 "goals_and_topics": ["compare contracts"],
                 "established_facts": [],
                 "user_preferences": ["short answers"],
@@ -92,6 +92,7 @@ async def test_memory_can_be_disabled():
         settings=Settings(memory_enabled=False),
         compactor=AsyncMock(),
     )
+    service._get_summary_state = AsyncMock(return_value=None)
 
     messages = await service.build_context_for_agent(conversation)
 
@@ -134,7 +135,7 @@ async def test_compaction_keeps_recent_messages_and_advances_watermark():
     service._get_summary_state = AsyncMock(
         return_value=ConversationSummary(
             conversation_id=conversation_id,
-            summary={
+            messages_summary={
                 "goals_and_topics": [],
                 "established_facts": [],
                 "user_preferences": [],
@@ -205,3 +206,50 @@ async def test_compaction_skips_short_buffer():
 
     assert compacted is False
     compactor.merge.assert_not_awaited()
+
+
+async def test_build_context_includes_documents_catalog_when_memory_disabled():
+    conversation = Conversation(id=uuid4(), user_id=uuid4())
+    message_service = AsyncMock()
+    message_service.get_messages_after.return_value = [
+        _message(conversation.id, MessageRole.user, "What did the author say?")
+    ]
+    service = ConversationMemoryService(
+        session=AsyncMock(),
+        conversation_service=AsyncMock(),
+        message_service=message_service,
+        settings=Settings(memory_enabled=False),
+        compactor=AsyncMock(),
+    )
+    service._get_summary_state = AsyncMock(
+        return_value=ConversationSummary(
+            conversation_id=conversation.id,
+            documents_summary="A video about Go 1.27.",
+        )
+    )
+
+    messages = await service.build_context_for_agent(conversation)
+
+    assert [type(message) for message in messages] == [SystemMessage, HumanMessage]
+    assert "Document catalog" in messages[0].content
+    assert "<<UNTRUSTED_DOCUMENT>>" in messages[0].content
+    assert "A video about Go 1.27." in messages[0].content
+    assert "not evidence" in messages[0].content.lower()
+
+
+async def test_upsert_documents_summary_writes_catalog_column():
+    conversation_id = uuid4()
+    session = AsyncMock()
+    session.execute.return_value = SimpleNamespace(rowcount=1)
+    service = ConversationMemoryService(
+        session=session,
+        conversation_service=AsyncMock(),
+        message_service=AsyncMock(),
+        settings=Settings(memory_enabled=False),
+        compactor=AsyncMock(),
+    )
+
+    await service.upsert_documents_summary(conversation_id, "Catalog text")
+
+    session.execute.assert_awaited_once()
+    session.commit.assert_awaited_once()

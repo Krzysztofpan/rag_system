@@ -5,6 +5,7 @@ export type ConversationUpdatedEvent = {
     conversationId: string;
     title: string;
     topic: ConversationTopicName;
+    documentsSummary: string | null;
 }
 
 export function parseConversationUpdatedEvent(data: string): ConversationUpdatedEvent | null {
@@ -35,11 +36,16 @@ export function parseConversationUpdatedEvent(data: string): ConversationUpdated
     if (!allowedTopics.includes(topic)) {
         return null
     }
+    const documentsSummaryValue = record.documentsSummary
+    if (documentsSummaryValue !== undefined && documentsSummaryValue !== null && typeof documentsSummaryValue !== 'string') {
+        return null
+    }
     return {
         event: 'conversation.updated',
         conversationId,
         title,
         topic: topic as ConversationTopicName,
+        documentsSummary: typeof documentsSummaryValue === 'string' ? documentsSummaryValue : null,
     }
 }
 

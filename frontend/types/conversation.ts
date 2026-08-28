@@ -6,4 +6,5 @@ export type Conversation = {
     sourceCount: number;
     title: string;
     topic: string | null;
+    documentsSummary: string | null;
 }

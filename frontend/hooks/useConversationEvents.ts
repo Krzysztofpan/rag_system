@@ -31,7 +31,7 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 async function listenForConversationUpdates(
     conversationId: string,
     signal: AbortSignal,
-    onUpdated: (title: string, topic: ConversationTopicName) => void,
+    onUpdated: (title: string, topic: ConversationTopicName, documentsSummary: string | null) => void,
 ): Promise<void> {
     while (!signal.aborted) {
         try {
@@ -47,7 +47,7 @@ async function listenForConversationUpdates(
             await readSseDataFrames(response.body, (data) => {
                 const event = parseConversationUpdatedEvent(data)
                 if (event?.conversationId === conversationId) {
-                    onUpdated(event.title, event.topic)
+                    onUpdated(event.title, event.topic, event.documentsSummary)
                 }
             })
             if (signal.aborted) {
@@ -84,10 +84,11 @@ export function useConversationEvents(
         }
 
         const controller = new AbortController()
-        void listenForConversationUpdates(activeConversationId, controller.signal, (title, topic) => {
+        void listenForConversationUpdates(activeConversationId, controller.signal, (title, topic, documentsSummary) => {
             patchConversation(activeConversationId, {
                 title,
                 topic,
+                documentsSummary,
                 updatedAt: new Date().toISOString(),
             })
         })

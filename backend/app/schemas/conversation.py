@@ -14,6 +14,7 @@ class ConversationResponse(APIModel):
     source_count: int
     title: str | None = None
     topic: str | None = None
+    documents_summary: str | None = None
 
 
 class GetConversationsResponse(APIModel):
@@ -29,6 +30,7 @@ class CreateConversationResponse(APIModel):
 
 
 def conversation_from_model(conversation: Conversation) -> ConversationResponse:
+    summary_state = conversation.__dict__.get("summary_state")
     return ConversationResponse(
         id=str(conversation.id),
         created_at=conversation.created_at,
@@ -37,4 +39,7 @@ def conversation_from_model(conversation: Conversation) -> ConversationResponse:
         source_count=conversation.source_count,
         title=conversation.title,
         topic=conversation.topic,
+        documents_summary=(
+            summary_state.documents_summary if summary_state is not None else None
+        ),
     )

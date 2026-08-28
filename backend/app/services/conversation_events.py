@@ -28,12 +28,14 @@ def conversation_updated_event(
     conversation_id: UUID,
     title: str,
     topic: str,
+    documents_summary: str | None = None,
 ) -> ConversationEvent:
     return {
         "event": CONVERSATION_UPDATED_EVENT,
         "conversationId": str(conversation_id),
         "title": title,
         "topic": topic,
+        "documentsSummary": documents_summary,
     }
 
 

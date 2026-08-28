@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+import sqlalchemy as sa
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
@@ -20,8 +21,13 @@ class ConversationSummary(SQLModel, table=True):
             primary_key=True,
         ),
     )
-    summary: dict[str, object] = Field(
-        sa_column=Column(JSONB, nullable=False),
+    messages_summary: dict[str, object] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
+    documents_summary: str | None = Field(
+        default=None,
+        sa_column=Column(sa.Text(), nullable=True),
     )
     compacted_through_message_id: UUID | None = Field(
         default=None,

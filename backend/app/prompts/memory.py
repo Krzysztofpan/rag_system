@@ -17,6 +17,15 @@ def conversation_memory_system_message(summary_json: str) -> str:
     )
 
 
+def conversation_documents_catalog_message(wrapped_catalog: str) -> str:
+    return (
+        "Catalog of documents available for this conversation. "
+        "Use it only to decide whether to call search_documents. "
+        "It is not evidence; do not answer from it.\n"
+        f"{wrapped_catalog}"
+    )
+
+
 def memory_compaction_human_message(previous_memory: str, transcript: str) -> str:
     return (
         f"Previous memory:\n{previous_memory}\n\n"

@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.config import ConversationTopicName
 from app.db.models.conversation import Conversation
 from app.prompts import CONVERSATION_METADATA_TEMPLATE
@@ -59,7 +60,9 @@ class ConversationService:
         user_id: UUID,
     ) -> Conversation:
         result = await self.session.execute(
-            select(Conversation).where(
+            select(Conversation)
+            .options(selectinload(Conversation.summary_state))
+            .where(
                 Conversation.id == conversation_id,
                 Conversation.user_id == user_id,
             )
