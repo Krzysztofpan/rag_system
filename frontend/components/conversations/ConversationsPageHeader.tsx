@@ -1,11 +1,13 @@
-import { type Dispatch, type SetStateAction, useState } from 'react';
+import { type Dispatch, type SetStateAction, useState, useTransition } from 'react';
 import { Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import useCreateConveration from '@/hooks/useCreateConversation';
 import { items } from '@/src/pages/ConversationPage.const';
 
 import { Input } from '../ui/input';
+import { Spinner } from '../ui/spinner';
 
 type ConversationPageHeaderProps = {
     sortMethodIndex: number | null;
@@ -17,6 +19,17 @@ type ConversationPageHeaderProps = {
 
 const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchValue, setSearchValue }: ConversationPageHeaderProps) => {
     const [searchMode, setSearchMode] = useState(false)
+    const { mutate: createConversation } = useCreateConveration()
+    const [pending, startTransition] = useTransition()
+
+    const handleAddConversation = () => {
+        startTransition(() => {
+            createConversation()
+
+            return
+        })
+    }
+
 
     return (
         <div className="flex justify-end gap-4">
@@ -40,10 +53,22 @@ const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchVa
                                     </SelectGroup>
                                 </SelectContent>
                             </Select>
-                            <Button className="flex gap-2 px-7 py-5 rounded-full cursor-pointer">
-                                <Plus />
-                                {' '}
-                                Add New
+                            <Button className="flex gap-2 px-7 py-5 rounded-full cursor-pointer" onClick={handleAddConversation}>
+                                {pending
+                                    ? (
+                                            <>
+                                                <Spinner />
+                                                Adding conversation
+                                            </>
+                                        )
+                                    : (
+                                            <>
+                                                <Plus />
+                                                {' '}
+                                                Add New
+                                            </>
+                                        )}
+
                             </Button>
                         </>
                     )
