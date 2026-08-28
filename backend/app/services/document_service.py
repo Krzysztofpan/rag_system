@@ -75,6 +75,32 @@ class DocumentService:
         )
         return list(docs_result.scalars().all())
 
+    async def get_conversation_document_summaries(
+        self,
+        conversation_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> list[tuple[str, str]]:
+        await self.get_conversation_documents(
+            conversation_id,
+            user_id=user_id,
+        )
+
+        rows = await self.session.execute(
+            select(Document.filename, DocumentReport.summary)
+            .join(DocumentReport, DocumentReport.document_id == Document.id)
+            .where(
+                Document.conversation_id == conversation_id,
+                DocumentReport.summary.is_not(None),
+            )
+            .order_by(Document.created_at.asc())
+        )
+        return [
+            (filename, summary)
+            for filename, summary in rows.all()
+            if summary
+        ]
+
     async def delete_document(
         self,
         conversation_id: UUID,

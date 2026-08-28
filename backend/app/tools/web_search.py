@@ -29,8 +29,8 @@ async def web_search(
 
     Call this when the question cannot be answered from the selected documents:
     recent events, public facts, or information the user explicitly wants from
-    the internet. Do not use this instead of search_documents when the question
-    is about the conversation's files.
+    the internet. If a document catalog is present and the question matches
+    those files, call search_documents instead of this tool.
 
     Args:
     query: The search query. informations that user's looking for.

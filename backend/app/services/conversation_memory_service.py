@@ -12,7 +12,10 @@ from app.config import Settings, get_settings
 from app.db.models.conversation import Conversation
 from app.db.models.conversation_summary import ConversationSummary
 from app.db.models.message import Message, MessageRole
-from app.prompts import conversation_memory_system_message
+from app.prompts import (
+    conversation_documents_catalog_message,
+    conversation_memory_system_message,
+)
 from app.schemas.conversation_memory import ConversationMemorySummary
 from app.services.conversation_memory_compactor import (
     ConversationMemoryCompactor,
@@ -20,6 +23,7 @@ from app.services.conversation_memory_compactor import (
 )
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
+from app.services.security import wrap_untrusted_excerpt
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +49,7 @@ class ConversationMemoryService:
     ) -> list[BaseMessage]:
         conversation_id = conversation.id
         user_id = conversation.user_id
-        summary_state = (
-            await self._get_summary_state(conversation_id)
-            if self.settings.memory_enabled
-            else None
-        )
+        summary_state = await self._get_summary_state(conversation_id)
         message_limit = (
             self.settings.memory_compaction_max_messages
             if self.settings.memory_enabled
@@ -68,11 +68,20 @@ class ConversationMemoryService:
         )
 
         conversation_context: list[BaseMessage] = []
-        summary = (
-            self._parse_summary(
-                summary_state.summary if summary_state is not None else None
+        if summary_state is not None and summary_state.documents_summary:
+            conversation_context.append(
+                SystemMessage(
+                    content=conversation_documents_catalog_message(
+                        wrap_untrusted_excerpt(
+                            summary_state.documents_summary,
+                            header="Document catalog",
+                        )
+                    )
+                )
             )
-            if self.settings.memory_enabled
+        summary = (
+            self._parse_summary(summary_state.messages_summary)
+            if self.settings.memory_enabled and summary_state is not None
             else None
         )
         if summary is not None:
@@ -108,7 +117,7 @@ class ConversationMemoryService:
             else None
         )
         existing_summary = self._parse_summary(
-            summary_state.summary if summary_state is not None else None
+            summary_state.messages_summary if summary_state is not None else None
         )
         messages = await self.message_service.get_messages_after(
             conversation_id,
@@ -141,7 +150,7 @@ class ConversationMemoryService:
         new_summary = await self.compactor.merge(existing_summary, turns)
 
         values = {
-            "summary": new_summary.model_dump(mode="json"),
+            "messages_summary": new_summary.model_dump(mode="json"),
             "compacted_through_message_id": new_watermark,
             "version": old_version + 1,
             "updated_at": datetime.now(UTC),
@@ -150,8 +159,13 @@ class ConversationMemoryService:
             statement = (
                 insert(ConversationSummary)
                 .values(conversation_id=conversation_id, **values)
-                .on_conflict_do_nothing(
-                    index_elements=[ConversationSummary.conversation_id]
+                .on_conflict_do_update(
+                    index_elements=[ConversationSummary.conversation_id],
+                    set_=values,
+                    where=(
+                        ConversationSummary.compacted_through_message_id.is_(None)
+                        & (ConversationSummary.version == 0)
+                    ),
                 )
             )
         else:
@@ -185,6 +199,30 @@ class ConversationMemoryService:
 
         await self.session.commit()
         return True
+
+    async def upsert_documents_summary(
+        self,
+        conversation_id: UUID,
+        documents_summary: str | None,
+    ) -> None:
+        now = datetime.now(UTC)
+        statement = (
+            insert(ConversationSummary)
+            .values(
+                conversation_id=conversation_id,
+                documents_summary=documents_summary,
+                updated_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=[ConversationSummary.conversation_id],
+                set_={
+                    "documents_summary": documents_summary,
+                    "updated_at": now,
+                },
+            )
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
 
     async def _get_summary_state(
         self,

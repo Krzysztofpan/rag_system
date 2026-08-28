@@ -68,7 +68,7 @@ export const useConversationsClient = () => {
 
     const patchConversation = useCallback((
         conversationId: string,
-        patch: Partial<Pick<Conversation, 'title' | 'updatedAt' | 'sourceCount' | 'topic'>>,
+        patch: Partial<Pick<Conversation, 'title' | 'updatedAt' | 'sourceCount' | 'topic' | 'documentsSummary'>>,
     ) => {
         const listQueryKey = userQueryKey(userId, 'conversations')
         queryClient.setQueryData<Conversation[]>(listQueryKey, (current = []) =>
@@ -89,17 +89,15 @@ export const useConversationsClient = () => {
     }
 
     const bumpSourceCount = (conversationId: string, delta: number) => {
-        queryClient.setQueryData<Conversation[]>(queryKey, (current = []) =>
-            current.map((conversation) => {
-                if (conversation.id !== conversationId) return conversation
-
-                return {
-                    ...conversation,
-                    sourceCount: Math.max(0, conversation.sourceCount + delta),
-                    updatedAt: new Date().toISOString(),
-                }
-            }),
-        )
+        const detail = queryClient.getQueryData<Conversation>([...queryKey, conversationId])
+        const fromList = queryClient
+            .getQueryData<Conversation[]>(queryKey)
+            ?.find((conversation) => conversation.id === conversationId)
+        const currentCount = detail?.sourceCount ?? fromList?.sourceCount ?? 0
+        patchConversation(conversationId, {
+            sourceCount: Math.max(0, currentCount + delta),
+            updatedAt: new Date().toISOString(),
+        })
     }
 
     const insertConversationInIndex = (fallbackObj: { deletedConversation: Conversation; index: number }) => {

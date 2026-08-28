@@ -139,8 +139,29 @@ def test_get_conversation_returns_serialized_conversation(client, authenticated_
     assert payload["title"] == "My chat"
     assert payload["topic"] == "ai"
     assert payload["sourceCount"] == 0
+    assert payload["documentsSummary"] is None
     assert "createdAt" in payload
     assert "updatedAt" in payload
+
+
+def test_get_conversation_includes_documents_summary(client, authenticated_user):
+    conversation = Conversation(
+        user_id=authenticated_user.user_id,
+        title="Go notes",
+        topic="tech",
+    )
+    conversation.__dict__["summary_state"] = SimpleNamespace(
+        documents_summary="A video about Go 1.27.",
+    )
+
+    with patch(
+        "app.services.conversation_service.ConversationService.get_conversation",
+        new=AsyncMock(return_value=conversation),
+    ):
+        response = client.get(f"/conversations/{conversation.id}")
+
+    assert response.status_code == 200
+    assert response.json()["documentsSummary"] == "A video about Go 1.27."
 
 
 def test_get_conversation_not_found_returns_404(client):
@@ -456,6 +477,9 @@ def test_delete_source_returns_deleted_document(client):
     with patch(
         "app.services.document_service.DocumentService.delete_document",
         new=AsyncMock(return_value=document),
+    ), patch(
+        "app.routes.conversation_routes.refresh_and_publish_documents_summary",
+        new=AsyncMock(),
     ):
         response = client.delete(
             f"/conversations/{conversation_id}/sources/{document.id}"
