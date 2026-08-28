@@ -7,7 +7,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.auth.deps import AuthenticatedUser, get_current_user
-from app.container import get_run_registry, get_usage_limit_service, get_vector_store
+from app.container import (
+    get_conversation_memory_service,
+    get_run_registry,
+    get_usage_limit_service,
+    get_vector_store,
+)
 from app.db.models.document import Document, DocumentStatus
 from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
@@ -56,6 +61,7 @@ def _client(authenticated_user) -> TestClient:
     )
     app.dependency_overrides[get_prompt_guard_service] = lambda: guard
     app.dependency_overrides[get_run_registry] = lambda: registry
+    app.dependency_overrides[get_conversation_memory_service] = lambda: AsyncMock()
     return TestClient(app)
 
 

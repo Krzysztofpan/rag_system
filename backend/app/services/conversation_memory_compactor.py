@@ -21,11 +21,17 @@ class MemoryTurn:
 class ConversationMemoryCompactor:
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
-        self.model = ChatOpenAI(
-            model=self.settings.memory_summarization_model,
-            temperature=0,
-            max_tokens=self.settings.memory_summary_max_tokens,
-        ).with_structured_output(ConversationMemorySummary)
+        self._model = None
+
+    @property
+    def model(self):
+        if self._model is None:
+            self._model = ChatOpenAI(
+                model=self.settings.memory_summarization_model,
+                temperature=0,
+                max_tokens=self.settings.memory_summary_max_tokens,
+            ).with_structured_output(ConversationMemorySummary)
+        return self._model
 
     async def merge(
         self,
