@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     app_env: Literal["development", "production"] = "development"
     database_url: str | None = None
     database_password: str | None = None
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+    db_pool_timeout: float = 30
+    db_pool_recycle: int = 300
     supabase_url: str | None = None
     cors_allow_origins: str = "http://localhost:5173"
 
