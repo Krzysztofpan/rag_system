@@ -1,11 +1,13 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { useParams } from 'react-router';
 
+import { toast } from '@/components/ui/toast'
 import { useConversationEvents } from '@/hooks/useConversationEvents'
 import { useConversationsClient } from '@/hooks/useConversations'
 import { useInfiniteMessagesClient } from '@/hooks/useInfiniteMessages'
 import { useSources } from '@/hooks/useSources';
 import { useStreamResponse } from '@/hooks/useStreamResponse'
+import { isLimitError } from '@/lib/apiError'
 import { chatSendErrorMessage } from '@/lib/chatError'
 import type { Message } from '@/types/Message'
 
@@ -71,8 +73,13 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             await stream.sendMessage({ documentIds, message, messageId })
         }
         catch (error) {
-            setLocalError(chatSendErrorMessage(error))
+            const errorMessage = chatSendErrorMessage(error)
+            setLocalError(errorMessage)
+            if (isLimitError(error)) {
+                toast.add({ type: 'error', title: errorMessage })
+            }
             await invalidateMessages()
+            throw error
         }
     }
 

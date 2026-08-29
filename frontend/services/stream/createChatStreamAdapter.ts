@@ -1,5 +1,6 @@
 import { HttpAgentServerAdapter } from '@langchain/react'
 
+import { rejectOnApiError } from '@/lib/apiError'
 import { apiService } from '@/services/api/apiService'
 
 export function chatStreamPaths(conversationId: string) {
@@ -14,7 +15,7 @@ export function createChatStreamAdapter(conversationId: string) {
     return new HttpAgentServerAdapter({
         apiUrl: apiService.getApiHost(),
         threadId: conversationId,
-        fetch: apiService.authorizedFetch,
+        fetch: async (input, init) => rejectOnApiError(await apiService.authorizedFetch(input, init)),
         paths: chatStreamPaths(conversationId),
     })
 }

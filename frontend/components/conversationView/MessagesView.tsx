@@ -72,7 +72,7 @@ const MessagesView = ({ conversationId }: { conversationId: string }) => {
                         </div>
                     )}
                 {streamError && (
-                    <div className="px-3 text-sm text-destructive" role="alert">
+                    <div className="mx-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                         {streamError}
                     </div>
                 )}
