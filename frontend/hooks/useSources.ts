@@ -7,7 +7,7 @@ import { useAuthQuery } from '@/hooks/useAuthQuery'
 import { useConversationsClient } from '@/hooks/useConversations'
 import { useUserQueryKey } from '@/hooks/useUserQueryKey'
 import { apiErrorMessage, isLimitError } from '@/lib/apiError'
-import { createPendingSource, rejectSource } from '@/lib/source'
+import { createPendingSource, mergeFetchedSources, rejectSource, replaceSourceInList } from '@/lib/source'
 import { apiService } from '@/services/api/apiService'
 import type { Source } from '@/types/source'
 
@@ -20,11 +20,16 @@ function failSource(error: unknown): string {
 }
 
 export const useSources = (conversationId: string | null) => {
+    const queryClient = useQueryClient()
+
     return useAuthQuery({
         queryKey: ['conversation-sources', conversationId],
-        queryFn: async (): Promise<Source[]> => {
+        queryFn: async ({ queryKey }): Promise<Source[]> => {
             const response = await apiService.getSources(conversationId as string)
-            return response.conversationSources
+            return mergeFetchedSources(
+                queryClient.getQueryData<Source[]>(queryKey),
+                response.conversationSources,
+            )
         },
         enabled: !!conversationId,
         refetchInterval: (query) => {
@@ -42,7 +47,8 @@ export const useSourcesClient = (conversationId: string) => {
     const { bumpSourceCount } = useConversationsClient()
     const conversation = useContext(ConversationContext)
 
-    const addSource = (source: Source) => {
+    const addSource = async (source: Source) => {
+        await queryClient.cancelQueries({ queryKey })
         queryClient.setQueryData<Source[]>(queryKey, (current = []) => [...current, source])
     }
 
@@ -72,39 +78,40 @@ export const useSourcesClient = (conversationId: string) => {
         })
     }
 
-    const replaceSource = (sourceId: string, nextSource: Source) => {
-        queryClient.setQueryData<Source[]>(queryKey, (current = []) => current.map((source) => (source.id === sourceId ? nextSource : source)))
+    const replaceSource = async (sourceId: string, nextSource: Source) => {
+        await queryClient.cancelQueries({ queryKey })
+        queryClient.setQueryData<Source[]>(queryKey, (current = []) => replaceSourceInList(current, sourceId, nextSource))
     }
 
     const addUrlSource = async (url: string) => {
         conversation?.armConversationEvents()
         const pendingSource = createPendingSource(url, 'video/youtube')
-        addSource(pendingSource)
+        await addSource(pendingSource)
 
         try {
             const source = await apiService.addUrlSource(conversationId, url)
-            replaceSource(pendingSource.id, source)
+            await replaceSource(pendingSource.id, source)
             bumpSourceCount(conversationId, 1)
         }
         catch (error) {
-            replaceSource(pendingSource.id, rejectSource(pendingSource, failSource(error)))
+            await replaceSource(pendingSource.id, rejectSource(pendingSource, failSource(error)))
         }
     }
 
     const uploadSource = async (file: File) => {
         conversation?.armConversationEvents()
         const pendingSource = createPendingSource(file.name, file.type || null)
-        addSource(pendingSource)
+        await addSource(pendingSource)
 
         try {
             const formData = new FormData()
             formData.append('file', file)
             const source = await apiService.uploadSource(conversationId, formData)
-            replaceSource(pendingSource.id, source)
+            await replaceSource(pendingSource.id, source)
             bumpSourceCount(conversationId, 1)
         }
         catch (error) {
-            replaceSource(pendingSource.id, rejectSource(pendingSource, failSource(error)))
+            await replaceSource(pendingSource.id, rejectSource(pendingSource, failSource(error)))
         }
     }
 

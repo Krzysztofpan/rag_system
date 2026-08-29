@@ -10,12 +10,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { useSidebar } from '../ui/sidebar'
 
 type SourceOptionsProps = {
+    disabled?: boolean;
     editMode: boolean;
     setEditMode: Dispatch<SetStateAction<boolean>>;
     sourceId: string;
 }
 
-const SourceOptions = ({ editMode, setEditMode, sourceId }: SourceOptionsProps) => {
+const SourceOptions = ({ disabled = false, editMode, setEditMode, sourceId }: SourceOptionsProps) => {
     const [isOpen, setIsOpen] = useState(false)
     const {
         conversationId,
@@ -30,7 +31,7 @@ const SourceOptions = ({ editMode, setEditMode, sourceId }: SourceOptionsProps) 
     return (
         <div className={`${isCollapsed || editMode ? 'hidden' : 'flex'} gap-2 items-center`}>
             <Popover onOpenChange={setIsOpen}>
-                <PopoverTrigger className={`${isOpen ? 'block' : 'hidden'} group-hover:block p-0 m-0 flex justify-center items-center cursor-pointer`}>
+                <PopoverTrigger className={`${isOpen || disabled ? 'block' : 'hidden'} group-hover:block p-0 m-0 flex justify-center items-center cursor-pointer`}>
                     <EllipsisVertical size={18} />
                 </PopoverTrigger>
                 <PopoverContent side="bottom" align="start" className={`${isOpen ? 'flex' : 'hidden'} w-56 flex-col  gap-0 p-0`}>
@@ -38,20 +39,27 @@ const SourceOptions = ({ editMode, setEditMode, sourceId }: SourceOptionsProps) 
                         <Trash2 />
                         Delete source
                     </Button>
-                    <Button
-                        className="p-5 flex gap-2 justify-start cursor-pointer"
-                        variant="ghost"
-                        onClick={() => {
-                            setEditMode(true)
-                            setIsOpen(false)
-                        }}
-                    >
-                        <Pencil />
-                        Change name of source
-                    </Button>
+                    {!disabled && (
+                        <Button
+                            className="p-5 flex gap-2 justify-start cursor-pointer"
+                            variant="ghost"
+                            onClick={() => {
+                                setEditMode(true)
+                                setIsOpen(false)
+                            }}
+                        >
+                            <Pencil />
+                            Change name of source
+                        </Button>
+                    )}
                 </PopoverContent>
             </Popover>
-            {!isCollapsed && !editMode && <Checkbox checked={selectedSources.includes(sourceId)} onClick={() => toogleSelectSource(sourceId)} />}
+            {!isCollapsed && !editMode && !disabled && (
+                <Checkbox
+                    checked={selectedSources.includes(sourceId)}
+                    onClick={() => toogleSelectSource(sourceId)}
+                />
+            )}
         </div>
     );
 }
