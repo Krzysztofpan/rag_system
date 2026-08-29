@@ -1,25 +1,22 @@
 import { useContext } from 'react'
-import { isAxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { toast } from '@/components/ui/toast'
 import { ConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useAuthQuery } from '@/hooks/useAuthQuery'
 import { useConversationsClient } from '@/hooks/useConversations'
 import { useUserQueryKey } from '@/hooks/useUserQueryKey'
+import { apiErrorMessage, isLimitError } from '@/lib/apiError'
 import { createPendingSource, rejectSource } from '@/lib/source'
 import { apiService } from '@/services/api/apiService'
 import type { Source } from '@/types/source'
 
-function sourceRequestError(error: unknown): string {
-    if (!isAxiosError(error)) {
-        return 'Server didn\'t respond'
+function failSource(error: unknown): string {
+    const message = apiErrorMessage(error, 'Server didn\'t respond')
+    if (isLimitError(error)) {
+        toast.add({ type: 'error', title: message })
     }
-    const payload: unknown = error.response?.data
-    if (typeof payload !== 'object' || payload === null) {
-        return 'Server didn\'t respond'
-    }
-    const detail: unknown = Reflect.get(payload, 'detail')
-    return typeof detail === 'string' ? detail : 'Server didn\'t respond'
+    return message
 }
 
 export const useSources = (conversationId: string | null) => {
@@ -90,7 +87,7 @@ export const useSourcesClient = (conversationId: string) => {
             bumpSourceCount(conversationId, 1)
         }
         catch (error) {
-            replaceSource(pendingSource.id, rejectSource(pendingSource, sourceRequestError(error)))
+            replaceSource(pendingSource.id, rejectSource(pendingSource, failSource(error)))
         }
     }
 
@@ -107,7 +104,7 @@ export const useSourcesClient = (conversationId: string) => {
             bumpSourceCount(conversationId, 1)
         }
         catch (error) {
-            replaceSource(pendingSource.id, rejectSource(pendingSource, sourceRequestError(error)))
+            replaceSource(pendingSource.id, rejectSource(pendingSource, failSource(error)))
         }
     }
 

@@ -36,12 +36,12 @@ const SourceItem = ({ source }: SourceItemProps) => {
         <div
             title={error ?? undefined}
             className={`flex gap-2 items-center group hover:bg-muted p-3 py-4 rounded-lg cursor-pointer
-        ${isCollapsed ? 'justify-center' : 'w-full justify-between'} ${status === 'failed' || isPending ? 'opacity-60' : ''}  
+        ${isCollapsed ? 'justify-center' : 'w-full justify-between'} ${isPending ? 'opacity-60' : ''}
         `}
         >
-            <div className="flex gap-2 items-center min-w-0 w-full">
+            <div className="flex min-w-0 w-full items-center gap-2">
                 {iconSrc
-                    ? <img src={iconSrc} width={25} alt={filename} />
+                    ? <img src={iconSrc} width={25} alt={filename} className={status === 'failed' ? 'opacity-60' : undefined} />
                     : <div className="size-6.25 shrink-0 rounded bg-muted" aria-hidden />}
                 {!isCollapsed && (editMode
                     ? (
@@ -51,7 +51,16 @@ const SourceItem = ({ source }: SourceItemProps) => {
                                 setEditMode={setEditMode}
                             />
                         )
-                    : <div className="flex items-center text-sm truncate w-full">{filename}</div>)}
+                    : (
+                            <div className="min-w-0 w-full">
+                                <div className={`truncate text-sm ${status === 'failed' ? 'opacity-60' : ''}`}>{filename}</div>
+                                {error && (
+                                    <p className="line-clamp-2 text-xs leading-snug text-destructive" role="alert">
+                                        {error}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
             </div>
             {isPending
                 ? <Spinner />

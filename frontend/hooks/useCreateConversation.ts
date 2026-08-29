@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
 
+import { toast } from '@/components/ui/toast'
+import { apiErrorMessage } from '@/lib/apiError'
 import { apiService } from '@/services/api/apiService'
 
 import { useConversationsClient } from './useConversations'
@@ -12,6 +14,12 @@ const useCreateConveration = () => {
     return useMutation({
         mutationFn: () =>
             apiService.createConversation(),
+        onError: (error) => {
+            toast.add({
+                type: 'error',
+                title: apiErrorMessage(error, 'Failed to create conversation'),
+            })
+        },
         onSuccess: (data) => {
             addConversation({
                 id: data.conversationId,

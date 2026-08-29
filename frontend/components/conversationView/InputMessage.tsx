@@ -16,8 +16,12 @@ const InputMessage = () => {
         e.preventDefault()
         if (!message) return;
 
-        mutate({ documentIds: selectedSources, message })
+        const text = message
         setMessage('')
+        mutate(
+            { documentIds: selectedSources, message: text },
+            { onError: () => setMessage((current) => current || text) },
+        )
     }
 
     const handleEnterSubmit = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
