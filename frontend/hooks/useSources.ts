@@ -52,7 +52,8 @@ export const useSourcesClient = (conversationId: string) => {
         queryClient.setQueryData<Source[]>(queryKey, (current = []) => [...current, source])
     }
 
-    const deleteSource = (sourceId: string) => {
+    const deleteSource = async (sourceId: string) => {
+        await queryClient.cancelQueries({ queryKey })
         let fallbackObj
 
         queryClient.setQueryData<Source[]>(queryKey, (current = []) =>

@@ -16,8 +16,12 @@ export function rejectSource(source: Source, error: string): Source {
     return { ...source, status: 'failed', error }
 }
 
+export function isOptimisticSourceId(sourceId: string): boolean {
+    return sourceId.startsWith(OPTIMISTIC_SOURCE_ID_PREFIX)
+}
+
 function isOptimisticSource(source: Source): boolean {
-    return source.id.startsWith(OPTIMISTIC_SOURCE_ID_PREFIX)
+    return isOptimisticSourceId(source.id)
 }
 
 export function mergeFetchedSources(cached: Source[] | undefined, fetched: Source[]): Source[] {
