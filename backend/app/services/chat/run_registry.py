@@ -1,18 +1,54 @@
-"""Single-process run storage.
+"""Run storage.
 
-Use one ASGI worker with this implementation. A multi-worker deployment must
-replace the registry with shared storage (for example Redis) so command and
-stream requests observe the same run.
+`InMemoryRunRegistry` is for unit tests and local uvicorn without Redis.
+Compose and production use `RedisRunRegistry` so command and stream can
+land on different processes. The agent `asyncio.Task` still lives only in
+the process that accepted `run.start`.
 """
+
+from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
+from typing import Protocol
 from uuid import UUID
 
 from app.services.chat.run_session import RunSession
 
 RunFactory = Callable[[RunSession], Awaitable[None]]
+
+
+class RunRegistry(Protocol):
+    replay_limit: int
+    subscriber_timeout_seconds: float
+    disconnect_grace_seconds: float
+    finished_ttl_seconds: float
+
+    async def start(
+        self,
+        conversation_id: UUID,
+        run_id: str,
+        run_factory: RunFactory,
+    ) -> RunSession: ...
+
+    async def get(self, conversation_id: UUID) -> RunSession | None: ...
+
+    async def wait_for_session_after(
+        self,
+        conversation_id: UUID,
+        previous: RunSession,
+        *,
+        timeout: float,
+    ) -> RunSession | None: ...
+
+    async def remove_if_current(
+        self,
+        conversation_id: UUID,
+        session: RunSession,
+    ) -> None: ...
+
+    async def close(self) -> None: ...
 
 
 class InMemoryRunRegistry:
@@ -68,7 +104,9 @@ class InMemoryRunRegistry:
     ) -> RunSession | None:
         def next_session() -> RunSession | None:
             session = self._sessions.get(conversation_id)
-            return session if session is not None and session is not previous else None
+            if session is None or session.run_id == previous.run_id:
+                return None
+            return session
 
         async with self._session_changed:
             session = next_session()

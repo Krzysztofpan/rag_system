@@ -100,6 +100,7 @@ class Settings(BaseSettings):
     max_conversations: int = 10
     max_messages_per_conversation: int = 20
     rate_limit_storage_uri: str = "memory://"
+    redis_url: str | None = None
 
     @property
     def is_production(self) -> bool:
