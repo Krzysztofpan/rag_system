@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel
 
 
 class FileOrigin(BaseModel):
@@ -20,19 +20,5 @@ class YoutubeOrigin(BaseModel):
     transcript_source: Literal["captions", "auto_captions", "stt"] | None = None
 
 
-DocumentOrigin = Annotated[
-    FileOrigin | YoutubeOrigin,
-    Field(discriminator="kind"),
-]
-
-_origin_adapter = TypeAdapter(DocumentOrigin)
-
-
 def dump_origin(origin: FileOrigin | YoutubeOrigin) -> dict[str, Any]:
     return origin.model_dump(mode="json", exclude_none=True)
-
-
-def parse_origin(data: dict[str, Any] | None) -> FileOrigin | YoutubeOrigin | None:
-    if data is None:
-        return None
-    return _origin_adapter.validate_python(data)

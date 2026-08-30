@@ -15,7 +15,7 @@ from app.dependencies import (
     DocumentServiceDep,
     MessageServiceDep,
     PromptGuardServiceDep,
-    RunRegistryDep,
+    RedisRunRegistryDep,
     UsageLimitServiceDep,
 )
 from app.lib.rate_limit import limiter, message_error_message, message_limit_value
@@ -62,7 +62,7 @@ async def chat_commands(
     message_service: MessageServiceDep,
     memory_service: ConversationMemoryServiceDep,
     document_service: DocumentServiceDep,
-    registry: RunRegistryDep,
+    registry: RedisRunRegistryDep,
     prompt_guard: PromptGuardServiceDep,
     usage_limits: UsageLimitServiceDep,
 ) -> dict[str, Any]:
@@ -176,7 +176,7 @@ async def chat_stream(
     request: StreamSubscriptionRequest,
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
-    registry: RunRegistryDep,
+    registry: RedisRunRegistryDep,
 ) -> StreamingResponse:
     try:
         await conversation_service.get_conversation(

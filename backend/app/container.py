@@ -1,11 +1,10 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.db.session import get_session
 from app.services.chunker.factory import ChunkerFactory
+from app.lib.redis import get_redis
 from app.services.chat.redis_run_registry import RedisRunRegistry
-from app.services.chat.run_registry import InMemoryRunRegistry, RunRegistry
 from app.services.conversation_events import ConversationEventBroker
 from app.services.conversation_service import ConversationService
 from app.services.conversation_memory_service import ConversationMemoryService
@@ -17,7 +16,7 @@ from app.services.vector_store import VectorStore
 from app.services.message_service import MessageService
 
 _vector_store: VectorStore | None = None
-_run_registry: RunRegistry | None = None
+_run_registry: RedisRunRegistry | None = None
 _conversation_event_broker: ConversationEventBroker | None = None
 
 
@@ -28,28 +27,17 @@ def get_vector_store() -> VectorStore:
     return _vector_store
 
 
-def get_run_registry() -> RunRegistry:
+def get_run_registry() -> RedisRunRegistry:
     global _run_registry
     if _run_registry is None:
-        settings = get_settings()
-        if settings.redis_url:
-            from app.lib.redis import get_redis
-
-            _run_registry = RedisRunRegistry(get_redis())
-        else:
-            _run_registry = InMemoryRunRegistry()
+        _run_registry = RedisRunRegistry(get_redis())
     return _run_registry
 
 
 def get_conversation_event_broker() -> ConversationEventBroker:
     global _conversation_event_broker
     if _conversation_event_broker is None:
-        redis = None
-        if get_settings().redis_url:
-            from app.lib.redis import get_redis
-
-            redis = get_redis()
-        _conversation_event_broker = ConversationEventBroker(redis=redis)
+        _conversation_event_broker = ConversationEventBroker(get_redis())
     return _conversation_event_broker
 
 
@@ -63,13 +51,6 @@ def create_indexing_service(
         document_service=DocumentService(session),
         vector_store=vector_store or get_vector_store(),
     )
-
-
-def get_document_indexing_service(
-    session: AsyncSession = Depends(get_session),
-    vector_store: VectorStore = Depends(get_vector_store),
-) -> DocumentIndexingService:
-    return create_indexing_service(session, vector_store)
 
 
 def create_document_service(

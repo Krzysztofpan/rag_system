@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import suppress
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -9,7 +10,7 @@ from app.services.chat import run_session as run_session_module
 from app.services.chat.protocol import is_terminal_event
 from app.services.chat.redis_run_registry import RedisRunRegistry
 from app.services.chat.redis_store import RedisRunStore
-from app.services.chat.run_session import RunSession
+from app.services.chat.run_session import HEARTBEAT, RunSession
 
 
 @pytest.fixture
@@ -303,3 +304,33 @@ async def test_remote_subscribe_cancels_owner_orphan_timeout(redis):
     await remote.unsubscribe(subscription)
     await owner.close()
     await reader.close()
+
+
+async def test_subscription_emits_heartbeat_when_queue_is_idle(redis):
+    session = _session(redis)
+    try:
+        subscription = await session.subscribe(
+            channels={"messages"},
+            namespaces=None,
+            depth=None,
+            since=None,
+        )
+        iterator = subscription.events()
+
+        def timeout_after_closing_awaitable(awaitable, timeout=None, **_kwargs):
+            if asyncio.iscoroutine(awaitable):
+                awaitable.close()
+            raise TimeoutError
+
+        with patch(
+            "app.services.chat.run_session.asyncio.wait_for",
+            side_effect=timeout_after_closing_awaitable,
+        ):
+            item = await anext(iterator)
+
+        assert item is HEARTBEAT
+        await iterator.aclose()
+        assert subscription not in session.subscribers
+    finally:
+        await session.close_background()
+        await session.registry.close()

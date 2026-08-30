@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from uuid import UUID
 
 from redis.asyncio import Redis
 
 from app.services.chat.redis_store import RedisRunStore
-from app.services.chat.run_registry import RunFactory
 from app.services.chat.run_session import RunSession
+
+RunFactory = Callable[[RunSession], Awaitable[None]]
 
 
 class RedisRunRegistry:
@@ -29,7 +31,6 @@ class RedisRunRegistry:
         self._owned: dict[UUID, RunSession] = {}
         self._known: dict[tuple[UUID, str], RunSession] = {}
         self._lock = asyncio.Lock()
-        self._session_changed = asyncio.Condition(self._lock)
 
     async def start(
         self,
@@ -41,7 +42,7 @@ class RedisRunRegistry:
         if not acquired:
             raise RuntimeError("A run is already active for this conversation")
 
-        async with self._session_changed:
+        async with self._lock:
             session = RunSession(
                 conversation_id=conversation_id,
                 run_id=run_id,
@@ -51,7 +52,6 @@ class RedisRunRegistry:
             )
             self._owned[conversation_id] = session
             self._known[(conversation_id, run_id)] = session
-            self._session_changed.notify_all()
             session.task = asyncio.create_task(run_factory(session))
             session.arm_initial_subscriber_timeout(self.subscriber_timeout_seconds)
             return session

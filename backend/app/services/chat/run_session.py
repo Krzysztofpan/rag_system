@@ -15,8 +15,8 @@ from app.services.chat.protocol import (
 )
 
 if TYPE_CHECKING:
+    from app.services.chat.redis_run_registry import RedisRunRegistry
     from app.services.chat.redis_store import RedisRunStore
-    from app.services.chat.run_registry import RunRegistry
 
 _STREAM_END = object()
 _HEARTBEAT = object()
@@ -63,10 +63,10 @@ class RunSubscription:
 class RunSession:
     conversation_id: UUID
     run_id: str
-    registry: RunRegistry
+    registry: RedisRunRegistry
     replay_limit: int
+    event_store: RedisRunStore
     task: asyncio.Task[None] | None = None
-    event_store: RedisRunStore | None = None
     remote: bool = False
     events_buffer: deque[ProtocolEvent] = field(init=False)
     subscribers: set[RunSubscription] = field(default_factory=set)
@@ -80,7 +80,7 @@ class RunSession:
 
     def __post_init__(self) -> None:
         self.events_buffer = deque(maxlen=self.replay_limit)
-        if self.event_store is not None and not self.remote:
+        if not self.remote:
             self._control_task = asyncio.create_task(self._listen_control())
 
     async def publish(self, event: ProtocolEvent) -> ProtocolEvent:
@@ -97,14 +97,12 @@ class RunSession:
             if terminal:
                 self.finished = True
             subscribers = list(self.subscribers)
-            store = self.event_store
-            if store is not None:
-                await store.append_event(
-                    self.conversation_id,
-                    self.run_id,
-                    emitted,
-                    finished=terminal,
-                )
+            await self.event_store.append_event(
+                self.conversation_id,
+                self.run_id,
+                emitted,
+                finished=terminal,
+            )
 
         for subscription in subscribers:
             subscription.queue.put_nowait(emitted)
@@ -123,7 +121,7 @@ class RunSession:
         depth: int | None,
         since: int | None,
     ) -> RunSubscription:
-        if self.remote and self.event_store is not None:
+        if self.remote:
             stored = await self.event_store.list_events(self.conversation_id)
             self.events_buffer = deque(stored, maxlen=self.replay_limit)
             if stored:
@@ -157,38 +155,35 @@ class RunSession:
             )
             if not self.finished:
                 self.subscribers.add(subscription)
-                if self.remote and self.event_store is not None:
+                if self.remote:
                     subscription._feed_task = asyncio.create_task(
                         self._feed_remote(subscription, last_seq)
                     )
 
-        if self.event_store is not None:
-            await self.event_store.add_subscriber(
+        await self.event_store.add_subscriber(
+            self.conversation_id,
+            subscription.subscription_id,
+        )
+        if self.remote:
+            await self.event_store.notify_control(
                 self.conversation_id,
-                subscription.subscription_id,
+                "joined",
             )
-            if self.remote:
-                await self.event_store.notify_control(
-                    self.conversation_id,
-                    "joined",
-                )
         return subscription
 
     async def unsubscribe(self, subscription: RunSubscription) -> None:
         if subscription._feed_task is not None:
             subscription._feed_task.cancel()
             subscription._feed_task = None
-        remaining_remote = None
-        if self.event_store is not None:
-            remaining_remote = await self.event_store.remove_subscriber(
+        remaining_remote = await self.event_store.remove_subscriber(
+            self.conversation_id,
+            subscription.subscription_id,
+        )
+        if remaining_remote == 0:
+            await self.event_store.notify_control(
                 self.conversation_id,
-                subscription.subscription_id,
+                "orphan",
             )
-            if remaining_remote == 0:
-                await self.event_store.notify_control(
-                    self.conversation_id,
-                    "orphan",
-                )
         async with self._lock:
             self.subscribers.discard(subscription)
             should_cancel = self.had_subscriber and await self._should_cancel()
@@ -213,9 +208,7 @@ class RunSession:
             or self.task.done()
         ):
             return False
-        if self.event_store is not None:
-            return await self.event_store.subscriber_count(self.conversation_id) == 0
-        return True
+        return await self.event_store.subscriber_count(self.conversation_id) == 0
 
     async def _cancel_if_still_orphaned(self, delay: float) -> None:
         try:
@@ -239,7 +232,6 @@ class RunSession:
         await self.registry.remove_if_current(self.conversation_id, self)
 
     async def _feed_remote(self, subscription: RunSubscription, last_seq: int) -> None:
-        assert self.event_store is not None
         pubsub = self.event_store.redis.pubsub()
         await pubsub.subscribe(self.event_store.channel(self.conversation_id))
         try:
@@ -275,7 +267,6 @@ class RunSession:
             await pubsub.aclose()
 
     async def _listen_control(self) -> None:
-        assert self.event_store is not None
         pubsub = self.event_store.redis.pubsub()
         await pubsub.subscribe(self.event_store.control_channel(self.conversation_id))
         try:

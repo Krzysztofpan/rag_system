@@ -7,25 +7,20 @@ from app.container import (
     get_conversation_event_broker,
     get_conversation_memory_service,
     get_conversation_service,
-    get_document_indexing_service,
     get_document_service,
     get_message_service,
     get_run_registry,
     get_usage_limit_service,
 )
-from app.services.chat.run_registry import RunRegistry
+from app.services.chat.redis_run_registry import RedisRunRegistry
 from app.services.conversation_events import ConversationEventBroker
 from app.services.conversation_service import ConversationService
 from app.services.conversation_memory_service import ConversationMemoryService
-from app.services.document_indexing_service import DocumentIndexingService
 from app.services.document_service import DocumentService
 from app.services.message_service import MessageService
 from app.services.security import PromptGuardService, get_prompt_guard_service
 from app.services.usage_limits import UsageLimitService
 
-DocumentIndexingServiceDep = Annotated[
-    DocumentIndexingService, Depends(get_document_indexing_service)
-]
 ConversationServiceDep = Annotated[
     ConversationService, Depends(get_conversation_service)
 ]
@@ -44,8 +39,8 @@ UsageLimitServiceDep = Annotated[
 PromptGuardServiceDep = Annotated[
     PromptGuardService, Depends(get_prompt_guard_service)
 ]
-RunRegistryDep = Annotated[
-    RunRegistry, Depends(get_run_registry)
+RedisRunRegistryDep = Annotated[
+    RedisRunRegistry, Depends(get_run_registry)
 ]
 ConversationEventBrokerDep = Annotated[
     ConversationEventBroker, Depends(get_conversation_event_broker)
@@ -58,15 +53,13 @@ __all__ = [
     "ConversationServiceDep",
     "ConversationMemoryServiceDep",
     "CurrentUserDep",
-    "DocumentIndexingServiceDep",
     "DocumentServiceDep",
     "MessageServiceDep",
     "PromptGuardServiceDep",
-    "RunRegistryDep",
+    "RedisRunRegistryDep",
     "UsageLimitServiceDep",
     "get_conversation_service",
     "get_current_user",
-    "get_document_indexing_service",
     "get_document_service",
     "get_usage_limit_service",
 ]

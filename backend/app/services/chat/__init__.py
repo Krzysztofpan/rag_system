@@ -1,1 +1,1 @@
-"""Chat streaming orchestration and in-memory run runtime."""
+"""Chat streaming orchestration and Redis-backed run runtime."""
