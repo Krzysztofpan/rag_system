@@ -11,6 +11,7 @@ if __name__ == "__main__":
         host=settings.uvicorn_host,
         port=settings.backend_port,
         reload=reload_enabled,
+        workers=None if reload_enabled else settings.uvicorn_workers,
         reload_delay=settings.uvicorn_reload_delay if reload_enabled else None,
         timeout_graceful_shutdown=(
             settings.uvicorn_timeout_graceful_shutdown if reload_enabled else None

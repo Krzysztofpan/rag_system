@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     uvicorn_reload: bool = True
     uvicorn_reload_delay: int = 0
     uvicorn_timeout_graceful_shutdown: int = 5
+    # Used when reload is off (Docker / production). Reload stays single-process.
+    uvicorn_workers: int = 2
     app_env: Literal["development", "production"] = "development"
     database_url: str | None = None
     database_password: str | None = None
