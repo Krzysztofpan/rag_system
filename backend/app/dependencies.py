@@ -13,7 +13,7 @@ from app.container import (
     get_run_registry,
     get_usage_limit_service,
 )
-from app.services.chat.run_registry import InMemoryRunRegistry
+from app.services.chat.run_registry import RunRegistry
 from app.services.conversation_events import ConversationEventBroker
 from app.services.conversation_service import ConversationService
 from app.services.conversation_memory_service import ConversationMemoryService
@@ -45,7 +45,7 @@ PromptGuardServiceDep = Annotated[
     PromptGuardService, Depends(get_prompt_guard_service)
 ]
 RunRegistryDep = Annotated[
-    InMemoryRunRegistry, Depends(get_run_registry)
+    RunRegistry, Depends(get_run_registry)
 ]
 ConversationEventBrokerDep = Annotated[
     ConversationEventBroker, Depends(get_conversation_event_broker)

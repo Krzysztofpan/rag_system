@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from app.db.health import check_db_connection
 from app.lib.pinecone_health import check_pinecone_connection
+from app.lib.redis import check_redis_connection
 
 health_router = APIRouter(tags=["health"])
 
@@ -32,11 +33,14 @@ async def health_db():
 
 @health_router.get("/ready")
 async def ready():
-    (db_ok, db_message), (pinecone_ok, pinecone_message) = await asyncio.gather(
-        check_db_connection(),
-        check_pinecone_connection(),
+    (db_ok, db_message), (pinecone_ok, pinecone_message), (redis_ok, redis_message) = (
+        await asyncio.gather(
+            check_db_connection(),
+            check_pinecone_connection(),
+            check_redis_connection(),
+        )
     )
-    ok = db_ok and pinecone_ok
+    ok = db_ok and pinecone_ok and redis_ok
     return _status_response(
         ok,
         {
@@ -44,6 +48,7 @@ async def ready():
             "checks": {
                 "database": db_message,
                 "pinecone": pinecone_message,
+                "redis": redis_message,
             },
         },
     )

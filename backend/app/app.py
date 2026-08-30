@@ -9,6 +9,7 @@ from app.config import Settings, get_settings
 from app.container import get_conversation_event_broker, get_run_registry
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
+from app.lib.redis import close_redis, verify_redis_configuration
 from app.lib.rate_limit import configure_rate_limiting
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
@@ -21,10 +22,12 @@ API_PREFIX = "/api"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     verify_auth_configuration()
+    verify_redis_configuration()
     await check_db_connection()
     yield
     await get_run_registry().close()
     await get_conversation_event_broker().close()
+    await close_redis()
     await dispose_engine()
 
 

@@ -18,6 +18,7 @@ def test_live_ok_without_dependency_checks():
     with (
         patch("app.routes.health_routes.check_db_connection") as check_db,
         patch("app.routes.health_routes.check_pinecone_connection") as check_pinecone,
+        patch("app.routes.health_routes.check_redis_connection") as check_redis,
     ):
         response = _client().get("/live")
 
@@ -25,6 +26,7 @@ def test_live_ok_without_dependency_checks():
     assert response.json() == {"status": "ok"}
     check_db.assert_not_called()
     check_pinecone.assert_not_called()
+    check_redis.assert_not_called()
 
 
 @patch("app.routes.health_routes.check_db_connection", return_value=(True, "ok"))
@@ -50,6 +52,11 @@ def test_health_db_unavailable(_check):
 
 
 @patch(
+    "app.routes.health_routes.check_redis_connection",
+    new_callable=AsyncMock,
+    return_value=(True, "ok"),
+)
+@patch(
     "app.routes.health_routes.check_pinecone_connection",
     new_callable=AsyncMock,
     return_value=(True, "ok"),
@@ -59,16 +66,21 @@ def test_health_db_unavailable(_check):
     new_callable=AsyncMock,
     return_value=(True, "ok"),
 )
-def test_ready_ok(_check_db, _check_pinecone):
+def test_ready_ok(_check_db, _check_pinecone, _check_redis):
     response = _client().get("/ready")
 
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "checks": {"database": "ok", "pinecone": "ok"},
+        "checks": {"database": "ok", "pinecone": "ok", "redis": "ok"},
     }
 
 
+@patch(
+    "app.routes.health_routes.check_redis_connection",
+    new_callable=AsyncMock,
+    return_value=(True, "ok"),
+)
 @patch(
     "app.routes.health_routes.check_pinecone_connection",
     new_callable=AsyncMock,
@@ -79,16 +91,23 @@ def test_ready_ok(_check_db, _check_pinecone):
     new_callable=AsyncMock,
     return_value=(False, "down"),
 )
-def test_ready_unavailable_when_database_fails(_check_db, _check_pinecone):
+def test_ready_unavailable_when_database_fails(
+    _check_db, _check_pinecone, _check_redis
+):
     response = _client().get("/ready")
 
     assert response.status_code == 503
     assert response.json() == {
         "status": "error",
-        "checks": {"database": "down", "pinecone": "ok"},
+        "checks": {"database": "down", "pinecone": "ok", "redis": "ok"},
     }
 
 
+@patch(
+    "app.routes.health_routes.check_redis_connection",
+    new_callable=AsyncMock,
+    return_value=(True, "ok"),
+)
 @patch(
     "app.routes.health_routes.check_pinecone_connection",
     new_callable=AsyncMock,
@@ -99,7 +118,9 @@ def test_ready_unavailable_when_database_fails(_check_db, _check_pinecone):
     new_callable=AsyncMock,
     return_value=(True, "ok"),
 )
-def test_ready_unavailable_when_pinecone_fails(_check_db, _check_pinecone):
+def test_ready_unavailable_when_pinecone_fails(
+    _check_db, _check_pinecone, _check_redis
+):
     response = _client().get("/ready")
 
     assert response.status_code == 503
@@ -108,6 +129,36 @@ def test_ready_unavailable_when_pinecone_fails(_check_db, _check_pinecone):
         "checks": {
             "database": "ok",
             "pinecone": "Pinecone index 'rag-system' not found",
+            "redis": "ok",
+        },
+    }
+
+
+@patch(
+    "app.routes.health_routes.check_redis_connection",
+    new_callable=AsyncMock,
+    return_value=(False, "REDIS_URL is not configured"),
+)
+@patch(
+    "app.routes.health_routes.check_pinecone_connection",
+    new_callable=AsyncMock,
+    return_value=(True, "ok"),
+)
+@patch(
+    "app.routes.health_routes.check_db_connection",
+    new_callable=AsyncMock,
+    return_value=(True, "ok"),
+)
+def test_ready_unavailable_when_redis_fails(_check_db, _check_pinecone, _check_redis):
+    response = _client().get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "error",
+        "checks": {
+            "database": "ok",
+            "pinecone": "ok",
+            "redis": "REDIS_URL is not configured",
         },
     }
 
