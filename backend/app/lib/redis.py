@@ -12,15 +12,12 @@ _redis: Redis | None = None
 
 
 class RedisConfigurationError(RuntimeError):
-    """REDIS_URL is required in production; checked while the app boots."""
+    """REDIS_URL is required; checked while the app boots."""
 
 
 def verify_redis_configuration() -> None:
-    settings = get_settings()
-    if settings.is_production and not settings.redis_url:
-        raise RedisConfigurationError(
-            "REDIS_URL is required when APP_ENV=production"
-        )
+    if not get_settings().redis_url:
+        raise RedisConfigurationError("REDIS_URL is not configured")
 
 
 def get_redis() -> Redis:
@@ -34,13 +31,10 @@ def get_redis() -> Redis:
 
 
 async def check_redis_connection() -> tuple[bool, str]:
-    settings = get_settings()
-    if not settings.redis_url:
-        if settings.is_production:
-            message = "REDIS_URL is not configured"
-            logger.warning("Redis connection check failed: %s", message)
-            return False, message
-        return True, "disabled"
+    if not get_settings().redis_url:
+        message = "REDIS_URL is not configured"
+        logger.warning("Redis connection check failed: %s", message)
+        return False, message
 
     try:
         if await get_redis().ping():

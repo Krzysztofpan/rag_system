@@ -13,7 +13,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
 from app.auth.deps import AuthenticatedUser, get_current_user
-from app.container import get_usage_limit_service, get_vector_store
+from app.container import (
+    get_conversation_event_broker,
+    get_usage_limit_service,
+    get_vector_store,
+)
 from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
@@ -81,6 +85,7 @@ def client(authenticated_user, mock_session, usage_limits):
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
     app.dependency_overrides[get_usage_limit_service] = lambda: usage_limits
+    app.dependency_overrides[get_conversation_event_broker] = lambda: AsyncMock()
 
     with TestClient(app) as test_client:
         yield test_client
