@@ -1,10 +1,12 @@
 import asyncio
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 from fakeredis import FakeAsyncRedis
 
 from app.services.conversation_events import (
+    HEARTBEAT,
     ConversationEventBroker,
     conversation_updated_event,
 )
@@ -109,3 +111,76 @@ async def test_unsubscribe_drops_subscriber_before_later_publish(redis):
 
     assert subscription.queue.empty()
     await broker.close()
+
+
+async def test_publish_reaches_only_matching_conversation_subscribers(redis):
+    broker = _broker(redis)
+    conversation_id = uuid4()
+    other_id = uuid4()
+    event = conversation_updated_event(conversation_id, "Contracts", "finance")
+
+    matched = await broker.subscribe(conversation_id)
+    other = await broker.subscribe(other_id)
+    matched_stream = matched.events()
+    pending = asyncio.create_task(anext(matched_stream))
+    await asyncio.sleep(0.05)
+    await broker.publish(conversation_id, event)
+
+    assert await asyncio.wait_for(pending, timeout=1) == event
+    await asyncio.sleep(0.1)
+    assert other.queue.empty()
+    await matched_stream.aclose()
+    await broker.unsubscribe(other)
+    await broker.close()
+
+
+async def test_events_yields_queued_title_payload(redis):
+    broker = _broker(redis)
+    conversation_id = uuid4()
+    event = conversation_updated_event(conversation_id, "Payroll", "finance")
+    subscription = await broker.subscribe(conversation_id)
+    stream = subscription.events()
+    pending = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0.05)
+    await broker.publish(conversation_id, event)
+
+    assert await asyncio.wait_for(pending, timeout=1) == event
+    await stream.aclose()
+    await broker.close()
+
+
+async def test_events_yields_heartbeat_when_idle(redis):
+    broker = _broker(redis)
+    conversation_id = uuid4()
+    subscription = await broker.subscribe(conversation_id)
+
+    def timeout_after_closing_awaitable(awaitable, timeout=None, **_kwargs):
+        if asyncio.iscoroutine(awaitable):
+            awaitable.close()
+        raise TimeoutError
+
+    with patch(
+        "app.services.conversation_events.asyncio.wait_for",
+        side_effect=timeout_after_closing_awaitable,
+    ):
+        stream = subscription.events()
+        assert await anext(stream) is HEARTBEAT
+    await stream.aclose()
+
+    await broker.close()
+
+
+async def test_close_ends_live_subscribers(redis):
+    broker = _broker(redis)
+    conversation_id = uuid4()
+    subscription = await broker.subscribe(conversation_id)
+
+    async def close_soon():
+        await asyncio.sleep(0)
+        await broker.close()
+
+    closer = asyncio.create_task(close_soon())
+    items = [item async for item in subscription.events()]
+    await closer
+
+    assert items == []

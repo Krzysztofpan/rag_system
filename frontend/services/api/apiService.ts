@@ -23,6 +23,23 @@ function toQueryString(params?: object) {
     return qs.stringify(params ?? {}, queryStringOptions)
 }
 
+/** LangChain's adapter calls `new URL(apiUrl + path)`, which rejects a relative `/api`. */
+export function resolveApiHost(
+    host: string,
+    origin: string = typeof window === 'undefined' ? '' : window.location.origin,
+): string {
+    const trimmed = host.replace(/\/$/, '')
+    try {
+        return new URL(trimmed).href.replace(/\/$/, '')
+    }
+    catch {
+        if (!origin) {
+            return trimmed
+        }
+        return new URL(trimmed || '/', origin).href.replace(/\/$/, '')
+    }
+}
+
 
 class ApiService {
     private apiHost = import.meta.env.BACKEND_URL
@@ -96,7 +113,7 @@ class ApiService {
         this.client = this.constructClient(token)
     }
 
-    getApiHost = () => this.apiHost
+    getApiHost = () => resolveApiHost(this.apiHost)
 
     /**
      * Fetch-compatible client used by streaming adapters that cannot use Axios.
@@ -139,7 +156,7 @@ class ApiService {
 
     streamConversationEvents = (conversationId: string, init?: RequestInit): Promise<Response> => {
         return this.authorizedFetch(
-            `${this.apiHost}/conversations/${conversationId}/events`,
+            `${this.getApiHost()}/conversations/${conversationId}/events`,
             init,
         )
     }

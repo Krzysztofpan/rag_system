@@ -1,10 +1,12 @@
 import asyncio
+from contextlib import suppress
 from uuid import uuid4
 
 import pytest
 from fakeredis import FakeAsyncRedis
 
 from app.services.chat.redis_run_registry import RedisRunRegistry
+from app.services.chat.redis_store import RedisRunStore
 
 
 def _event(method: str, data: dict):
@@ -27,6 +29,16 @@ async def redis():
 
 def _registry(redis, **kwargs) -> RedisRunRegistry:
     return RedisRunRegistry(redis, **kwargs)
+
+
+async def _wait_until(predicate, *, timeout: float = 2.0) -> None:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while loop.time() < deadline:
+        if predicate():
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("condition not met before timeout")
 
 
 async def test_second_registry_rejects_active_run(redis):
@@ -205,3 +217,298 @@ async def test_get_returns_none_for_unknown_conversation(redis):
     registry = _registry(redis)
     assert await registry.get(uuid4()) is None
     await registry.close()
+
+
+async def test_owned_subscribe_replays_matching_events_after_run_start(redis):
+    registry = _registry(redis, subscriber_timeout_seconds=60)
+    published = asyncio.Event()
+    release = asyncio.Event()
+
+    async def run(session):
+        await session.publish(_event("lifecycle", {"event": "started"}))
+        await session.publish(
+            _event("messages", {"event": "message-start", "role": "ai", "id": "m"})
+        )
+        published.set()
+        await release.wait()
+
+    session = await registry.start(uuid4(), "run", run)
+    await published.wait()
+    subscription = await session.subscribe(
+        channels={"messages"},
+        namespaces=None,
+        depth=None,
+        since=None,
+    )
+
+    iterator = subscription.events()
+    replayed = await anext(iterator)
+    assert replayed["method"] == "messages"
+    assert replayed["seq"] == 2
+
+    release.set()
+    if session.task is not None:
+        await session.task
+    await iterator.aclose()
+    await registry.close()
+
+
+async def test_concurrent_starts_only_one_registry_acquires(redis):
+    first = _registry(redis, subscriber_timeout_seconds=60)
+    second = _registry(redis, subscriber_timeout_seconds=60)
+    release = asyncio.Event()
+
+    async def run(_session):
+        await release.wait()
+
+    conversation_id = uuid4()
+    results = await asyncio.gather(
+        first.start(conversation_id, "first", run),
+        second.start(conversation_id, "second", run),
+        return_exceptions=True,
+    )
+    successes = [result for result in results if not isinstance(result, BaseException)]
+    errors = [result for result in results if isinstance(result, BaseException)]
+
+    assert len(successes) == 1
+    assert len(errors) == 1
+    assert "already active" in str(errors[0])
+
+    release.set()
+    if successes[0].task is not None:
+        await successes[0].task
+    await first.close()
+    await second.close()
+
+
+async def test_run_without_subscriber_is_cancelled_after_timeout(redis):
+    registry = _registry(redis, subscriber_timeout_seconds=0.01)
+    cancelled = asyncio.Event()
+
+    async def run(_session):
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    session = await registry.start(uuid4(), "run", run)
+    await asyncio.wait_for(cancelled.wait(), timeout=1)
+
+    assert session.task is not None
+    with suppress(asyncio.CancelledError):
+        await session.task
+    await registry.close()
+
+
+async def test_run_is_cancelled_after_last_local_subscriber_disconnects(redis):
+    registry = _registry(
+        redis,
+        subscriber_timeout_seconds=60,
+        disconnect_grace_seconds=0.01,
+    )
+    cancelled = asyncio.Event()
+
+    async def run(_session):
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    session = await registry.start(uuid4(), "run", run)
+    await session.publish(
+        _event(
+            "messages",
+            {"event": "message-start", "role": "ai", "id": "message"},
+        )
+    )
+    subscription = await session.subscribe(
+        channels={"messages"},
+        namespaces=None,
+        depth=None,
+        since=None,
+    )
+    iterator = subscription.events()
+    await anext(iterator)
+    await iterator.aclose()
+
+    await asyncio.wait_for(cancelled.wait(), timeout=1)
+    assert session.task is not None
+    with suppress(asyncio.CancelledError):
+        await session.task
+    await registry.close()
+
+
+async def test_run_is_cancelled_after_last_remote_subscriber_disconnects(redis):
+    owner = _registry(
+        redis,
+        subscriber_timeout_seconds=60,
+        disconnect_grace_seconds=0.01,
+    )
+    reader = _registry(redis, subscriber_timeout_seconds=60)
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def run(_session):
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    conversation_id = uuid4()
+    session = await owner.start(conversation_id, "run", run)
+    await started.wait()
+
+    remote = await reader.get(conversation_id)
+    assert remote is not None
+    subscription = await remote.subscribe(
+        channels={"lifecycle"},
+        namespaces=None,
+        depth=None,
+        since=None,
+    )
+    await _wait_until(lambda: session._orphan_task is None)
+    await remote.unsubscribe(subscription)
+
+    await asyncio.wait_for(cancelled.wait(), timeout=3)
+    assert session.task is not None
+    with suppress(asyncio.CancelledError):
+        await session.task
+    await owner.close()
+    await reader.close()
+
+
+async def test_local_subscriber_arriving_in_time_keeps_run_alive(redis):
+    registry = _registry(redis, subscriber_timeout_seconds=0.05)
+    release = asyncio.Event()
+
+    async def run(_session):
+        await release.wait()
+
+    session = await registry.start(uuid4(), "run", run)
+    await session.subscribe(
+        channels={"lifecycle"},
+        namespaces=None,
+        depth=None,
+        since=None,
+    )
+    await asyncio.sleep(0.1)
+
+    assert session.task is not None
+    assert not session.task.done()
+    release.set()
+    with suppress(asyncio.CancelledError):
+        await session.task
+    await registry.close()
+
+
+async def test_wait_for_session_after_times_out_when_run_does_not_change(redis):
+    registry = _registry(redis, subscriber_timeout_seconds=60)
+    release = asyncio.Event()
+
+    async def run(_session):
+        await release.wait()
+
+    conversation_id = uuid4()
+    session = await registry.start(conversation_id, "run", run)
+
+    found = await registry.wait_for_session_after(
+        conversation_id,
+        session,
+        timeout=0.05,
+    )
+
+    assert found is None
+    release.set()
+    if session.task is not None:
+        await session.task
+    await registry.close()
+
+
+async def test_remove_if_current_leaves_a_newer_session_in_place(redis):
+    owner = _registry(redis, subscriber_timeout_seconds=60)
+    reader = _registry(redis, subscriber_timeout_seconds=60)
+    conversation_id = uuid4()
+
+    async def first_run(session):
+        await session.publish(_event("lifecycle", {"event": "completed"}))
+
+    async def second_run(_session):
+        return None
+
+    first = await owner.start(conversation_id, "first", first_run)
+    if first.task is not None:
+        await first.task
+    second = await owner.start(conversation_id, "second", second_run)
+
+    await owner.remove_if_current(conversation_id, first)
+
+    assert await owner.get(conversation_id) is second
+    remote = await reader.get(conversation_id)
+    assert remote is not None
+    assert remote.run_id == "second"
+
+    await owner.remove_if_current(conversation_id, second)
+    assert await owner.get(conversation_id) is None
+    assert await reader.get(conversation_id) is None
+    if second.task is not None:
+        await second.task
+    await owner.close()
+    await reader.close()
+
+
+async def test_finished_run_is_removed_after_ttl(redis):
+    registry = _registry(
+        redis,
+        subscriber_timeout_seconds=60,
+        finished_ttl_seconds=0.01,
+    )
+    conversation_id = uuid4()
+
+    async def run(session):
+        await session.publish(_event("lifecycle", {"event": "completed"}))
+
+    session = await registry.start(conversation_id, "run", run)
+    if session.task is not None:
+        await session.task
+    await asyncio.sleep(0.05)
+
+    assert await registry.get(conversation_id) is None
+    store = RedisRunStore(redis, replay_limit=10)
+    assert await store.load_meta(conversation_id) is None
+    await registry.close()
+
+
+async def test_get_reuses_remote_session_and_updates_finished_from_meta(redis):
+    owner = _registry(redis, subscriber_timeout_seconds=60)
+    reader = _registry(redis, subscriber_timeout_seconds=60)
+    started = asyncio.Event()
+    finish = asyncio.Event()
+
+    async def run(session):
+        started.set()
+        await finish.wait()
+        await session.publish(_event("lifecycle", {"event": "completed"}))
+
+    conversation_id = uuid4()
+    session = await owner.start(conversation_id, "run", run)
+    await started.wait()
+
+    first = await reader.get(conversation_id)
+    second = await reader.get(conversation_id)
+    assert first is not None
+    assert first is second
+    assert not first.finished
+
+    finish.set()
+    if session.task is not None:
+        await session.task
+
+    updated = await reader.get(conversation_id)
+    assert updated is first
+    assert updated.finished
+    await owner.close()
+    await reader.close()
