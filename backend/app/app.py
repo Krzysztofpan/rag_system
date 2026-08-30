@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,6 +14,8 @@ from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
 from app.routes.health_routes import health_router
 from app.services.usage_limits import LimitExceededError
+
+API_PREFIX = "/api"
 
 
 @asynccontextmanager
@@ -61,9 +63,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             content={"detail": exc.as_detail()},
         )
 
-    app.include_router(health_router)
-    app.include_router(conversation_router)
-    app.include_router(chat_stream_router)
+    api = APIRouter(prefix=API_PREFIX)
+    api.include_router(health_router)
+    api.include_router(conversation_router)
+    api.include_router(chat_stream_router)
+    app.include_router(api)
     return app
 
 

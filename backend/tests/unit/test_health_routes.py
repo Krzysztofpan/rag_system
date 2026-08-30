@@ -130,6 +130,9 @@ def test_docs_disabled_in_production():
 
 def test_root_hello_removed():
     application = create_app(Settings(app_env="development"))
-    paths = {getattr(route, "path", None) for route in application.routes}
+    paths = set(application.openapi()["paths"])
 
     assert "/" not in paths
+    assert "/api/live" in paths
+    assert "/live" not in paths
+    assert "/api/conversations/" in paths
