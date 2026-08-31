@@ -18,7 +18,7 @@ services:
       retries: 5
     restart: unless-stopped
   backend:
-    image: rag-backend
+    image: ${BACKEND_IMAGE:-rag-backend}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -49,7 +49,7 @@ services:
       retries: 3
     restart: unless-stopped
   ingest-worker:
-    image: rag-backend
+    image: ${BACKEND_IMAGE:-rag-backend}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -83,6 +83,7 @@ services:
       retries: 3
     restart: unless-stopped
   frontend:
+    image: ${FRONTEND_IMAGE:-rag-frontend}
     build:
       context: ./frontend
       dockerfile: Dockerfile

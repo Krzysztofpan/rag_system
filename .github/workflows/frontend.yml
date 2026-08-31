@@ -5,6 +5,7 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend.yml"
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

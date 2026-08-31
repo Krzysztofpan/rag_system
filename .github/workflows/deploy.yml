@@ -1,0 +1,128 @@
+# Build images on GitHub, push to ECR, pull+migrate+up on the EC2 host.
+#
+# One-time AWS (console, not this workflow):
+#   EC2 2 vCPU / 8 GB, Docker CE + compose plugin + AWS CLI, 1–2 GB swap
+#   Security group: 80, 443 public; 22 only your IP (runner talks outbound to GitHub)
+#   Elastic IP + DNS A record
+#   ECR repositories: rag-backend, rag-frontend
+#   EC2 instance profile: AmazonEC2ContainerRegistryReadOnly
+#   IAM role for GitHub OIDC (token.actions.githubusercontent.com)
+#     trust sub: repo:OWNER/rag_system:ref:refs/heads/main
+#     permission: ecr push to those repos
+#   GitHub Actions runner on the instance (repo Settings → Actions → Runners).
+#     https://docs.github.com/en/actions/hosting-your-own-runners
+#   /opt/rag/.env (from .env.example; never commit). Checkout is in the runner
+#   workspace and git-clean would wipe a .env sitting there.
+#
+# GitHub Actions secrets:
+#   AWS_DEPLOY_ROLE_ARN  (OIDC role used by the GitHub-hosted build job)
+#   SUPABASE_URL, SUPABASE_ANON_KEY  (baked into the frontend image)
+# GitHub Actions variables:
+#   AWS_REGION  (e.g. eu-central-1)
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  backend-tests:
+    uses: ./.github/workflows/backend.yml
+
+  frontend-checks:
+    uses: ./.github/workflows/frontend.yml
+
+  build-and-push:
+    name: Build and push images
+    needs: [backend-tests, frontend-checks]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      actions: write
+    outputs:
+      backend_image: ${{ steps.images.outputs.backend_image }}
+      frontend_image: ${{ steps.images.outputs.frontend_image }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      BACKEND_ECR_REPOSITORY: rag-backend
+      FRONTEND_ECR_REPOSITORY: rag-frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Require AWS region and frontend bake secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          test -n "$AWS_REGION"
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_ANON_KEY"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Image URIs
+        id: images
+        run: |
+          echo "backend_image=${{ steps.ecr.outputs.registry }}/${BACKEND_ECR_REPOSITORY}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=${{ steps.ecr.outputs.registry }}/${FRONTEND_ECR_REPOSITORY}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.BACKEND_ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.BACKEND_ECR_REPOSITORY }}:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.FRONTEND_ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.FRONTEND_ECR_REPOSITORY }}:latest
+          build-args: |
+            BACKEND_URL=/api
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  deploy:
+    name: Deploy to EC2
+    needs: build-and-push
+    runs-on: self-hosted
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
+      FRONTEND_IMAGE: ${{ needs.build-and-push.outputs.frontend_image }}
+      ENV_FILE: /opt/rag/.env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull, migrate, and up
+        run: ./scripts/deploy-ec2.sh
