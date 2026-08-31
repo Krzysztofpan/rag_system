@@ -81,4 +81,6 @@ USER appuser
 EXPOSE 8000
 # SSE broker, run locks, and SlowAPI counters live in Redis, so HTTP can run in more than one process.
 ENV UVICORN_WORKERS=2
-CMD ["sh", "-c", "exec uvicorn app.app:app --host 0.0.0.0 --port 8000 --workers \"$UVICORN_WORKERS\""]
+# Caddy terminates TLS and proxies over HTTP. Without these flags uvicorn
+# ignores X-Forwarded-Proto and 307s /conversations → http://… (mixed content).
+CMD ["sh", "-c", "exec uvicorn app.app:app --host 0.0.0.0 --port 8000 --workers \"$UVICORN_WORKERS\" --proxy-headers --forwarded-allow-ips '*'"]

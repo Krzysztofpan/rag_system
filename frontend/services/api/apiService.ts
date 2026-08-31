@@ -145,7 +145,7 @@ class ApiService {
     }
 
     getConversations = async (): Promise<GetConversationResponse> => {
-        const { data } = await this.client.get<GetConversationResponse>('/conversations')
+        const { data } = await this.client.get<GetConversationResponse>('/conversations/')
         return data
     }
 
@@ -162,7 +162,7 @@ class ApiService {
     }
 
     createConversation = async (): Promise<CreateConversationResponse> => {
-        const { data } = await this.client.post<CreateConversationResponse>('/conversations')
+        const { data } = await this.client.post<CreateConversationResponse>('/conversations/')
         return data
     }
 
