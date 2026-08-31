@@ -1,9 +1,10 @@
 {
 	admin 127.0.0.1:2019
+	email {$ACME_EMAIL}
 }
 
 import Caddyfile.app
 
-:80 {
+{$DOMAIN} {
 	import app_site
 }

@@ -1,7 +1,16 @@
 services:
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--port", "${REDIS_PORT:-6379}"]
+    command:
+      [
+        "redis-server",
+        "--port",
+        "${REDIS_PORT:-6379}",
+        "--appendonly",
+        "yes",
+      ]
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "${REDIS_PORT:-6379}", "ping"]
       interval: 10s
@@ -87,7 +96,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -98,3 +107,4 @@ volumes:
   uploads:
   hf-cache:
   xdg-cache:
+  redis-data:
