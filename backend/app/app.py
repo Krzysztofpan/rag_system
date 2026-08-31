@@ -54,7 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
-    configure_rate_limiting(app)
+    configure_rate_limiting(app, settings)
 
     @app.exception_handler(LimitExceededError)
     async def limit_exceeded_handler(

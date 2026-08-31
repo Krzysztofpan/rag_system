@@ -1,8 +1,9 @@
 services:
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--port", "${REDIS_PORT:-6379}"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-p", "${REDIS_PORT:-6379}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -14,7 +15,7 @@ services:
     env_file:
       - .env
     environment:
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
       UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
     depends_on:
       redis:
