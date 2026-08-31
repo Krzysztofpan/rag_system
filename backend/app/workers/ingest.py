@@ -45,10 +45,12 @@ async def dispatch_ingest_job(job: DocumentIngestJob | YoutubeIngestJob) -> None
 
 async def run_worker() -> None:
     verify_redis_configuration()
-    await check_db_connection()
-    queue = IngestQueue(get_redis())
-    logger.info("ingest worker listening on %s", queue.key)
     try:
+        ok, message = await check_db_connection()
+        if not ok:
+            raise RuntimeError(f"Database connection failed: {message}")
+        queue = IngestQueue(get_redis())
+        logger.info("ingest worker listening on %s", queue.key)
         while True:
             job = await queue.dequeue(timeout=5)
             if job is None:

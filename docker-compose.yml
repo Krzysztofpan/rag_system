@@ -55,6 +55,7 @@ services:
     volumes:
       - uploads:/var/rag/uploads
       - hf-cache:/var/rag/hf
+      - xdg-cache:/var/rag/cache
     depends_on:
       redis:
         condition: service_healthy
@@ -96,3 +97,4 @@ services:
 volumes:
   uploads:
   hf-cache:
+  xdg-cache:
