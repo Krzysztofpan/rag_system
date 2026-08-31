@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from app.background_tasks.upload_background import apply_document_summary
-from app.container import create_document_service, create_indexing_service
+from app.container import create_document_service
+from app.ingest.factory import create_indexing_service
+from app.ingest.summary import apply_document_summary
 from app.db.session import get_session_factory
 from app.lib.tracing import conversation_tracing
 from app.lib.upload_temp import upload_file_from_path

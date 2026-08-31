@@ -8,10 +8,12 @@ from app.container import (
     get_conversation_memory_service,
     get_conversation_service,
     get_document_service,
+    get_ingest_queue,
     get_message_service,
     get_run_registry,
     get_usage_limit_service,
 )
+from app.ingest.queue import IngestQueue
 from app.services.chat.redis_run_registry import RedisRunRegistry
 from app.services.conversation_events import ConversationEventBroker
 from app.services.conversation_service import ConversationService
@@ -45,6 +47,7 @@ RedisRunRegistryDep = Annotated[
 ConversationEventBrokerDep = Annotated[
     ConversationEventBroker, Depends(get_conversation_event_broker)
 ]
+IngestQueueDep = Annotated[IngestQueue, Depends(get_ingest_queue)]
 CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
 
 __all__ = [
@@ -54,6 +57,7 @@ __all__ = [
     "ConversationMemoryServiceDep",
     "CurrentUserDep",
     "DocumentServiceDep",
+    "IngestQueueDep",
     "MessageServiceDep",
     "PromptGuardServiceDep",
     "RedisRunRegistryDep",

@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -62,6 +63,22 @@ async def test_save_upload_to_temp_rejects_when_declared_size_understates_body()
     with pytest.raises(UploadTooLargeError) as exc_info:
         await save_upload_to_temp(upload, max_bytes=5)
     assert exc_info.value.size > 5
+
+
+async def test_save_upload_to_temp_uses_configured_directory(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "app.lib.upload_temp.get_settings",
+        lambda: SimpleNamespace(
+            upload_temp_dir=tmp_path,
+            upload_read_chunk_bytes=64 * 1024,
+        ),
+    )
+    upload = make_upload_file("# hi", content_type=FileTypes.MD, filename="note.md")
+    path, _size = await save_upload_to_temp(upload, max_bytes=1024)
+    try:
+        assert path.parent == tmp_path
+    finally:
+        path.unlink(missing_ok=True)
 
 
 async def test_save_upload_to_temp_skips_size_check_when_unlimited():

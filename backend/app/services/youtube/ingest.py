@@ -4,9 +4,10 @@ import asyncio
 from collections.abc import Callable
 from uuid import UUID
 
-from app.background_tasks.upload_background import apply_document_summary
 from app.config import Settings, get_settings
-from app.container import create_document_service, create_indexing_service
+from app.container import create_document_service
+from app.ingest.factory import create_indexing_service
+from app.ingest.summary import apply_document_summary
 from app.db.session import get_session_factory
 from app.lib.file_types import FileTypes
 from app.lib.tracing import conversation_tracing

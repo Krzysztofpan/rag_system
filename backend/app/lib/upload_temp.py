@@ -41,7 +41,14 @@ async def save_upload_to_temp(
 
     suffix = Path(file.filename or "").suffix
     size = 0
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+    directory = get_settings().upload_temp_dir
+    if directory is not None:
+        directory.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        suffix=suffix,
+        delete=False,
+        dir=directory,
+    ) as tmp:
         path = Path(tmp.name)
         try:
             while True:

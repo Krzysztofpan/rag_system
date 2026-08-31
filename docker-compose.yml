@@ -9,6 +9,7 @@ services:
       retries: 5
     restart: unless-stopped
   backend:
+    image: rag-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -17,12 +18,14 @@ services:
     environment:
       REDIS_URL: redis://redis:${REDIS_PORT:-6379}
       UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UPLOAD_TEMP_DIR: /var/rag/uploads
+    volumes:
+      - uploads:/var/rag/uploads
     depends_on:
       redis:
         condition: service_healthy
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-    shm_size: "1gb"
     healthcheck:
       test:
         [
@@ -36,7 +39,39 @@ services:
       start_period: 90s
       retries: 3
     restart: unless-stopped
-
+  ingest-worker:
+    image: rag-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.workers.ingest"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      UPLOAD_TEMP_DIR: /var/rag/uploads
+      HF_HOME: /var/rag/hf
+      XDG_CACHE_HOME: /var/rag/cache
+    volumes:
+      - uploads:/var/rag/uploads
+      - hf-cache:/var/rag/hf
+    depends_on:
+      redis:
+        condition: service_healthy
+    shm_size: "1gb"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os; from redis import Redis; Redis.from_url(os.environ['REDIS_URL']).ping()",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
   frontend:
     build:
       context: ./frontend
@@ -57,3 +92,7 @@ services:
       start_period: 10s
       retries: 3
     restart: unless-stopped
+
+volumes:
+  uploads:
+  hf-cache:

@@ -1,10 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from app.background_tasks.upload_background import (
-    apply_document_summary,
-    refresh_and_publish_documents_summary,
-)
+from app.ingest.summary import apply_document_summary
+from app.services.documents_catalog import refresh_and_publish_documents_summary
 
 
 def _session_factory():
@@ -38,31 +36,31 @@ async def test_apply_document_summary_stores_catalog_and_updates_metadata():
 
     with (
         patch(
-            "app.background_tasks.upload_background.DocumentIndexingService",
+            "app.ingest.summary.DocumentIndexingService",
             return_value=indexing_service,
         ),
         patch(
-            "app.background_tasks.upload_background.get_session_factory",
+            "app.services.documents_catalog.get_session_factory",
             return_value=session_factory,
         ),
         patch(
-            "app.background_tasks.upload_background.create_conversation_service",
+            "app.services.documents_catalog.create_conversation_service",
             return_value=conversation_service,
         ),
         patch(
-            "app.background_tasks.upload_background.create_conversation_memory_service",
+            "app.services.documents_catalog.create_conversation_memory_service",
             return_value=memory_service,
         ),
         patch(
-            "app.background_tasks.upload_background.create_document_service",
+            "app.services.documents_catalog.create_document_service",
             return_value=document_service,
         ),
         patch(
-            "app.background_tasks.upload_background.get_conversation_event_broker",
+            "app.ingest.summary.get_conversation_event_broker",
             return_value=broker,
         ),
         patch(
-            "app.background_tasks.upload_background.ConversationDocumentsSummarizer.synthesize",
+            "app.services.documents_catalog.ConversationDocumentsSummarizer.synthesize",
             new=AsyncMock(return_value="Catalog of invoices"),
         ),
     ):
@@ -123,27 +121,27 @@ async def test_refresh_and_publish_documents_summary_skips_title_update():
 
     with (
         patch(
-            "app.background_tasks.upload_background.get_session_factory",
+            "app.services.documents_catalog.get_session_factory",
             return_value=session_factory,
         ),
         patch(
-            "app.background_tasks.upload_background.create_conversation_service",
+            "app.services.documents_catalog.create_conversation_service",
             return_value=conversation_service,
         ),
         patch(
-            "app.background_tasks.upload_background.create_conversation_memory_service",
+            "app.services.documents_catalog.create_conversation_memory_service",
             return_value=memory_service,
         ),
         patch(
-            "app.background_tasks.upload_background.create_document_service",
+            "app.services.documents_catalog.create_document_service",
             return_value=document_service,
         ),
         patch(
-            "app.background_tasks.upload_background.get_conversation_event_broker",
+            "app.services.documents_catalog.get_conversation_event_broker",
             return_value=broker,
         ),
         patch(
-            "app.background_tasks.upload_background.ConversationDocumentsSummarizer.synthesize",
+            "app.services.documents_catalog.ConversationDocumentsSummarizer.synthesize",
             new=AsyncMock(return_value=None),
         ),
     ):

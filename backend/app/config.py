@@ -102,6 +102,9 @@ class Settings(BaseSettings):
     max_messages_per_day: int = 20
     max_conversations: int = 10
     max_messages_per_conversation: int = 20
+    # Shared by API (write) and ingest-worker (read). Unset: system temp dir.
+    upload_temp_dir: Path | None = None
+
     # Unset: SlowAPI uses redis_url so uvicorn workers share daily counters.
     rate_limit_storage_uri: str | None = None
     # fixed-window: /day quotas reset at 00:00 UTC, not 24h from the first hit.

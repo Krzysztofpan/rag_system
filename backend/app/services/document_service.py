@@ -11,7 +11,7 @@ from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.schemas.origin import FileOrigin, YoutubeOrigin, dump_origin
-from app.services.chunker import ChunkResult
+from app.services.chunker.base import ChunkResult
 from app.services.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
