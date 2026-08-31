@@ -5,7 +5,7 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"
-  workflow_call:
+      - ".github/workflows/backend-ci.yml"
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -13,26 +13,4 @@ concurrency:
 
 jobs:
   backend-tests:
-    name: Backend tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync --locked --group dev
-
-      - name: Run tests
-        run: uv run pytest
+    uses: ./.github/workflows/backend-ci.yml
