@@ -26,7 +26,15 @@ def get_redis() -> Redis:
     if not settings.redis_url:
         raise RedisConfigurationError("REDIS_URL is not configured")
     if _redis is None:
-        _redis = Redis.from_url(settings.redis_url, decode_responses=True)
+        # redis-py 8 defaults socket_timeout to 5s. BRPOP uses the same window,
+        # so an idle ingest worker loses the race and crashes. None lets Redis
+        # return nil when the command timeout elapses. Connect still times out.
+        _redis = Redis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_timeout=None,
+            socket_connect_timeout=5,
+        )
     return _redis
 
 

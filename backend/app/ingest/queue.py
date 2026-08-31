@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, TypeAdapter
 from redis.asyncio import Redis
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 INGEST_QUEUE_KEY = "rag:ingest:jobs"
 
@@ -53,7 +54,10 @@ class IngestQueue:
         self,
         timeout: int = 5,
     ) -> DocumentIngestJob | YoutubeIngestJob | None:
-        item = await self._redis.brpop(self.key, timeout=timeout)
+        try:
+            item = await self._redis.brpop(self.key, timeout=timeout)
+        except RedisTimeoutError:
+            return None
         if item is None:
             return None
         _queue_key, payload = item
