@@ -7,6 +7,8 @@
 			max_size 6MB
 		}
 		reverse_proxy backend:8000 {
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
 			flush_interval -1
 			transport http {
 				read_timeout 0
