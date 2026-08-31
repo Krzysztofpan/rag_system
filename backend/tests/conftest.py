@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from uuid import UUID, uuid4
+
+# Keep SlowAPI on process-local memory so unit tests do not need Redis.
+os.environ["RATE_LIMIT_STORAGE_URI"] = "memory://"
+
+from app.config import get_settings
+
+get_settings.cache_clear()
 
 import pytest
 from fastapi import UploadFile

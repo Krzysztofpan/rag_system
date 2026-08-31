@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from limits.storage import storage_from_string
+from limits.strategies import STRATEGIES
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.services.usage_limits import LimitCode
 
 
@@ -33,18 +35,45 @@ def message_error_message() -> str:
     return f"Daily message limit reached ({limit})."
 
 
+# Import stays on memory:// so collecting tests does not need Redis.
+# configure_rate_limiting rebinds to redis_url so uvicorn workers share counters.
 limiter = Limiter(
     key_func=get_rate_limit_key,
     headers_enabled=True,
-    storage_uri=get_settings().rate_limit_storage_uri,
+    storage_uri="memory://",
+    strategy=get_settings().rate_limit_strategy,
     retry_after="delta-seconds",
     key_prefix="rag",
     key_style="endpoint",
 )
 
 
-def configure_rate_limiting(app: FastAPI) -> None:
-    limiter.enabled = get_settings().limits_enabled
+def bind_limiter_storage(
+    storage_uri: str,
+    strategy: str | None = None,
+) -> None:
+    strategy = strategy or get_settings().rate_limit_strategy
+    if (
+        getattr(limiter, "_storage_uri", None) == storage_uri
+        and getattr(limiter, "_strategy", None) == strategy
+    ):
+        return
+    limiter._storage_uri = storage_uri
+    limiter._strategy = strategy
+    limiter._storage = storage_from_string(storage_uri)
+    limiter._limiter = STRATEGIES[strategy](limiter._storage)
+
+
+def configure_rate_limiting(
+    app: FastAPI,
+    settings: Settings | None = None,
+) -> None:
+    settings = settings or get_settings()
+    bind_limiter_storage(
+        settings.resolved_rate_limit_storage_uri,
+        settings.rate_limit_strategy,
+    )
+    limiter.enabled = settings.limits_enabled
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 

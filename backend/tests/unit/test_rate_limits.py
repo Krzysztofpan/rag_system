@@ -5,8 +5,10 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from limits.storage import MemoryStorage
 
 from app.auth.deps import AuthenticatedUser, get_current_user
+from app.config import Settings
 from app.container import (
     get_conversation_memory_service,
     get_run_registry,
@@ -15,11 +17,76 @@ from app.container import (
 )
 from app.db.models.document import Document, DocumentStatus
 from app.db.session import get_session
-from app.lib.rate_limit import configure_rate_limiting, limiter
+from app.lib.rate_limit import (
+    bind_limiter_storage,
+    configure_rate_limiting,
+    limiter,
+)
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
 from app.services.security.prompt_guard import get_prompt_guard_service
 from tests.helpers import FakeVectorStore, override_authenticated_user
+
+
+def test_rate_limit_storage_defaults_to_redis_url():
+    settings = Settings(
+        redis_host="redis",
+        redis_port=6379,
+        redis_url=None,
+        rate_limit_storage_uri=None,
+    )
+    assert settings.resolved_rate_limit_storage_uri == "redis://redis:6379"
+
+
+def test_rate_limit_storage_explicit_uri_wins():
+    settings = Settings(
+        redis_host="redis",
+        redis_port=6379,
+        redis_url=None,
+        rate_limit_storage_uri="memory://",
+    )
+    assert settings.resolved_rate_limit_storage_uri == "memory://"
+
+
+def test_rate_limit_storage_falls_back_to_memory_without_redis():
+    settings = Settings(redis_host=None, redis_url=None, rate_limit_storage_uri=None)
+    assert settings.resolved_rate_limit_storage_uri == "memory://"
+
+
+def test_rate_limit_strategy_defaults_to_fixed_window():
+    assert Settings().rate_limit_strategy == "fixed-window"
+
+
+def test_configure_rate_limiting_binds_redis_storage(monkeypatch):
+    seen: list[str] = []
+
+    def fake_storage_from_string(uri: str, **_kwargs):
+        seen.append(uri)
+        return MemoryStorage()
+
+    monkeypatch.setattr(
+        "app.lib.rate_limit.storage_from_string",
+        fake_storage_from_string,
+    )
+    settings = Settings(
+        app_env="production",
+        redis_host="redis",
+        redis_port=6379,
+        redis_url=None,
+        rate_limit_storage_uri=None,
+    )
+    app = FastAPI()
+    try:
+        configure_rate_limiting(app, settings)
+        assert seen == ["redis://redis:6379"]
+        assert limiter._storage_uri == "redis://redis:6379"
+        assert limiter._strategy == "fixed-window"
+        assert app.state.limiter is limiter
+        assert limiter.enabled is True
+    finally:
+        bind_limiter_storage("memory://")
+        limiter.reset()
+        limiter.enabled = False
 
 
 @pytest.fixture

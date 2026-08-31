@@ -75,6 +75,6 @@ ENV HF_HOME=/tmp/hf \
 
 USER appuser
 EXPOSE 8000
-# SSE broker and run locks live in Redis, so HTTP can run in more than one process.
+# SSE broker, run locks, and SlowAPI counters live in Redis, so HTTP can run in more than one process.
 ENV UVICORN_WORKERS=2
 CMD ["sh", "-c", "exec uvicorn app.app:app --host 0.0.0.0 --port 8000 --workers \"$UVICORN_WORKERS\""]

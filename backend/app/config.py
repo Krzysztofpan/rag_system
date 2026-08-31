@@ -1,9 +1,10 @@
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from dotenv import load_dotenv
-from typing import Literal
+from typing import Literal, Self
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_FILE = ROOT_DIR / ".env"
@@ -101,12 +102,35 @@ class Settings(BaseSettings):
     max_messages_per_day: int = 20
     max_conversations: int = 10
     max_messages_per_conversation: int = 20
-    rate_limit_storage_uri: str = "memory://"
+    # Unset: SlowAPI uses redis_url so uvicorn workers share daily counters.
+    rate_limit_storage_uri: str | None = None
+    # fixed-window: /day quotas reset at 00:00 UTC, not 24h from the first hit.
+    rate_limit_strategy: Literal[
+        "fixed-window",
+        "moving-window",
+        "sliding-window-counter",
+    ] = "fixed-window"
+    redis_host: str | None = None
+    redis_port: int = 6379
     redis_url: str | None = None
 
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @model_validator(mode="after")
+    def fill_redis_url(self) -> Self:
+        if not self.redis_url and self.redis_host:
+            self.redis_url = f"redis://{self.redis_host}:{self.redis_port}"
+        return self
+
+    @property
+    def resolved_rate_limit_storage_uri(self) -> str:
+        if self.rate_limit_storage_uri:
+            return self.rate_limit_storage_uri
+        if self.redis_url:
+            return self.redis_url
+        return "memory://"
 
     @property
     def limits_enabled(self) -> bool:
