@@ -33,10 +33,10 @@ concurrency:
 
 jobs:
   backend-tests:
-    uses: ./.github/workflows/backend.yml
+    uses: ./.github/workflows/backend-ci.yml
 
   frontend-checks:
-    uses: ./.github/workflows/frontend.yml
+    uses: ./.github/workflows/frontend-ci.yml
 
   build-and-push:
     name: Build and push images
