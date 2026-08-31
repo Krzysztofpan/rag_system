@@ -18,17 +18,17 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
 
 from app.auth.deps import get_current_user
-from app.background_tasks.document_background import ingest_document_source
-from app.background_tasks.upload_background import refresh_and_publish_documents_summary
-from app.background_tasks.youtube_background import ingest_youtube_source
 from app.dependencies import (
     ConversationEventBrokerDep,
     ConversationServiceDep,
     CurrentUserDep,
     DocumentServiceDep,
+    IngestQueueDep,
     MessageServiceDep,
     UsageLimitServiceDep,
 )
+from app.ingest.queue import DocumentIngestJob, YoutubeIngestJob
+from app.services.documents_catalog import refresh_and_publish_documents_summary
 from app.services.conversation_events import HEARTBEAT
 from app.lib.file_types import FileTypes, resolve_document_file_type
 from app.lib.rate_limit import ingest_error_message, ingest_limit_value, limiter
@@ -262,7 +262,7 @@ async def ingest_source_url(
     current_user: CurrentUserDep,
     conversation_service: ConversationServiceDep,
     document_service: DocumentServiceDep,
-    background_tasks: BackgroundTasks,
+    ingest_queue: IngestQueueDep,
     body: IngestUrlRequest,
 ) -> SourceResponse:
     try:
@@ -285,14 +285,14 @@ async def ingest_source_url(
         origin=YoutubeOrigin(video_id=video.video_id, url=video.url),
     )
     document = await document_service.mark_processing(document.id)
-
-    background_tasks.add_task(
-        ingest_youtube_source,
-        conversation_id,
-        document.id,
-        current_user.user_id,
-        video.url,
-        video.video_id,
+    await ingest_queue.enqueue(
+        YoutubeIngestJob(
+            conversation_id=conversation_id,
+            document_id=document.id,
+            user_id=current_user.user_id,
+            url=video.url,
+            video_id=video.video_id,
+        )
     )
     return source_from_document(document)
 
@@ -315,7 +315,7 @@ async def ingest_source_document(
     conversation_service: ConversationServiceDep,
     document_service: DocumentServiceDep,
     usage_limits: UsageLimitServiceDep,
-    background_tasks: BackgroundTasks,
+    ingest_queue: IngestQueueDep,
     file: UploadFile = File(...),
 ) -> SourceResponse:
     try:
@@ -359,15 +359,15 @@ async def ingest_source_document(
             origin=FileOrigin(file_size_bytes=size),
         )
         document = await document_service.mark_processing(document.id)
-
-        background_tasks.add_task(
-            ingest_document_source,
-            conversation_id,
-            document.id,
-            current_user.user_id,
-            str(path),
-            filename,
-            content_type,
+        await ingest_queue.enqueue(
+            DocumentIngestJob(
+                conversation_id=conversation_id,
+                document_id=document.id,
+                user_id=current_user.user_id,
+                path=str(path),
+                filename=filename,
+                content_type=content_type,
+            )
         )
     except Exception:
         path.unlink(missing_ok=True)

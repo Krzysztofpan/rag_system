@@ -5,7 +5,7 @@ from pinecone import Pinecone, ServerlessSpec
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import get_settings
-from app.services.chunker import ChunkResult
+from app.services.chunker.base import ChunkResult
 from app.services.vector_retriever import HydratedPineconeRetriever
 
 settings = get_settings()

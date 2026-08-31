@@ -11,6 +11,7 @@ from app.auth.deps import AuthenticatedUser, get_current_user
 from app.config import Settings
 from app.container import (
     get_conversation_memory_service,
+    get_ingest_queue,
     get_run_registry,
     get_usage_limit_service,
     get_vector_store,
@@ -129,6 +130,7 @@ def _client(authenticated_user) -> TestClient:
     app.dependency_overrides[get_prompt_guard_service] = lambda: guard
     app.dependency_overrides[get_run_registry] = lambda: registry
     app.dependency_overrides[get_conversation_memory_service] = lambda: AsyncMock()
+    app.dependency_overrides[get_ingest_queue] = lambda: AsyncMock()
     return TestClient(app)
 
 
@@ -160,16 +162,8 @@ def test_ingest_endpoints_share_daily_quota(authenticated_user):
             new=AsyncMock(side_effect=mark_processing),
         ),
         patch(
-            "app.routes.conversation_routes.ingest_youtube_source",
-            new=AsyncMock(),
-        ),
-        patch(
             "app.routes.conversation_routes.save_upload_to_temp",
             new=AsyncMock(return_value=(Path("/tmp/note.md"), 12)),
-        ),
-        patch(
-            "app.routes.conversation_routes.ingest_document_source",
-            new=AsyncMock(),
         ),
     ):
         url = f"/conversations/{conversation_id}/sources/url"
@@ -262,6 +256,7 @@ def test_daily_limits_are_not_enforced_when_disabled(authenticated_user):
     app.dependency_overrides[get_usage_limit_service] = lambda: AsyncMock(
         settings=MagicMock(max_upload_bytes=5 * 1024 * 1024)
     )
+    app.dependency_overrides[get_ingest_queue] = lambda: AsyncMock()
     client = TestClient(app)
 
     with (
@@ -276,10 +271,6 @@ def test_daily_limits_are_not_enforced_when_disabled(authenticated_user):
         patch(
             "app.services.document_service.DocumentService.mark_processing",
             new=AsyncMock(side_effect=mark_processing),
-        ),
-        patch(
-            "app.routes.conversation_routes.ingest_youtube_source",
-            new=AsyncMock(),
         ),
     ):
         url = f"/conversations/{conversation_id}/sources/url"

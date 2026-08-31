@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from app.auth.deps import AuthenticatedUser, get_current_user
 from app.container import (
     get_conversation_event_broker,
+    get_ingest_queue,
     get_usage_limit_service,
     get_vector_store,
 )
@@ -70,7 +71,14 @@ def usage_limits():
 
 
 @pytest.fixture
-def client(authenticated_user, mock_session, usage_limits):
+def ingest_queue():
+    queue = AsyncMock()
+    queue.enqueue = AsyncMock()
+    return queue
+
+
+@pytest.fixture
+def client(authenticated_user, mock_session, usage_limits, ingest_queue):
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
@@ -86,6 +94,7 @@ def client(authenticated_user, mock_session, usage_limits):
     app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
     app.dependency_overrides[get_usage_limit_service] = lambda: usage_limits
     app.dependency_overrides[get_conversation_event_broker] = lambda: AsyncMock()
+    app.dependency_overrides[get_ingest_queue] = lambda: ingest_queue
 
     with TestClient(app) as test_client:
         yield test_client
@@ -303,9 +312,10 @@ def test_ingest_source_url_rejects_invalid_url_without_creating_document(client)
     create_document.assert_not_called()
 
 
-def test_ingest_source_url_returns_202_and_queues_background(
+def test_ingest_source_url_returns_202_and_enqueues_job(
     client,
     authenticated_user,
+    ingest_queue,
     usage_limits,
 ):
     conversation_id = uuid4()
@@ -329,10 +339,6 @@ def test_ingest_source_url_returns_202_and_queues_background(
             "app.services.document_service.DocumentService.mark_processing",
             new=_mark_processing(document),
         ),
-        patch(
-            "app.routes.conversation_routes.ingest_youtube_source",
-            new=AsyncMock(),
-        ) as background,
     ):
         response = client.post(
             f"/conversations/{conversation_id}/sources/url",
@@ -349,10 +355,12 @@ def test_ingest_source_url_returns_202_and_queues_background(
     assert origin.kind == "youtube"
     assert origin.video_id == "dQw4w9wgXcQ"
     assert origin.url == "https://www.youtube.com/watch?v=dQw4w9wgXcQ"
-    background.assert_awaited_once()
-    assert background.await_args.args[1] == document.id
-    assert background.await_args.args[2] == authenticated_user.user_id
-    assert background.await_args.args[4] == "dQw4w9wgXcQ"
+    ingest_queue.enqueue.assert_awaited_once()
+    job = ingest_queue.enqueue.await_args.args[0]
+    assert job.kind == "youtube"
+    assert job.document_id == document.id
+    assert job.user_id == authenticated_user.user_id
+    assert job.video_id == "dQw4w9wgXcQ"
 
 
 def test_ingest_source_document_rejects_unsupported_type_without_creating_document(client):
@@ -371,9 +379,10 @@ def test_ingest_source_document_rejects_unsupported_type_without_creating_docume
     create_document.assert_not_called()
 
 
-def test_ingest_source_document_returns_202_and_queues_background(
+def test_ingest_source_document_returns_202_and_enqueues_job(
     client,
     authenticated_user,
+    ingest_queue,
     usage_limits,
 ):
     conversation_id = uuid4()
@@ -402,10 +411,6 @@ def test_ingest_source_document_returns_202_and_queues_background(
             "app.routes.conversation_routes.save_upload_to_temp",
             new=AsyncMock(return_value=(tmp_path, 12)),
         ),
-        patch(
-            "app.routes.conversation_routes.ingest_document_source",
-            new=AsyncMock(),
-        ) as background,
     ):
         response = client.post(
             f"/conversations/{conversation_id}/sources/document",
@@ -421,11 +426,13 @@ def test_ingest_source_document_returns_202_and_queues_background(
     origin = create_document.await_args.kwargs["origin"]
     assert origin.kind == "file"
     assert origin.file_size_bytes == 12
-    background.assert_awaited_once()
-    assert background.await_args.args[1] == document.id
-    assert background.await_args.args[2] == authenticated_user.user_id
-    assert background.await_args.args[3] == str(tmp_path)
-    assert background.await_args.args[4] == "note.md"
+    ingest_queue.enqueue.assert_awaited_once()
+    job = ingest_queue.enqueue.await_args.args[0]
+    assert job.kind == "document"
+    assert job.document_id == document.id
+    assert job.user_id == authenticated_user.user_id
+    assert job.path == str(tmp_path)
+    assert job.filename == "note.md"
 
 
 def test_ingest_source_document_oversize_returns_413(client, usage_limits):

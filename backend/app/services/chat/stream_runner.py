@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from langchain_core.messages import BaseMessage
 
-from app.background_tasks import compact_conversation_memory
+from app.background_tasks.memory_compaction_background import compact_conversation_memory
 from app.container import create_message_service
 from app.db.models import Message
 from app.db.session import get_session_factory

@@ -69,9 +69,13 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini main.py ./
 
+RUN mkdir -p /var/rag/uploads /var/rag/hf /var/rag/cache \
+    && chown -R appuser:appuser /var/rag
+
 # Runtime-only: do not set these before uv sync or caches land in the image.
-ENV HF_HOME=/tmp/hf \
-    XDG_CACHE_HOME=/tmp/cache
+ENV HF_HOME=/var/rag/hf \
+    XDG_CACHE_HOME=/var/rag/cache \
+    UPLOAD_TEMP_DIR=/var/rag/uploads
 
 USER appuser
 EXPOSE 8000
