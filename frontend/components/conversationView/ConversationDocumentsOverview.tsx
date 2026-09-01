@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useConversation } from '@/hooks/useConversation'
+import { formatDate } from '@/lib/date'
 
 import MarkdownContent from './MarkdownContent'
 
@@ -41,7 +42,7 @@ const ConversationDocumentsOverview = () => {
         return null
     }
 
-    const createdAt = new Date(conversation.createdAt).toLocaleDateString(undefined, {
+    const createdAt = formatDate(conversation.createdAt, {
         weekday: 'long',
         day: 'numeric',
         month: 'long',
