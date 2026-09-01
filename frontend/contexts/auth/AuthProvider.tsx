@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { Session } from '@supabase/supabase-js'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { AuthContext, type AuthContextValue, type SignUpResult } from '@/contexts/auth/AuthContext'
+import { AuthContext, type AuthContextValue, type SignOutResult, type SignUpResult } from '@/contexts/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { apiService } from '@/services/api/apiService'
 
@@ -83,6 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [])
 
+    const signOut = useCallback(async (): Promise<SignOutResult> => {
+        const { error } = await supabase.auth.signOut()
+        return {
+            error: error?.message ?? null,
+        }
+    }, [])
+
     const value = useMemo<AuthContextValue>(
         () => ({
             session,
@@ -90,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loading,
             signIn,
             signUp,
+            signOut,
         }),
         [session, loading, signIn, signUp],
     )

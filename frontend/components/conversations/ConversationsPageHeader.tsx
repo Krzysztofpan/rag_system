@@ -8,6 +8,7 @@ import { items } from '@/src/pages/ConversationPage.const';
 
 import { Input } from '../ui/input';
 import { Spinner } from '../ui/spinner';
+import AvatarView from '../utils/AvatarView';
 
 type ConversationPageHeaderProps = {
     sortMethodIndex: number | null;
@@ -30,12 +31,11 @@ const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchVa
         })
     }
 
-
     return (
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-end">
             {!searchMode
                 ? (
-                        <>
+                        <div className="flex items-center gap-4">
                             <Button onClick={() => setSearchMode(true)} variant="outline" className="py-5 rounded-full aspect-square">
                                 <Search />
                             </Button>
@@ -70,7 +70,8 @@ const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchVa
                                         )}
 
                             </Button>
-                        </>
+                            <AvatarView />
+                        </div>
                     )
                 : (
                         <div className="flex gap-4 w-full items-center relative">
