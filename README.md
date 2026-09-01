@@ -2,9 +2,8 @@
 
 Chat with your own files. Answers that need a fact from a document come with a citation, not a guess.
 
-**Live demo:** [https://3.78.61.131.sslip.io](https://3.78.61.131.sslip.io)
-
-[![Folio conversation with a policy PDF, cited answer, and source panel](docs/folio-chat.png)](https://3.78.61.131.sslip.io)
+**Live demo:** <a href="https://3.78.61.131.sslip.io" target="_blank" rel="noopener noreferrer">https://3.78.61.131.sslip.io</a>
+<a href="https://3.78.61.131.sslip.io" target="_blank" rel="noopener noreferrer"><img src="docs/folio-chat.png" alt="Folio conversation with a policy PDF, cited answer, and source panel" /></a>
 
 ![Conversation start with an auto-generated source overview](docs/folio-summary.png)
 
