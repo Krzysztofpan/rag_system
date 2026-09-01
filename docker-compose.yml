@@ -84,19 +84,6 @@ services:
       start_period: 10s
       retries: 3
     restart: unless-stopped
-    develop:
-      watch:
-        - action: sync
-          path: .
-          target: /app
-          initial_sync: true
-          ignore:
-            - node_modules/
-            - types/
-            - dist/
-
-        - action: rebuild
-          path: package.json
 
 volumes:
   uploads:
