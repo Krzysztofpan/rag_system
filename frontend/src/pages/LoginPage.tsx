@@ -66,6 +66,7 @@ export default function LoginPage() {
 
     return (
         <div className="flex min-h-svh items-center justify-center px-4">
+            <title>Folio - Login</title>
             <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-3">
                 <h1 className="text-xl font-medium">{mode === 'signIn' ? 'Sign in' : 'Create account'}</h1>
                 <p className="text-sm text-muted-foreground">Use your email and password to continue.</p>
