@@ -1,18 +1,11 @@
 services:
   redis:
     image: redis:7-alpine
-    command:
-      [
-        "redis-server",
-        "--port",
-        "${REDIS_PORT:-6379}",
-        "--appendonly",
-        "yes",
-      ]
+    command: [ "redis-server", "--port", "${REDIS_PORT:-6379}", "--appendonly", "yes" ]
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-p", "${REDIS_PORT:-6379}", "ping"]
+      test: [ "CMD", "redis-cli", "-p", "${REDIS_PORT:-6379}", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -36,13 +29,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/live')",
-        ]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/live')" ]
       interval: 30s
       timeout: 5s
       start_period: 90s
@@ -53,7 +40,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["python", "-m", "app.workers.ingest"]
+    command: [ "python", "-m", "app.workers.ingest" ]
     env_file:
       - .env
     environment:
@@ -70,13 +57,7 @@ services:
         condition: service_healthy
     shm_size: "1gb"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import os; from redis import Redis; Redis.from_url(os.environ['REDIS_URL']).ping()",
-        ]
+      test: [ "CMD", "python", "-c", "import os; from redis import Redis; Redis.from_url(os.environ['REDIS_URL']).ping()" ]
       interval: 30s
       timeout: 5s
       start_period: 90s
@@ -97,12 +78,25 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/" ]
       interval: 30s
       timeout: 5s
       start_period: 10s
       retries: 3
     restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          initial_sync: true
+          ignore:
+            - node_modules/
+            - types/
+            - dist/
+
+        - action: rebuild
+          path: package.json
 
 volumes:
   uploads:
