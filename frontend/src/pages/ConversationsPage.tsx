@@ -11,6 +11,7 @@ const ConversationsPage = () => {
 
     return (
         <div className="flex flex-col gap-8 xl:max-w-[1450px] xl:px-20 2xl:px-0  2xl:mx-auto w-full py-10 px-10">
+            <title>Folio - Conversations</title>
             <ConversationsPageHeader searchValue={searchValue} setSearchValue={setSearchValue} setSortMethodIndex={setSortMethodIndex} sortMethodIndex={sortMethodIndex} />
             <div className="flex flex-col gap-4">
                 <h1 className="text-xl">My Conversations</h1>
