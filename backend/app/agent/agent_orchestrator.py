@@ -2,7 +2,6 @@ from functools import lru_cache
 
 from langchain.agents import create_agent
 
-from app.agent.document_grounding import DocumentGroundingMiddleware
 from app.agent.types import AgentContext
 from app.config import get_settings
 from app.prompts import AGENT_SYSTEM_PROMPT
@@ -20,7 +19,6 @@ def get_agent_orchestrator():
         model=settings.orchestrator_model,
         tools=[search_documents, summarize_context, web_search],
         system_prompt=build_system_prompt(),
-        middleware=[DocumentGroundingMiddleware()],
         context_schema=AgentContext,
         name="chat",
     )
