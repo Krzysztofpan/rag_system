@@ -25,6 +25,12 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Docs-only commits must not rebuild images or roll EC2.
+    # Mixed commits (docs + app code) still deploy.
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:
 
 concurrency:
