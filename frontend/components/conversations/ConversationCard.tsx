@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 
 import { useEditConversationTitle } from '@/hooks/useEditConversationTitle'
 import { getConversationTopicStyle } from '@/lib/conversationTopic'
+import { formatDate } from '@/lib/date'
 import type { Conversation } from '@/types/conversation'
 
 import { Card, CardContent, CardHeader } from '../ui/card'
@@ -25,7 +26,7 @@ const ConversationCard = ({ conversation }: ConversationCardProps) => {
         editConversationTitle({ conversationId: conversation.id, title: newTitle })
     }
 
-    const createdAt = new Date(conversation.createdAt).toLocaleDateString(undefined, {
+    const createdAt = formatDate(conversation.createdAt, {
         day: 'numeric',
         month: 'short',
         year: 'numeric',

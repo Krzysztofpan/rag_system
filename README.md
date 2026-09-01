@@ -6,6 +6,8 @@ Chat with your own files. Answers that need a fact from a document come with a c
 
 [![Folio conversation with a policy PDF, cited answer, and source panel](docs/folio-chat.png)](https://3.78.61.131.sslip.io)
 
+![Conversation start with an auto-generated source overview](docs/folio-summary.png)
+
 ## Try it
 
 1. Open the demo and choose **Sign up** (email + password, min. 6 characters).
