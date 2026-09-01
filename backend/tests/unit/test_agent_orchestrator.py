@@ -29,12 +29,18 @@ def test_system_prompt_explains_missing_document_results():
     assert "select documents" in prompt
 
 
-def test_system_prompt_forbids_answering_from_general_knowledge():
+def test_system_prompt_matches_user_language():
     prompt = build_system_prompt()
 
-    assert "Never answer from your own knowledge" in prompt
-    assert "call search_documents" in prompt
-    assert "even if the answer seems obvious" in prompt
+    assert "same language as the user's latest message" in prompt
+
+
+def test_system_prompt_limits_search_documents_to_document_facts():
+    prompt = build_system_prompt()
+
+    assert "Call search_documents only when" in prompt
+    assert "Do not call search_documents when the user asks for your opinion" in prompt
+    assert "Never invent document facts" in prompt
     assert "document catalog" in prompt
     assert "not selected" in prompt
     assert "labeled [n]" in prompt
@@ -62,6 +68,7 @@ def test_search_documents_description_requires_lookup_before_answering():
     assert "general knowledge" in description
     assert "do not ask the user" in description
     assert "not selected" in description
+    assert "opinions" in description
 
 
 def test_web_search_description_defers_to_unselected_files():
@@ -88,3 +95,4 @@ def test_orchestrator_graph_is_named_chat(get_settings, create_agent):
         summarize_context,
         web_search,
     ]
+    assert "middleware" not in create_agent.call_args.kwargs

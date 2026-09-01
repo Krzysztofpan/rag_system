@@ -20,7 +20,7 @@ export default function LoginPage() {
     }
 
     if (session) {
-        return <Navigate to="/" replace />
+        return <Navigate to="/conversations" replace />
     }
 
     const handleSignUp = async () => {
@@ -35,7 +35,7 @@ export default function LoginPage() {
             setMode('signIn')
             return
         }
-        void navigate('/', { replace: true })
+        void navigate('/conversations', { replace: true })
     }
 
     const handleSignIn = async () => {
@@ -44,7 +44,7 @@ export default function LoginPage() {
             setError(signInError)
             return
         }
-        void navigate('/', { replace: true })
+        void navigate('/conversations', { replace: true })
     }
 
     const handleSubmit = async () => {
