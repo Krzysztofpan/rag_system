@@ -22,6 +22,7 @@ COPY hooks ./hooks
 COPY lib ./lib
 COPY types ./types
 COPY services ./services
+COPY public ./public
 RUN npm run build
 
 FROM caddy:2-alpine AS runtime
