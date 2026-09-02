@@ -31,7 +31,7 @@ aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$registry"
 
 export BACKEND_IMAGE FRONTEND_IMAGE
-compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+compose=(docker compose -f docker-compose.prod.yml)
 # Redis image/config does not change with app deploys. Pulling redis:7-alpine
 # every time can move the tag and recreate the broker (SSE, rate-limit counters).
 app_services=(backend ingest-worker frontend)
