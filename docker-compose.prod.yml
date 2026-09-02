@@ -1,36 +1,105 @@
 name: rag
-
 services:
+  redis:
+    image: redis:7-alpine
+    command: [ "redis-server", "--port", "${REDIS_PORT:-6379}", "--appendonly", "yes" ]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-p", "${REDIS_PORT:-6379}", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
   backend:
-    ports: !override []
+    image: ${BACKEND_IMAGE:-rag-backend}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
     environment:
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UPLOAD_TEMP_DIR: /var/rag/uploads
       APP_ENV: production
       CORS_ALLOW_ORIGINS: https://${DOMAIN:?Set DOMAIN to the public hostname}
-
+    volumes:
+      - uploads:/var/rag/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/live')" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
   ingest-worker:
+    image: ${BACKEND_IMAGE:-rag-backend}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: [ "python", "-m", "app.workers.ingest" ]
+    env_file:
+      - .env
     environment:
       APP_ENV: production
-
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      UPLOAD_TEMP_DIR: /var/rag/uploads
+      HF_HOME: /var/rag/hf
+      XDG_CACHE_HOME: /var/rag/cache
+    volumes:
+      - uploads:/var/rag/uploads
+      - hf-cache:/var/rag/hf
+      - xdg-cache:/var/rag/cache
+    depends_on:
+      redis:
+        condition: service_healthy
+    shm_size: "1gb"
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import os; from redis import Redis; Redis.from_url(os.environ['REDIS_URL']).ping()" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
   frontend:
-    ports: !override
+    image: ${FRONTEND_IMAGE:-rag-frontend}
+    build:
+      context: ./frontend
+      target: runtime
+      dockerfile: Dockerfile
+      args:
+        BACKEND_URL: ${BACKEND_URL:-/api}
+        SUPABASE_URL: ${SUPABASE_URL}
+        SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    ports:
       - "80:80"
       - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN:?Set DOMAIN to the public hostname}
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL for Let's Encrypt}
-    command:
-      [
-        "caddy",
-        "run",
-        "--config",
-        "/etc/caddy/Caddyfile.prod",
-        "--adapter",
-        "caddyfile",
-      ]
+    command: [ "caddy", "run", "--config", "/etc/caddy/Caddyfile.prod", "--adapter", "caddyfile" ]
     volumes:
       - caddy-data:/data
       - caddy-config:/config
 
 volumes:
+  uploads:
+  hf-cache:
+  xdg-cache:
+  redis-data:
   caddy-data:
   caddy-config:

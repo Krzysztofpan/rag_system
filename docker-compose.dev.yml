@@ -10,6 +10,7 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+
   backend:
     image: ${BACKEND_IMAGE:-rag-backend}
     build:
@@ -35,6 +36,7 @@ services:
       start_period: 90s
       retries: 3
     restart: unless-stopped
+
   ingest-worker:
     image: ${BACKEND_IMAGE:-rag-backend}
     build:
@@ -63,26 +65,39 @@ services:
       start_period: 90s
       retries: 3
     restart: unless-stopped
+
   frontend:
     image: ${FRONTEND_IMAGE:-rag-frontend}
     build:
+      target: development
       context: ./frontend
       dockerfile: Dockerfile
       args:
         BACKEND_URL: ${BACKEND_URL:-/api}
         SUPABASE_URL: ${SUPABASE_URL}
         SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+
+    environment:
+      BACKEND_URL: "/api"
+
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "5173:5173"
+
     depends_on:
       backend:
         condition: service_healthy
+
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/" ]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:5173" ]
       interval: 30s
       timeout: 5s
       start_period: 10s
       retries: 3
+
     restart: unless-stopped
 
 volumes:
@@ -90,3 +105,4 @@ volumes:
   hf-cache:
   xdg-cache:
   redis-data:
+  frontend-node-modules:
