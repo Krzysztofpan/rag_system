@@ -1,13 +1,15 @@
+import { type CSSProperties, useState } from 'react'
 import { isAxiosError } from 'axios'
 import { ArrowLeftFromLine } from 'lucide-react'
-import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router'
 
-import ConversationWindow from '@/components/conversationView/ConversationWindow'
-import SourceSection from '@/components/sources/SourceSection'
+import ConversationWindow from '@/components/conversation/conversationView/ConversationWindow'
+import SourceSection from '@/components/conversation/sources/SourceSection'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import AvatarView from '@/components/utils/AvatarView'
 import { ConversationProvider } from '@/contexts/conversation/ConversationProvider'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useConversation } from '@/hooks/useConversation'
 import { getConversationTopicStyle } from '@/lib/conversationTopic'
 
@@ -15,7 +17,8 @@ const ConversationPage = () => {
     const { conversationId } = useParams<{ conversationId?: string }>()
     const { data: conversation, isLoading, error } = useConversation(conversationId)
     const { icon } = getConversationTopicStyle(conversation?.topic)
-
+    const isMobile = useIsMobile()
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     if (!conversationId) {
         return <div>Conversation not found</div>
     }
@@ -38,6 +41,8 @@ const ConversationPage = () => {
                         '--sidebar-width': '25vw',
                     } as CSSProperties
                 }
+                open={!isMobile && isSidebarOpen}
+                onOpenChange={setIsSidebarOpen}
             >
                 <header className="flex h-14 shrink-0 items-center px-4 gap-4">
                     <Link to="/conversations">
@@ -47,7 +52,12 @@ const ConversationPage = () => {
                         <span className="shrink-0 leading-none" aria-hidden>
                             {icon}
                         </span>
-                        <span className="truncate">{conversation ? conversation.title : 'Default title'}</span>
+                        <Tooltip>
+                            <TooltipTrigger className="truncate" delay={200}>
+                                <span>{conversation ? conversation.title : 'Default title'}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>{conversation ? conversation.title : 'Default title'}</TooltipContent>
+                        </Tooltip>
                     </h1>
                     <AvatarView />
                 </header>

@@ -2,7 +2,7 @@ import { useConversationContext } from '@/contexts/conversation/ConversationCont
 import { flattenMessagePages, useInfiniteMessages, useInfiniteScrollSentinel } from '@/hooks/useInfiniteMessages'
 import { useMessageListScroll } from '@/hooks/useMessageListScroll'
 
-import { Skeleton } from '../ui/skeleton'
+import { Skeleton } from '../../ui/skeleton'
 import ConversationDocumentsOverview from './ConversationDocumentsOverview'
 import MessageItem from './MessageItem'
 import ToolInvocationNotice from './ToolInvocationNotice'
@@ -11,15 +11,8 @@ import TypingIndicator from './TypingIndicator'
 const MessagesView = ({ conversationId }: { conversationId: string }) => {
     const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteMessages(conversationId, 5)
     const historyMessages = flattenMessagePages(data?.pages)
-    const {
-        isPendingMessage,
-        streamedMessage,
-        streamError,
-        toolInvocations,
-    } = useConversationContext()
-    const messages = streamedMessage?.text
-        ? [...historyMessages, streamedMessage]
-        : historyMessages
+    const { isPendingMessage, streamedMessage, streamError, toolInvocations } = useConversationContext()
+    const messages = streamedMessage?.text ? [...historyMessages, streamedMessage] : historyMessages
 
     const { containerRef, bottomRef, isAnchored } = useMessageListScroll({
         messages,
@@ -53,24 +46,17 @@ const MessagesView = ({ conversationId }: { conversationId: string }) => {
                         <MessageItem message={message} />
                     </div>
                 ))}
-                {isPendingMessage && !streamedMessage?.text && toolInvocations.map((invocation) => (
-                    <ToolInvocationNotice key={invocation.id} invocation={invocation} />
-                ))}
+                {isPendingMessage && !streamedMessage?.text && toolInvocations.map((invocation) => <ToolInvocationNotice key={invocation.id} invocation={invocation} />)}
                 {streamedMessage?.text && (
-                    <div
-                        key={streamedMessage.id}
-                        data-message-id={streamedMessage.id}
-                        className="scroll-mt-4"
-                    >
+                    <div key={streamedMessage.id} data-message-id={streamedMessage.id} className="scroll-mt-4">
                         <MessageItem message={streamedMessage} />
                     </div>
                 )}
-                {isPendingMessage && !streamedMessage?.text
-                    && (
-                        <div key="pending" data-message-id="pending" className="scroll-mt-4">
-                            <TypingIndicator />
-                        </div>
-                    )}
+                {isPendingMessage && !streamedMessage?.text && (
+                    <div key="pending" data-message-id="pending" className="scroll-mt-4">
+                        <TypingIndicator />
+                    </div>
+                )}
                 {streamError && (
                     <div className="mx-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                         {streamError}

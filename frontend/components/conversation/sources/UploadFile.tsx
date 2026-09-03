@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react'
 import { Plus } from 'lucide-react'
 
-import { Button } from '../ui/button'
-import { Dialog, DialogContent, DialogTrigger } from '../ui/dialog'
-import { useSidebar } from '../ui/sidebar'
+import { Button } from '../../ui/button'
+import { Dialog, DialogContent, DialogTrigger } from '../../ui/dialog'
+import { useSidebar } from '../../ui/sidebar'
 import AddSourceHeader from './addSource/AddSourceHeader'
 import FileDropzone from './addSource/FileDropzone'
 import YoutubeUrlForm from './addSource/YoutubeUrlForm'

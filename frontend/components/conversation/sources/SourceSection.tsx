@@ -4,9 +4,9 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useSourcesClient } from '@/hooks/useSources'
 
-import { Checkbox } from '../ui/checkbox'
-import { Separator } from '../ui/separator'
-import { Skeleton } from '../ui/skeleton'
+import { Checkbox } from '../../ui/checkbox'
+import { Separator } from '../../ui/separator'
+import { Skeleton } from '../../ui/skeleton'
 import SourceItem from './SourceItem'
 import UploadFilePage from './UploadFile'
 
