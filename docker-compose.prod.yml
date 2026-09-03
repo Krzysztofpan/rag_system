@@ -11,17 +11,14 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+  # Shared app image: API uses the image CMD; ingest-worker overrides command.
+  # CD sets BACKEND_IMAGE to the ECR URI (repo name stays rag-backend).
   backend:
-    image: ${BACKEND_IMAGE:-rag-backend}
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-rag-app}
     env_file:
       - .env
     environment:
       REDIS_URL: redis://redis:${REDIS_PORT:-6379}
-      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
-      UPLOAD_TEMP_DIR: /var/rag/uploads
       APP_ENV: production
       CORS_ALLOW_ORIGINS: https://${DOMAIN:?Set DOMAIN to the public hostname}
     volumes:
@@ -37,19 +34,13 @@ services:
       retries: 3
     restart: unless-stopped
   ingest-worker:
-    image: ${BACKEND_IMAGE:-rag-backend}
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-rag-app}
     command: [ "python", "-m", "app.workers.ingest" ]
     env_file:
       - .env
     environment:
       APP_ENV: production
       REDIS_URL: redis://redis:${REDIS_PORT:-6379}
-      UPLOAD_TEMP_DIR: /var/rag/uploads
-      HF_HOME: /var/rag/hf
-      XDG_CACHE_HOME: /var/rag/cache
     volumes:
       - uploads:/var/rag/uploads
       - hf-cache:/var/rag/hf
@@ -67,14 +58,6 @@ services:
     restart: unless-stopped
   frontend:
     image: ${FRONTEND_IMAGE:-rag-frontend}
-    build:
-      context: ./frontend
-      target: runtime
-      dockerfile: Dockerfile
-      args:
-        BACKEND_URL: ${BACKEND_URL:-/api}
-        SUPABASE_URL: ${SUPABASE_URL}
-        SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     ports:
       - "80:80"
       - "443:443"

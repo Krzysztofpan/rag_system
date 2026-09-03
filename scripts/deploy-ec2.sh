@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pull ECR images and recreate the prod stack. Secrets stay in ENV_FILE on the host
 # (default /opt/rag/.env), not in the Actions checkout — git clean would delete them.
-# Requires: Docker Compose v2.24+ (for !override), AWS CLI, EC2 instance profile
+# Requires: Docker Compose v2 plugin, AWS CLI, EC2 instance profile
 # with ecr:GetAuthorizationToken + ecr:BatchGetImage / GetDownloadUrlForLayer.
 set -euo pipefail
 

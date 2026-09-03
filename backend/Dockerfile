@@ -1,6 +1,11 @@
 # syntax=docker/dockerfile:1
+# Shared app image: API (default CMD) and ingest-worker (compose overrides command).
 
 FROM python:3.12-slim-bookworm
+
+ARG TORCH_VERSION=2.13.0+cpu
+ARG TORCHVISION_VERSION=0.28.0+cpu
+ARG OPENCV_HEADLESS_VERSION=5.0.0.93
 
 ENV UV_COMPILE_BYTECODE=0 \
     UV_LINK_MODE=copy \
@@ -14,6 +19,7 @@ ENV UV_COMPILE_BYTECODE=0 \
 
 WORKDIR /app
 
+# System libs for OCR / native wheels; non-root runtime user.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libglib2.0-0 \
@@ -21,42 +27,21 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 1000 --shell /usr/sbin/nologin appuser
 
-# PyPI lock pulls CUDA torch + nvidia-* on Linux. Skip those and install CPU wheels.
-# RapidOCR depends on GUI opencv-python (Qt/xcb/Mesa). Headless provides the same cv2.
-ENV UV_SKIP_CUDA="\
---no-install-package torch \
---no-install-package torchvision \
---no-install-package triton \
---no-install-package cuda-bindings \
---no-install-package cuda-pathfinder \
---no-install-package cuda-toolkit \
---no-install-package nvidia-cublas \
---no-install-package nvidia-cuda-cupti \
---no-install-package nvidia-cuda-nvrtc \
---no-install-package nvidia-cuda-runtime \
---no-install-package nvidia-cudnn-cu13 \
---no-install-package nvidia-cufft \
---no-install-package nvidia-cufile \
---no-install-package nvidia-curand \
---no-install-package nvidia-cusolver \
---no-install-package nvidia-cusparse \
---no-install-package nvidia-cusparselt-cu13 \
---no-install-package nvidia-nccl-cu13 \
---no-install-package nvidia-nvjitlink \
---no-install-package nvidia-nvshmem-cu13 \
---no-install-package nvidia-nvtx \
---no-install-package opencv-python"
-
 COPY pyproject.toml uv.lock ./
+COPY docker/uv-skip-cuda.txt /tmp/uv-skip-cuda.txt
+
+# Lockfile wants CUDA torch + GUI opencv. Skip them, then install CPU / headless wheels.
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=from=ghcr.io/astral-sh/uv:0.8,source=/uv,target=/usr/local/bin/uv \
-    uv venv /app/.venv \
+    uv_skip="$(grep -vE '^(#|$)' /tmp/uv-skip-cuda.txt | sed 's/^/--no-install-package /')" \
+    && uv venv /app/.venv \
     && uv pip install --python /app/.venv/bin/python setuptools wheel \
-    && uv sync --frozen --no-dev --no-install-project $UV_SKIP_CUDA \
+    && uv sync --frozen --no-dev --no-install-project $uv_skip \
     && uv pip install --python /app/.venv/bin/python \
         --index-url https://download.pytorch.org/whl/cpu \
-        torch==2.13.0+cpu torchvision==0.28.0+cpu \
-    && uv pip install --python /app/.venv/bin/python opencv-python-headless==5.0.0.93 \
+        "torch==${TORCH_VERSION}" "torchvision==${TORCHVISION_VERSION}" \
+    && uv pip install --python /app/.venv/bin/python \
+        "opencv-python-headless==${OPENCV_HEADLESS_VERSION}" \
     && find /app/.venv \( \
         -type d -name '__pycache__' \
         -o -type d -name 'tests' \
@@ -79,7 +64,8 @@ ENV HF_HOME=/var/rag/hf \
 
 USER appuser
 EXPOSE 8000
-# SSE broker, run locks, and SlowAPI counters live in Redis, so HTTP can run in more than one process.
+
+# Redis holds SSE / run locks / rate limits, so HTTP can use multiple workers.
 ENV UVICORN_WORKERS=2
 # Caddy terminates TLS and proxies over HTTP. Without these flags uvicorn
 # ignores X-Forwarded-Proto and 307s /conversations → http://… (mixed content).
