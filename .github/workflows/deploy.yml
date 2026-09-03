@@ -106,6 +106,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
+          target: runtime
           push: true
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.FRONTEND_ECR_REPOSITORY }}:${{ github.sha }}

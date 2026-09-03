@@ -48,6 +48,6 @@ RUN npm run build
 FROM caddy:2-alpine AS runtime
 # wget: compose healthcheck runs inside this image.
 RUN apk add --no-cache wget
-COPY Caddyfile Caddyfile.prod Caddyfile.app /etc/caddy/
+COPY Caddyfile.prod Caddyfile.app /etc/caddy/
 COPY --from=builder /app/dist /usr/share/caddy
 EXPOSE 80 443

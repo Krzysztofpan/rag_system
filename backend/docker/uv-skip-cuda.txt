@@ -1,0 +1,24 @@
+# Packages the lockfile would pull on Linux that we replace with CPU / headless wheels.
+# One name per line; Dockerfile turns each into --no-install-package.
+torch
+torchvision
+triton
+cuda-bindings
+cuda-pathfinder
+cuda-toolkit
+nvidia-cublas
+nvidia-cuda-cupti
+nvidia-cuda-nvrtc
+nvidia-cuda-runtime
+nvidia-cudnn-cu13
+nvidia-cufft
+nvidia-cufile
+nvidia-curand
+nvidia-cusolver
+nvidia-cusparse
+nvidia-cusparselt-cu13
+nvidia-nccl-cu13
+nvidia-nvjitlink
+nvidia-nvshmem-cu13
+nvidia-nvtx
+opencv-python

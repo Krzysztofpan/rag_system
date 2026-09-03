@@ -62,11 +62,11 @@ You need Docker Compose v2 and a filled `.env` (OpenAI, Pinecone, Supabase, Cohe
 
 ```bash
 cp .env.example .env
-docker compose run --rm --no-deps backend alembic upgrade head
-docker compose up --build
+docker compose -f docker-compose.dev.yml run --rm --no-deps backend alembic upgrade head
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-App: [http://localhost:8080](http://localhost:8080) · API: [http://localhost:8000](http://localhost:8000)
+App: [http://localhost:5173](http://localhost:5173) · API: [http://localhost:8000](http://localhost:8000)
 
 ## Tests
 
