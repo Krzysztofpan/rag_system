@@ -25,6 +25,9 @@
 
 	handle {
 		root * /usr/share/caddy
+		# Revalidate HTML/shell on every load so deploys show up without hard refresh.
+		# Hashed /assets/* stay immutable above.
+		header Cache-Control "no-cache"
 		header X-Content-Type-Options nosniff
 		header Referrer-Policy strict-origin-when-cross-origin
 		header Content-Security-Policy "frame-ancestors 'none'"
