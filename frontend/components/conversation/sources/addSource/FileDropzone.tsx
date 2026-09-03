@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-import { Button } from '../../ui/button'
 import { ACCEPTED_SOURCE_EXTENSIONS, ACCEPTED_SOURCE_FORMATS_LABEL, isAcceptedSourceFile } from './acceptedSourceFiles'
 
 type FileDropzoneProps = {
@@ -69,10 +69,7 @@ const FileDropzone = ({ onFile }: FileDropzoneProps) => {
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            className={cn(
-                'flex min-h-52 flex-col rounded-2xl border border-dashed p-5 transition-colors',
-                isDragging ? 'border-sky-500 bg-sky-500/10' : 'border-muted-foreground/35',
-            )}
+            className={cn('flex min-h-52 flex-col rounded-2xl border border-dashed p-5 transition-colors', isDragging ? 'border-sky-500 bg-sky-500/10' : 'border-muted-foreground/35')}
         >
             <div className="flex flex-1 flex-col items-center justify-center gap-1 py-8 text-center">
                 <p className="text-base">or drop files</p>

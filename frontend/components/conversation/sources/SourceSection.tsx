@@ -1,12 +1,12 @@
 'use client'
 
+import { Checkbox } from '@/components/ui/checkbox'
+import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useSourcesClient } from '@/hooks/useSources'
 
-import { Checkbox } from '../ui/checkbox'
-import { Separator } from '../ui/separator'
-import { Skeleton } from '../ui/skeleton'
 import SourceItem from './SourceItem'
 import UploadFilePage from './UploadFile'
 

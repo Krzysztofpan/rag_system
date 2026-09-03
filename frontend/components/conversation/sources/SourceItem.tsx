@@ -1,14 +1,15 @@
 import { useState } from 'react'
 
+import { useSidebar } from '@/components/ui/sidebar'
+import { Spinner } from '@/components/ui/spinner'
+import EditValueView from '@/components/utils/EditValueView'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useEditSourceName } from '@/hooks/useEditSourceName'
 import { cn } from '@/lib/utils'
 import { sourceIconSrc } from '@/types/IconsMap'
 import type { Source } from '@/types/source'
 
-import { useSidebar } from '../ui/sidebar'
-import { Spinner } from '../ui/spinner'
-import EditValueView from '../utils/EditValueView'
+import CollapsedSourceMenu from './CollapsedSourceMenu'
 import SourceOptions from './SourceOptions'
 
 type SourceItemProps = {
@@ -36,24 +37,36 @@ const SourceItem = ({ source }: SourceItemProps) => {
         <div
             title={error ?? undefined}
             aria-disabled={isFailed}
-            className={cn('flex gap-2 items-center group p-3 py-4 rounded-lg',
+            className={cn(
+                'flex gap-2 items-center group p-3 py-4 rounded-lg',
                 isCollapsed ? 'justify-center rounded-full p-2 aspect-square' : 'w-full justify-between',
-                isPending && 'opacity-60',
+                isPending && !isCollapsed && 'opacity-60',
                 isFailed
                     ? 'cursor-not-allowed bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20 dark:bg-destructive/20'
-                    : 'cursor-pointer hover:bg-muted')}
+                    : 'cursor-pointer hover:bg-muted',
+            )}
         >
             <div className="flex min-w-0 flex-1 items-center gap-2">
-                {iconSrc
+                {isCollapsed
                     ? (
-                            <img
-                                src={iconSrc}
-                                width={25}
-                                alt={filename}
-                                className={isFailed ? 'opacity-60' : undefined}
+                            <CollapsedSourceMenu
+                                sourceId={source.id}
+                                filename={filename}
+                                iconSrc={iconSrc}
+                                isFailed={isFailed}
+                                isPending={isPending}
                             />
                         )
-                    : <div className="size-6.25 shrink-0 rounded bg-muted" aria-hidden />}
+                    : (
+                            <div>
+                                <img
+                                    src={iconSrc}
+                                    width={25}
+                                    alt={filename}
+                                    className={isFailed ? 'opacity-60' : undefined}
+                                />
+                            </div>
+                        )}
                 {!isCollapsed
                     && (editMode && !isFailed
                         ? (
@@ -70,7 +83,16 @@ const SourceItem = ({ source }: SourceItemProps) => {
                                 </div>
                             ))}
             </div>
-            {isPending ? <Spinner /> : <SourceOptions disabled={isFailed} editMode={editMode} setEditMode={setEditMode} sourceId={source.id} />}
+            {isPending && !isCollapsed
+                ? <Spinner />
+                : (
+                        <SourceOptions
+                            disabled={isFailed}
+                            editMode={editMode}
+                            setEditMode={setEditMode}
+                            sourceId={source.id}
+                        />
+                    )}
         </div>
     )
 }

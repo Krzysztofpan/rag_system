@@ -3,6 +3,7 @@ import { Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useIsMobile } from '@/hooks/use-mobile';
 import useCreateConveration from '@/hooks/useCreateConversation';
 import { items } from '@/src/pages/ConversationPage.const';
 
@@ -22,7 +23,7 @@ const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchVa
     const [searchMode, setSearchMode] = useState(false)
     const { mutate: createConversation } = useCreateConveration()
     const [pending, startTransition] = useTransition()
-
+    const isMobile = useIsMobile()
     const handleAddConversation = () => {
         startTransition(() => {
             createConversation()
@@ -35,12 +36,12 @@ const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchVa
         <div className="flex justify-end">
             {!searchMode
                 ? (
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 w-full">
                             <Button onClick={() => setSearchMode(true)} variant="outline" className="py-5 rounded-full aspect-square">
                                 <Search />
                             </Button>
                             <Select items={items} value={sortMethodIndex} onValueChange={setSortMethodIndex}>
-                                <SelectTrigger className="w-[180px] py-5 rounded-full">
+                                <SelectTrigger className="w-[180px] shrink-1 py-5 rounded-full truncate">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -53,22 +54,12 @@ const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchVa
                                     </SelectGroup>
                                 </SelectContent>
                             </Select>
-                            <Button className="flex gap-2 px-7 py-5 rounded-full cursor-pointer" onClick={handleAddConversation}>
-                                {pending
-                                    ? (
-                                            <>
-                                                <Spinner />
-                                                Adding conversation
-                                            </>
-                                        )
-                                    : (
-                                            <>
-                                                <Plus />
-                                                {' '}
-                                                Add New
-                                            </>
-                                        )}
-
+                            <Button className={`flex gap-2 px-7 py-5 rounded-full cursor-pointer ${isMobile && 'px-0 py-4 aspect-square'}`} onClick={handleAddConversation}>
+                                {pending ? <Spinner /> : <Plus />}
+                                {' '}
+                                {!isMobile && (
+                                    pending ? 'Adding conversation' : 'Add New'
+                                )}
                             </Button>
                             <AvatarView />
                         </div>

@@ -1,7 +1,7 @@
 import { type SubmitEvent, useState } from 'react'
 import { Search } from 'lucide-react'
 
-import { Button } from '../../ui/button'
+import { Button } from '@/components/ui/button'
 
 import youtubeIcon from '@/src/assets/icons/youtube-icon.png'
 
