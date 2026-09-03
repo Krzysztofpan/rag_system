@@ -1,8 +1,8 @@
+import { Skeleton } from '@/components/ui/skeleton'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { flattenMessagePages, useInfiniteMessages, useInfiniteScrollSentinel } from '@/hooks/useInfiniteMessages'
 import { useMessageListScroll } from '@/hooks/useMessageListScroll'
 
-import { Skeleton } from '../../ui/skeleton'
 import ConversationDocumentsOverview from './ConversationDocumentsOverview'
 import MessageItem from './MessageItem'
 import ToolInvocationNotice from './ToolInvocationNotice'

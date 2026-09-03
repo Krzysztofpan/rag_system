@@ -1,14 +1,14 @@
 import { useState } from 'react'
 
+import { useSidebar } from '@/components/ui/sidebar'
+import { Spinner } from '@/components/ui/spinner'
+import EditValueView from '@/components/utils/EditValueView'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useEditSourceName } from '@/hooks/useEditSourceName'
 import { cn } from '@/lib/utils'
 import { sourceIconSrc } from '@/types/IconsMap'
 import type { Source } from '@/types/source'
 
-import { useSidebar } from '../../ui/sidebar'
-import { Spinner } from '../../ui/spinner'
-import EditValueView from '../../utils/EditValueView'
 import CollapsedSourceMenu from './CollapsedSourceMenu'
 import SourceOptions from './SourceOptions'
 

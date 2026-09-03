@@ -1,12 +1,11 @@
 import { type SubmitEvent, useState } from 'react'
 import { SendHorizonal } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useSendMessage } from '@/hooks/useSendMessage'
-
-import { Button } from '../../ui/button'
-import { Textarea } from '../../ui/textarea'
 
 const InputMessage = () => {
     const { selectedSources, isPendingMessage } = useConversationContext()

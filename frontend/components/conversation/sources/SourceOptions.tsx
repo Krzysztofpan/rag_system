@@ -1,11 +1,11 @@
 import { type Dispatch, type SetStateAction, useState } from 'react'
 import { EllipsisVertical } from 'lucide-react'
 
+import { Checkbox } from '@/components/ui/checkbox'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 
-import { Checkbox } from '../../ui/checkbox'
-import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover'
-import { useSidebar } from '../../ui/sidebar'
 import SourceActionsMenu from './SourceActionsMenu'
 
 type SourceOptionsProps = {

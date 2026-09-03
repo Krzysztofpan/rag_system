@@ -1,4 +1,4 @@
-import { DialogDescription, DialogHeader, DialogTitle } from '../../../ui/dialog'
+import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const AddSourceHeader = () => (
     <DialogHeader className="pr-8">
