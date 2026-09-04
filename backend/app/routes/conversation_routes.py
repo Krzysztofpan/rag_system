@@ -40,6 +40,7 @@ from app.schemas.conversation import (
     CreateConversationResponse,
     DeleteConversationResponse,
     GetConversationsResponse,
+    
     conversation_from_model,
 )
 from app.schemas.message import GetConversationMessagesResponse
@@ -53,6 +54,7 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
+from app.schemas.resource import GetResourcesResponse
 from app.services.usage_limits import LimitCode, LimitExceededError
 
 conversation_router = APIRouter(
@@ -400,6 +402,24 @@ async def get_sources(
         conversation_sources=sources,
     )
 
+@conversation_router.get('/{conversation_id}/resources')
+async def get_resources(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    conversation_service: ConversationServiceDep,
+):
+    try:
+        resources = await conversation_service.get_conversation_resources(
+            conversation_id,
+            user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return GetResourcesResponse(
+        count=len(resources),
+        conversation_resources=resources,
+    )
 
 @conversation_router.delete("/{conversation_id}/sources/{document_id}")
 async def delete_source(
