@@ -11,7 +11,8 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Shared app image (rag-app): API uses the image CMD; ingest-worker overrides command.
+  # Shared app image (rag-app): API uses reload CMD; ingest-worker overrides command.
+  # Bind-mount app source only; image keeps .venv / alembic / main.py.
   backend:
     image: rag-app
     build:
@@ -21,7 +22,10 @@ services:
     environment:
       REDIS_URL: redis://redis:${REDIS_PORT:-6379}
     volumes:
+      - ./backend/app:/app/app
       - uploads:/var/rag/uploads
+    # --reload is incompatible with multiple workers; prod keeps UVICORN_WORKERS via image CMD.
+    command: [ "uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
     depends_on:
       redis:
         condition: service_healthy
@@ -45,6 +49,7 @@ services:
     environment:
       REDIS_URL: redis://redis:${REDIS_PORT:-6379}
     volumes:
+      - ./backend/app:/app/app
       - uploads:/var/rag/uploads
       - hf-cache:/var/rag/hf
       - xdg-cache:/var/rag/cache
