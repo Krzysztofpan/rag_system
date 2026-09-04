@@ -5,6 +5,7 @@ from app.db.models.conversation_summary import ConversationSummary
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.db.models.message import Message, MessageRole
+from app.db.models.resource import Resource, ResourceType
 
 __all__ = [
     "AuthUser",
@@ -16,4 +17,6 @@ __all__ = [
     "DocumentStatus",
     "Message",
     "MessageRole",
+    "Resource",
+    "ResourceType",
 ]
