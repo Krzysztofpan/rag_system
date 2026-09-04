@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.db.models.document import Document
-from app.db.models.document_report import DocumentReport
+from app.db.models import Document, DocumentReport, Resource
 from app.schemas.base import APIModel
 from app.schemas.upload import UploadQuality
 
