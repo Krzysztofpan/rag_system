@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.config import ConversationTopicName
 from app.db.models.conversation import Conversation
-from app.db.models import Resource
 from app.prompts import CONVERSATION_METADATA_TEMPLATE
 from app.services.vector_store import VectorStore
 
@@ -73,27 +72,6 @@ class ConversationService:
         if conversation is None:
             raise ValueError(f"Conversation {conversation_id} not found")
         return conversation
-
-
-    async def get_conversation_resources(
-        self,
-        conversation_id: UUID,
-        *,
-        user_id: UUID,
-    ) -> List[Resource]:
-        await self.get_conversation(
-           conversation_id,
-           user_id=user_id
-        )
-
-        resources_result = await self.session.execute(
-            select(Resource)
-            .where(
-                Conversation.id == conversation_id,
-            )
-        )
-
-        return list(resources_result.scalars().all())
 
     async def delete_conversation(
         self,
