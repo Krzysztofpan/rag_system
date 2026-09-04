@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.db.models.conversation_summary import ConversationSummary
     from app.db.models.document import Document
     from app.db.models.message import Message
+    from app.db.models.resource import Resource
 
 
 class Conversation(SQLModel, table=True):
@@ -50,6 +51,10 @@ class Conversation(SQLModel, table=True):
         sa_relationship_kwargs={"passive_deletes": True},
     )
     messages: list["Message"] = Relationship(
+        back_populates="conversation",
+        sa_relationship_kwargs={"passive_deletes": True},
+    )
+    resources: list["Resource"] = Relationship(
         back_populates="conversation",
         sa_relationship_kwargs={"passive_deletes": True},
     )
