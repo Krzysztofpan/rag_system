@@ -25,6 +25,7 @@ from app.dependencies import (
     DocumentServiceDep,
     IngestQueueDep,
     MessageServiceDep,
+    ResourceServiceDep,
     UsageLimitServiceDep,
 )
 from app.ingest.queue import DocumentIngestJob, YoutubeIngestJob
@@ -406,10 +407,10 @@ async def get_sources(
 async def get_resources(
     conversation_id: UUID,
     current_user: CurrentUserDep,
-    conversation_service: ConversationServiceDep,
+    resource_service: ResourceServiceDep,
 ):
     try:
-        resources = await conversation_service.get_conversation_resources(
+        resources = await resource_service.get_conversation_resources(
             conversation_id,
             user_id=current_user.user_id,
         )
