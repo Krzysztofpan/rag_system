@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum, ForeignKey, Text, Uuid
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -52,18 +52,6 @@ class Resource(SQLModel, table=True):
             JSONB,
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
-        ),
-    )
-    prompt_based_on: str | None = Field(
-        default=None,
-        sa_column=Column(Text(), nullable=True),
-    )
-    documents_based_on: list[UUID] = Field(
-        default_factory=list,
-        sa_column=Column(
-            ARRAY(Uuid()),
-            nullable=False,
-            server_default=sa.text("'{}'::uuid[]"),
         ),
     )
     created_at: datetime = Field(
