@@ -16,6 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
+from app.db.models.resource import ResourceType
 
 from app.auth.deps import get_current_user
 from app.dependencies import (
@@ -55,7 +56,7 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
-from app.schemas.resource import GetResourcesResponse
+from app.schemas.resource import GetResourcesResponse, CreateResourceRequest, CreateResourceResponse
 from app.services.usage_limits import LimitCode, LimitExceededError
 
 conversation_router = APIRouter(
@@ -421,6 +422,26 @@ async def get_resources(
         count=len(resources),
         conversation_resources=resources,
     )
+
+@conversation_router.post('/{conversation_id}/resources/note', response_model=CreateResourceResponse)
+async def create_note_resource(
+    conversation_id: UUID,
+    current_user: CurrentUserDep,
+    resource_service: ResourceServiceDep,
+    body: CreateResourceRequest,
+) -> CreateResourceResponse:
+    try:
+        resource = await resource_service.create_resource(
+            conversation_id,
+            user_id=current_user.user_id,
+            type=ResourceType.note,
+            title=body.title,
+            content=body.content,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return CreateResourceResponse(resource=resource)
 
 @conversation_router.delete("/{conversation_id}/sources/{document_id}")
 async def delete_source(
