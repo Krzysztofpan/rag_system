@@ -1,15 +1,14 @@
-import { type CSSProperties, useState } from 'react'
 import { isAxiosError } from 'axios'
 import { ArrowLeftFromLine } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 
 import ConversationWindow from '@/components/conversation/conversationView/ConversationWindow'
+import CustomSidebarProvider from '@/components/conversation/CustomSidebarProvider'
 import SourceSection from '@/components/conversation/sources/SourceSection'
-import { SidebarProvider } from '@/components/ui/sidebar'
+import StudioPanelSection from '@/components/conversation/studio/StudioPanelSection'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import AvatarView from '@/components/utils/AvatarView'
 import { ConversationProvider } from '@/contexts/conversation/ConversationProvider'
-import { useIsMobile } from '@/hooks/use-mobile'
 import { useConversation } from '@/hooks/useConversation'
 import { getConversationTopicStyle } from '@/lib/conversationTopic'
 
@@ -17,8 +16,6 @@ const ConversationPage = () => {
     const { conversationId } = useParams<{ conversationId?: string }>()
     const { data: conversation, isLoading, error } = useConversation(conversationId)
     const { icon } = getConversationTopicStyle(conversation?.topic)
-    const isMobile = useIsMobile()
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     if (!conversationId) {
         return <div>Conversation not found</div>
     }
@@ -34,17 +31,8 @@ const ConversationPage = () => {
     return (
         <>
             <title>{`Folio - ${conversation?.title ?? 'New Conversation'}`}</title>
-            <SidebarProvider
-                className="flex gap-2 h-svh flex-col overflow-hidden px-5"
-                style={
-                    {
-                        '--sidebar-width': '25vw',
-                    } as CSSProperties
-                }
-                open={!isMobile && isSidebarOpen}
-                onOpenChange={setIsSidebarOpen}
-            >
-                <header className="flex h-14 shrink-0 items-center px-4 gap-4">
+            <div className="flex gap-2 h-svh flex-col overflow-hidden px-5">
+                <header className="flex h-14 shrink-0 items-center px-2 gap-4">
                     <Link to="/conversations">
                         <ArrowLeftFromLine />
                     </Link>
@@ -62,14 +50,19 @@ const ConversationPage = () => {
                     <AvatarView />
                 </header>
                 <ConversationProvider>
-                    <div className="flex min-h-0 flex-1 gap-2 pt-0 mb-5">
-                        <SourceSection />
+                    <div className="flex min-h-0 flex-1 gap-4 pt-0 mb-5">
+                        <CustomSidebarProvider>
+                            <SourceSection />
+                        </CustomSidebarProvider>
                         <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-xl ring-1 ring-sidebar-border">
                             <ConversationWindow />
                         </main>
+                        <CustomSidebarProvider>
+                            <StudioPanelSection />
+                        </CustomSidebarProvider>
                     </div>
                 </ConversationProvider>
-            </SidebarProvider>
+            </div>
         </>
     )
 }
