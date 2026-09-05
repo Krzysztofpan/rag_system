@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 from uuid import UUID
 
 from sqlalchemy import select
@@ -40,7 +40,7 @@ class ResourceService:
         user_id: UUID,
         type: ResourceType,
         title: str,
-        content: str,
+        content: dict[str, Any],
     ) -> Resource:
         result = await self.session.execute(
             select(Conversation).where(

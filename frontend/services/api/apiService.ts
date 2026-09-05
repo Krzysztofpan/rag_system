@@ -3,7 +3,7 @@ import qs from 'qs'
 
 import type { MessagesParams } from '@/types/Message'
 
-import type { ChunkResponse, ConversationResponse, CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetSourcesResponse, SendMessageResponse, SourceReportResponse, SourceResponse } from './types'
+import type { ChunkResponse, ConversationResponse, CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetResourcesResponse, GetSourcesResponse, SendMessageResponse, SourceReportResponse, SourceResponse } from './types'
 
 export type AuthHandlers = {
     refreshToken: () => Promise<string | null>;
@@ -186,6 +186,12 @@ class ApiService {
         const { data } = await this.client.get<ChunkResponse>(
             `/conversations/${conversationId}/chunks/${chunkId}`,
         )
+        return data
+    }
+
+    getResources = async (conversationId: string): Promise<GetResourcesResponse> => {
+        const { data } = await this.client.get<GetResourcesResponse>(`/conversations/${conversationId}/resources`)
+
         return data
     }
 

@@ -1,3 +1,4 @@
+
 import type { ChunkPreview } from '@/types/citation'
 import type { Conversation } from '@/types/conversation'
 import type { Message } from '@/types/Message'
@@ -17,6 +18,22 @@ export type CreateConversationResponse = {
 
 export type DeleteConversationResponse = {
     deletedConversation: Conversation;
+}
+
+export type ResourceType = 'note' | 'mind-map'
+
+export type Resource = {
+    id: string;
+    type: ResourceType;
+    content: object;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export type GetResourcesResponse = {
+    count: number;
+    conversationResources: Resource[];
 }
 
 export type SourceResponse = Source

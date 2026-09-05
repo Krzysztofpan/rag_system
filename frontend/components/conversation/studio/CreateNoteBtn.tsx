@@ -9,7 +9,7 @@ const CreateNoteBtn = () => {
 
 
     return (
-        <Button className={`${isCollapsed ? 'aspect-square rounded-2xl px-2 scale-110 bottom-2' : 'space-x-2 px-7 py-5 bottom-0 '}  cursor-pointer absolute -translate-1/2 left-1/2  rounded-2xl `}>
+        <Button className={`${isCollapsed ? 'aspect-square px-2 scale-110 bottom-2' : 'space-x-2 px-7 py-5 bottom-0 '} rounded-2xl cursor-pointer absolute -translate-1/2 left-1/2`}>
             <NotepadText />
             {!isCollapsed && <span>Dodaj notatkę</span>}
         </Button>
