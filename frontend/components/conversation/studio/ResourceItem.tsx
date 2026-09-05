@@ -1,7 +1,7 @@
-import { EllipsisVertical } from 'lucide-react';
-import { type LucideIcon } from 'lucide-react'
+import { EllipsisVertical, type LucideIcon } from 'lucide-react'
 
-import { useSidebar } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar'
+import { formatDate } from '@/lib/date'
 
 type ResourceItem = {
     title: string;
@@ -14,6 +14,12 @@ const ResourceItem = ({ title, icon: Icon, createdAt }: ResourceItem) => {
     const { state } = useSidebar()
     const isCollapsed = state === 'collapsed'
 
+    const formattedCreatedAt = formatDate(createdAt, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    })
+
     return (
         <div className={`flex gap-4 items-center cursor-pointer ${isCollapsed ? 'aspect-square p-1 justify-center m-auto' : 'px-3 py-2'}  hover:bg-foreground/10 rounded-xl`}>
             <div>
@@ -24,7 +30,7 @@ const ResourceItem = ({ title, icon: Icon, createdAt }: ResourceItem) => {
                         <>
                             <div className="flex-1 text-sm flex flex-col">
                                 <span className="font-bold">{title}</span>
-                                <span className="text-muted-foreground">{createdAt}</span>
+                                <span className="text-muted-foreground">{formattedCreatedAt}</span>
                             </div>
                             <div>
                                 <EllipsisVertical size={18} />
@@ -33,7 +39,7 @@ const ResourceItem = ({ title, icon: Icon, createdAt }: ResourceItem) => {
                     )
                 : null}
         </div>
-    );
+    )
 }
 
-export default ResourceItem;
+export default ResourceItem

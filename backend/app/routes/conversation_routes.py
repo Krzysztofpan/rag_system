@@ -56,7 +56,12 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
-from app.schemas.resource import GetResourcesResponse, CreateResourceRequest, CreateResourceResponse
+from app.schemas.resource import (
+    GetResourcesResponse,
+    CreateResourceRequest,
+    CreateResourceResponse,
+    resource_from_model,
+)
 from app.services.usage_limits import LimitCode, LimitExceededError
 
 conversation_router = APIRouter(
@@ -420,7 +425,7 @@ async def get_resources(
 
     return GetResourcesResponse(
         count=len(resources),
-        conversation_resources=resources,
+        conversation_resources=[resource_from_model(r) for r in resources],
     )
 
 @conversation_router.post('/{conversation_id}/resources/note', response_model=CreateResourceResponse)
@@ -441,7 +446,7 @@ async def create_note_resource(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    return CreateResourceResponse(resource=resource)
+    return CreateResourceResponse(resource=resource_from_model(resource))
 
 @conversation_router.delete("/{conversation_id}/sources/{document_id}")
 async def delete_source(
