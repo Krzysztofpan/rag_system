@@ -13,10 +13,8 @@ import {
     RemoveFormatting,
     Undo2,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
 
-import { Button } from '@/components/ui/button'
 import {
     Select,
     SelectContent,
@@ -25,70 +23,12 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+
+import { applyTextStyle, getActiveTextStyle } from './noteTextStyle'
+import ToolbarButton from './ToolbarButton'
 
 type NoteToolbarProps = {
     editor: Editor;
-}
-
-type TextStyle = 'paragraph' | 'heading1' | 'heading2' | 'heading3'
-
-function getActiveTextStyle(editor: Editor): TextStyle {
-    if (editor.isActive('heading', { level: 1 })) return 'heading1'
-    if (editor.isActive('heading', { level: 2 })) return 'heading2'
-    if (editor.isActive('heading', { level: 3 })) return 'heading3'
-    return 'paragraph'
-}
-
-function applyTextStyle(editor: Editor, style: TextStyle) {
-    const chain = editor.chain().focus()
-    if (style === 'paragraph') {
-        chain.setParagraph().run()
-        return
-    }
-    const level = style === 'heading1' ? 1 : style === 'heading2' ? 2 : 3
-    chain.toggleHeading({ level }).run()
-}
-
-function ToolbarButton({
-    label,
-    active,
-    disabled,
-    onClick,
-    children,
-}: {
-    label: string;
-    active?: boolean;
-    disabled?: boolean;
-    onClick: () => void;
-    children: ReactNode;
-}) {
-    return (
-        <Tooltip>
-            <TooltipTrigger
-                delay={200}
-                render={(
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={disabled}
-                        aria-label={label}
-                        aria-pressed={active}
-                        onClick={onClick}
-                        className={cn(
-                            'text-muted-foreground',
-                            active && 'bg-muted text-foreground',
-                        )}
-                    />
-                )}
-            >
-                {children}
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{label}</TooltipContent>
-        </Tooltip>
-    )
 }
 
 function ToolbarDivider() {

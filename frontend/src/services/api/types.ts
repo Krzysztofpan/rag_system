@@ -23,17 +23,29 @@ export type DeleteConversationResponse = {
 export type ResourceType = 'note' | 'mind_map'
 
 export type NoteContent = {
-    text?: string;
+    text: string;
 }
 
-export type Resource = {
+export type MindMapContent = Record<string, unknown>
+
+type ResourceBase = {
     id: string;
-    type: ResourceType;
-    content: NoteContent | Record<string, unknown>;
     title: string;
     createdAt: string;
     updatedAt: string;
 }
+
+export type NoteResource = ResourceBase & {
+    type: 'note';
+    content: NoteContent;
+}
+
+export type MindMapResource = ResourceBase & {
+    type: 'mind_map';
+    content: MindMapContent;
+}
+
+export type Resource = NoteResource | MindMapResource
 
 export type GetResourcesResponse = {
     count: number;

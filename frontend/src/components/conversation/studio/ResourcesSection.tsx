@@ -30,10 +30,10 @@ function ResourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
 }
 
 type ResourcesSectionProps = {
-    onOpenNote: (resource: Resource) => void;
+    onOpenResource: (resource: Resource) => void;
 }
 
-const ResourcesSection = ({ onOpenNote }: ResourcesSectionProps) => {
+const ResourcesSection = ({ onOpenResource }: ResourcesSectionProps) => {
     const { state } = useSidebar()
     const { conversationId } = useConversationContext()
     const { data, isLoading } = useResources(conversationId)
@@ -55,9 +55,7 @@ const ResourcesSection = ({ onOpenNote }: ResourcesSectionProps) => {
                                 key={resource.id}
                                 icon={icon}
                                 {...resource}
-                                onOpen={resource.type === 'note'
-                                    ? () => onOpenNote(resource)
-                                    : undefined}
+                                onOpen={() => onOpenResource(resource)}
                             />
                         )
                     })

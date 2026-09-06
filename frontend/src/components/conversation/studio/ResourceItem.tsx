@@ -8,7 +8,7 @@ type ResourceItemProps = {
     icon: LucideIcon;
     createdAt: string;
     type: string;
-    onOpen?: () => void;
+    onOpen: () => void;
 }
 
 const ResourceItem = ({ title, icon: Icon, createdAt, onOpen }: ResourceItemProps) => {
@@ -23,17 +23,15 @@ const ResourceItem = ({ title, icon: Icon, createdAt, onOpen }: ResourceItemProp
 
     return (
         <div
-            role={onOpen ? 'button' : undefined}
-            tabIndex={onOpen ? 0 : undefined}
+            role="button"
+            tabIndex={0}
             onClick={onOpen}
-            onKeyDown={onOpen
-                ? (event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            onOpen()
-                        }
-                    }
-                : undefined}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onOpen()
+                }
+            }}
             className={`flex gap-4 items-center cursor-pointer ${isCollapsed ? 'aspect-square p-1 justify-center m-auto' : 'px-3 py-2'}  hover:bg-foreground/10 rounded-xl`}
         >
             <div>

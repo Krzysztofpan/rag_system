@@ -4,7 +4,7 @@ import NoteView from '@/components/conversation/studio/note/NoteView'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
-import type { Resource } from '@/services/api/types'
+import type { NoteResource, Resource } from '@/services/api/types'
 
 import CreateNoteBtn from './CreateNoteBtn'
 import CreateResourceItemType from './CreateResourceItemType'
@@ -17,11 +17,6 @@ type OpenNoteState = {
     text: string;
 }
 
-function noteTextFromResource(resource: Resource): string {
-    const text = resource.content?.text
-    return typeof text === 'string' ? text : ''
-}
-
 function StudioPanelSection() {
     const { state, setOpen } = useSidebar()
     const [openNote, setOpenNote] = useState<OpenNoteState | null>(null)
@@ -32,13 +27,23 @@ function StudioPanelSection() {
         setOpenNote({ title: 'New note', text: '' })
     }
 
-    const handleOpenNote = (resource: Resource) => {
+    const openNoteView = (resource: NoteResource) => {
         setOpen(true)
         setOpenNote({
             id: resource.id,
             title: resource.title,
-            text: noteTextFromResource(resource),
+            text: resource.content.text,
         })
+    }
+
+    const handleOpenResource = (resource: Resource) => {
+        switch (resource.type) {
+            case 'note':
+                openNoteView(resource)
+                break
+            default:
+                break
+        }
     }
 
     if (openNote) {
@@ -87,7 +92,7 @@ function StudioPanelSection() {
                 ))}
             </div>
             <Separator />
-            <ResourcesSection onOpenNote={handleOpenNote} />
+            <ResourcesSection onOpenResource={handleOpenResource} />
             <CreateNoteBtn onOpenNote={handleCreateNote} />
         </aside>
     )
