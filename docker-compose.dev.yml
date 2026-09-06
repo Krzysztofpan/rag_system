@@ -78,9 +78,10 @@ services:
     environment:
       BACKEND_URL: "/api"
 
+    # Mount source only so image node_modules (from npm ci) is not shadowed.
     volumes:
-      - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
 
     ports:
       - "5173:5173"
@@ -103,4 +104,3 @@ volumes:
   hf-cache:
   xdg-cache:
   redis-data:
-  frontend-node-modules:

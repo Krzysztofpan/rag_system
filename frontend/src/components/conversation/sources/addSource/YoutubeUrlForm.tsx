@@ -3,7 +3,7 @@ import { Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
-import youtubeIcon from '@/src/assets/icons/youtube-icon.png'
+import youtubeIcon from '@/assets/icons/youtube-icon.png'
 
 type YoutubeUrlFormProps = {
     onAdd: (url: string) => void;

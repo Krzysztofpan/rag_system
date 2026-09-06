@@ -54,7 +54,7 @@ const ConversationPage = () => {
                         <CustomSidebarProvider>
                             <SourceSection />
                         </CustomSidebarProvider>
-                        <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-xl ring-1 ring-sidebar-border">
+                        <main className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl ring-1 ring-sidebar-border">
                             <ConversationWindow />
                         </main>
                         <CustomSidebarProvider>

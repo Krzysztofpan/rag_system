@@ -1,9 +1,8 @@
-
-
 import { useSidebar } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import { useResources } from '@/hooks/useResources'
+import type { Resource } from '@/services/api/types'
 
 import ResourceItem from './ResourceItem'
 import { ResourceIconMap } from './studio.contants'
@@ -30,7 +29,11 @@ function ResourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
     )
 }
 
-const ResourcesSection = () => {
+type ResourcesSectionProps = {
+    onOpenNote: (resource: Resource) => void;
+}
+
+const ResourcesSection = ({ onOpenNote }: ResourcesSectionProps) => {
     const { state } = useSidebar()
     const { conversationId } = useConversationContext()
     const { data, isLoading } = useResources(conversationId)
@@ -46,12 +49,15 @@ const ResourcesSection = () => {
         >
             {!isLoading
                 ? resources?.map((resource) => {
-                        const icon = ResourceIconMap[resource.type]
+                        const icon = ResourceIconMap[resource.type] ?? ResourceIconMap.note
                         return (
                             <ResourceItem
                                 key={resource.id}
                                 icon={icon}
                                 {...resource}
+                                onOpen={resource.type === 'note'
+                                    ? () => onOpenNote(resource)
+                                    : undefined}
                             />
                         )
                     })

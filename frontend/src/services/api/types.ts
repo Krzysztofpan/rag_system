@@ -20,12 +20,16 @@ export type DeleteConversationResponse = {
     deletedConversation: Conversation;
 }
 
-export type ResourceType = 'note' | 'mind-map'
+export type ResourceType = 'note' | 'mind_map'
+
+export type NoteContent = {
+    text?: string;
+}
 
 export type Resource = {
     id: string;
     type: ResourceType;
-    content: object;
+    content: NoteContent | Record<string, unknown>;
     title: string;
     createdAt: string;
     updatedAt: string;

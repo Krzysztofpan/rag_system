@@ -7,7 +7,7 @@ import stylistic from '@stylistic/eslint-plugin'
 
 export default tseslint.config(
     // components/ui i use-mobile pochodzą w całości z generatora shadcn.
-    { ignores: ['dist', 'components/ui', 'hooks/use-mobile.ts'] },
+    { ignores: ['dist', 'src/components/ui', 'src/hooks/use-mobile.ts'] },
     js.configs.recommended,
     {
         files: ['**/*.{ts,tsx}'],
