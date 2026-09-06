@@ -9,9 +9,9 @@ export type ResourceItem = {
     color: string;
 }
 
-export const ResourceIconMap = {
-    'note': NotepadText,
-    'mind-map': ChartNetwork,
+export const ResourceIconMap: Record<string, LucideIcon> = {
+    note: NotepadText,
+    mind_map: ChartNetwork,
 }
 
 export const resourcesItems: ResourceItem[] = [

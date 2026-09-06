@@ -1,11 +1,11 @@
-import docxIcon from '@/src/assets/icons/docx-icon.png'
-import jpegIcon from '@/src/assets/icons/jpeg-icon.png'
-import jpgIcon from '@/src/assets/icons/jpg-icon.png'
-import mdIcon from '@/src/assets/icons/md-icon.png'
-import pdfIcon from '@/src/assets/icons/pdf-icon.png'
-import pngIcon from '@/src/assets/icons/png-icon.png'
-import txtIcon from '@/src/assets/icons/txt-icon.png'
-import youtubeIcon from '@/src/assets/icons/youtube-icon.png'
+import docxIcon from '@/assets/icons/docx-icon.png'
+import jpegIcon from '@/assets/icons/jpeg-icon.png'
+import jpgIcon from '@/assets/icons/jpg-icon.png'
+import mdIcon from '@/assets/icons/md-icon.png'
+import pdfIcon from '@/assets/icons/pdf-icon.png'
+import pngIcon from '@/assets/icons/png-icon.png'
+import txtIcon from '@/assets/icons/txt-icon.png'
+import youtubeIcon from '@/assets/icons/youtube-icon.png'
 
 export const IconsMap: Record<string, string> = {
     'application/pdf': pdfIcon,

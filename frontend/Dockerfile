@@ -36,12 +36,6 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY index.html vite.config.ts vite-env.d.ts tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY src ./src
-COPY components ./components
-COPY contexts ./contexts
-COPY hooks ./hooks
-COPY lib ./lib
-COPY types ./types
-COPY services ./services
 COPY public ./public
 RUN npm run build
 

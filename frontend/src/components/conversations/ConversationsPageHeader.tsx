@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useIsMobile } from '@/hooks/use-mobile';
 import useCreateConveration from '@/hooks/useCreateConversation';
-import { items } from '@/src/pages/ConversationPage.const';
+import { items } from '@/pages/ConversationPage.const';
 
 import { Input } from '../ui/input';
 import { Spinner } from '../ui/spinner';
