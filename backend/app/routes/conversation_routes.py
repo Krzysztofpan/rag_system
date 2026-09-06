@@ -440,8 +440,8 @@ async def create_note_resource(
             conversation_id,
             user_id=current_user.user_id,
             type=ResourceType.note,
-            title=body.title,
-            content=body.content,
+            title=body.title or "New Note",
+            content=body.content or {},
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

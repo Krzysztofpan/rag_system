@@ -3,7 +3,22 @@ import qs from 'qs'
 
 import type { MessagesParams } from '@/types/Message'
 
-import type { ChunkResponse, ConversationResponse, CreateConversationResponse, DeleteConversationResponse, DeleteSourceResponse, GetConversationResponse, GetMessagesResponse, GetResourcesResponse, GetSourcesResponse, SendMessageResponse, SourceReportResponse, SourceResponse } from './types'
+import type {
+    ChunkResponse,
+    ConversationResponse,
+    CreateConversationResponse,
+    CreateNoteRequest,
+    CreateNoteResponse,
+    DeleteConversationResponse,
+    DeleteSourceResponse,
+    GetConversationResponse,
+    GetMessagesResponse,
+    GetResourcesResponse,
+    GetSourcesResponse,
+    SendMessageResponse,
+    SourceReportResponse,
+    SourceResponse,
+} from './types'
 
 export type AuthHandlers = {
     refreshToken: () => Promise<string | null>;
@@ -191,6 +206,12 @@ class ApiService {
 
     getResources = async (conversationId: string): Promise<GetResourcesResponse> => {
         const { data } = await this.client.get<GetResourcesResponse>(`/conversations/${conversationId}/resources`)
+
+        return data
+    }
+
+    createNoteResource = async (conversationId: string, body?: CreateNoteRequest): Promise<CreateNoteResponse> => {
+        const { data } = await this.client.post<CreateNoteResponse>(`/conversations/${conversationId}/resources/note`, body ?? {})
 
         return data
     }
