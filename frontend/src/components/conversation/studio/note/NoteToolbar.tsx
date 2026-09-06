@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 
-import { applyTextStyle, getActiveTextStyle } from './noteTextStyle'
+import { createNoteEditorCommands } from './noteEditorCommands'
 import ToolbarButton from './ToolbarButton'
 
 type NoteToolbarProps = {
@@ -36,38 +36,21 @@ function ToolbarDivider() {
 }
 
 export default function NoteToolbar({ editor }: NoteToolbarProps) {
-    const textStyle = getActiveTextStyle(editor)
-
-    const setLink = () => {
-        const previous = editor.getAttributes('link').href as string | undefined
-        const url = window.prompt('URL', previous ?? 'https://')
-        if (url === null) return
-        if (url === '') {
-            editor.chain().focus().extendMarkRange('link').unsetLink().run()
-            return
-        }
-        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-    }
-
-    const addImage = () => {
-        const url = window.prompt('Image URL')
-        if (!url) return
-        editor.chain().focus().setImage({ src: url }).run()
-    }
+    const commands = createNoteEditorCommands(editor)
 
     return (
         <div className="flex flex-wrap items-center gap-0.5 px-3 py-2">
             <ToolbarButton
                 label="Undo"
-                disabled={!editor.can().undo()}
-                onClick={() => editor.chain().focus().undo().run()}
+                disabled={!commands.canUndo()}
+                onClick={commands.undo}
             >
                 <Undo2 />
             </ToolbarButton>
             <ToolbarButton
                 label="Redo"
-                disabled={!editor.can().redo()}
-                onClick={() => editor.chain().focus().redo().run()}
+                disabled={!commands.canRedo()}
+                onClick={commands.redo}
             >
                 <Redo2 />
             </ToolbarButton>
@@ -75,7 +58,7 @@ export default function NoteToolbar({ editor }: NoteToolbarProps) {
             <ToolbarDivider />
 
             <Select
-                value={textStyle}
+                value={commands.getTextStyle()}
                 onValueChange={(value) => {
                     if (
                         value === 'paragraph'
@@ -83,7 +66,7 @@ export default function NoteToolbar({ editor }: NoteToolbarProps) {
                         || value === 'heading2'
                         || value === 'heading3'
                     ) {
-                        applyTextStyle(editor, value)
+                        commands.setTextStyle(value)
                     }
                 }}
             >
@@ -102,40 +85,40 @@ export default function NoteToolbar({ editor }: NoteToolbarProps) {
 
             <ToolbarButton
                 label="Bold"
-                active={editor.isActive('bold')}
-                onClick={() => editor.chain().focus().toggleBold().run()}
+                active={commands.isBold()}
+                onClick={commands.toggleBold}
             >
                 <Bold />
             </ToolbarButton>
             <ToolbarButton
                 label="Italic"
-                active={editor.isActive('italic')}
-                onClick={() => editor.chain().focus().toggleItalic().run()}
+                active={commands.isItalic()}
+                onClick={commands.toggleItalic}
             >
                 <Italic />
             </ToolbarButton>
             <ToolbarButton
                 label="Link"
-                active={editor.isActive('link')}
-                onClick={setLink}
+                active={commands.isLink()}
+                onClick={commands.setLink}
             >
                 <LinkIcon />
             </ToolbarButton>
             <ToolbarButton
                 label="Inline code"
-                active={editor.isActive('code')}
-                onClick={() => editor.chain().focus().toggleCode().run()}
+                active={commands.isCode()}
+                onClick={commands.toggleCode}
             >
                 <Code />
             </ToolbarButton>
             <ToolbarButton
                 label="Code block"
-                active={editor.isActive('codeBlock')}
-                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                active={commands.isCodeBlock()}
+                onClick={commands.toggleCodeBlock}
             >
                 <CodeXml />
             </ToolbarButton>
-            <ToolbarButton label="Image" onClick={addImage}>
+            <ToolbarButton label="Image" onClick={commands.addImage}>
                 <ImageIcon />
             </ToolbarButton>
 
@@ -143,34 +126,34 @@ export default function NoteToolbar({ editor }: NoteToolbarProps) {
 
             <ToolbarButton
                 label="Bullet list"
-                active={editor.isActive('bulletList')}
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                active={commands.isBulletList()}
+                onClick={commands.toggleBulletList}
             >
                 <List />
             </ToolbarButton>
             <ToolbarButton
                 label="Numbered list"
-                active={editor.isActive('orderedList')}
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                active={commands.isOrderedList()}
+                onClick={commands.toggleOrderedList}
             >
                 <ListOrdered />
             </ToolbarButton>
             <ToolbarButton
                 label="Quote"
-                active={editor.isActive('blockquote')}
-                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                active={commands.isBlockquote()}
+                onClick={commands.toggleBlockquote}
             >
                 <Quote />
             </ToolbarButton>
             <ToolbarButton
                 label="Divider"
-                onClick={() => editor.chain().focus().setHorizontalRule().run()}
+                onClick={commands.setHorizontalRule}
             >
                 <Minus />
             </ToolbarButton>
             <ToolbarButton
                 label="Clear formatting"
-                onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+                onClick={commands.clearFormatting}
             >
                 <RemoveFormatting />
             </ToolbarButton>

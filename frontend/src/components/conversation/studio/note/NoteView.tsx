@@ -1,12 +1,9 @@
 import { ArrowLeft, Trash2 } from 'lucide-react'
-import Image from '@tiptap/extension-image'
-import Link from '@tiptap/extension-link'
-import Placeholder from '@tiptap/extension-placeholder'
-import { EditorContent, useEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import { EditorContent } from '@tiptap/react'
 
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { useNoteEditor } from '@/hooks/useNoteEditor'
 
 import NoteToolbar from './NoteToolbar'
 
@@ -25,33 +22,9 @@ const NoteView = ({
     onDelete,
     onContentChange,
 }: NoteViewProps) => {
-    const editor = useEditor({
-        immediatelyRender: false,
-        extensions: [
-            StarterKit.configure({
-                heading: { levels: [1, 2, 3] },
-                link: false,
-            }),
-            Link.configure({
-                openOnClick: false,
-                HTMLAttributes: { class: 'note-editor-link' },
-            }),
-            Image.configure({
-                HTMLAttributes: { class: 'note-editor-image' },
-            }),
-            Placeholder.configure({
-                placeholder: 'Start writing…',
-            }),
-        ],
+    const editor = useNoteEditor({
         content: initialContent,
-        editorProps: {
-            attributes: {
-                class: 'note-editor-content focus:outline-none',
-            },
-        },
-        onUpdate: ({ editor: current }) => {
-            onContentChange?.(current.getHTML())
-        },
+        onContentChange,
     })
 
     return (
