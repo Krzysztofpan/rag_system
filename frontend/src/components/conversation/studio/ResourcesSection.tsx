@@ -41,6 +41,7 @@ const ResourcesSection = ({ onOpenResource, handleCreateNote, isCreatingNote }: 
     const { conversationId } = useConversationContext()
     const { data: resources, isLoading } = useResources(conversationId)
 
+    const sortedResources = resources ? resources.toSorted((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []
 
     const isCollapsed = state === 'collapsed'
 
@@ -53,7 +54,7 @@ const ResourcesSection = ({ onOpenResource, handleCreateNote, isCreatingNote }: 
         >
             {isCreatingNote && <ResourceItemSkeleton isCollapsed={isCollapsed} />}
             {!isLoading
-                ? resources?.map((resource) => {
+                ? sortedResources.map((resource) => {
                         const icon = ResourceIconMap[resource.type] ?? ResourceIconMap.note
                         return (
                             <ResourceItem
