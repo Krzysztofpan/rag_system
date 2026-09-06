@@ -52,6 +52,15 @@ export type GetResourcesResponse = {
     conversationResources: Resource[];
 }
 
+export type CreateNoteRequest = {
+    title: string;
+    content: NoteContent;
+}
+
+export type CreateNoteResponse = {
+    resource: NoteResource;
+}
+
 export type SourceResponse = Source
 
 export type GetSourcesResponse = {

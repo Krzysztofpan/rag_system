@@ -4,6 +4,7 @@ import { useConversationContext } from '@/contexts/conversation/ConversationCont
 import { useResources } from '@/hooks/useResources'
 import type { Resource } from '@/services/api/types'
 
+import CreateNoteBtn from './CreateNoteBtn'
 import ResourceItem from './ResourceItem'
 import { ResourceIconMap } from './studio.contants'
 
@@ -31,15 +32,18 @@ function ResourceItemSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
 
 type ResourcesSectionProps = {
     onOpenResource: (resource: Resource) => void;
+    handleCreateNote: () => void;
+    isCreatingNote: boolean;
 }
 
-const ResourcesSection = ({ onOpenResource }: ResourcesSectionProps) => {
+const ResourcesSection = ({ onOpenResource, handleCreateNote, isCreatingNote }: ResourcesSectionProps) => {
     const { state } = useSidebar()
     const { conversationId } = useConversationContext()
-    const { data, isLoading } = useResources(conversationId)
-    const resources = data?.conversationResources
+    const { data: resources, isLoading } = useResources(conversationId)
+
 
     const isCollapsed = state === 'collapsed'
+
 
     return (
         <div
@@ -47,6 +51,7 @@ const ResourcesSection = ({ onOpenResource }: ResourcesSectionProps) => {
             aria-busy={isLoading}
             aria-label={isLoading ? 'Loading resources' : undefined}
         >
+            {isCreatingNote && <ResourceItemSkeleton isCollapsed={isCollapsed} />}
             {!isLoading
                 ? resources?.map((resource) => {
                         const icon = ResourceIconMap[resource.type] ?? ResourceIconMap.note
@@ -62,6 +67,7 @@ const ResourcesSection = ({ onOpenResource }: ResourcesSectionProps) => {
                 : Array.from({ length: SKELETON_COUNT }, (_, i) => (
                         <ResourceItemSkeleton key={i} isCollapsed={isCollapsed} />
                     ))}
+            <CreateNoteBtn onOpenNote={handleCreateNote} />
         </div>
     )
 }

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from app.db.models import Resource, ResourceType
 from app.schemas.base import APIModel
@@ -20,8 +20,8 @@ class GetResourcesResponse(APIModel):
 
 
 class CreateResourceRequest(APIModel):
-    title: str
-    content: dict[str, Any]
+    title: Optional[str] = None
+    content: Optional[dict[str, Any]] = None
 
 
 class CreateResourceResponse(APIModel):

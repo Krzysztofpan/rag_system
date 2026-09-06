@@ -3,10 +3,11 @@ import { useState } from 'react'
 import NoteView from '@/components/conversation/studio/note/NoteView'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
+import { useConversationContext } from '@/contexts/conversation/ConversationContext'
+import useCreateNoteResource from '@/hooks/useCreateNoteResource'
 import { cn } from '@/lib/utils'
-import type { NoteResource, Resource } from '@/services/api/types'
+import type { CreateNoteResponse, NoteResource, Resource } from '@/services/api/types'
 
-import CreateNoteBtn from './CreateNoteBtn'
 import CreateResourceItemType from './CreateResourceItemType'
 import ResourcesSection from './ResourcesSection'
 import { resourcesItems } from './studio.contants'
@@ -21,10 +22,16 @@ function StudioPanelSection() {
     const { state, setOpen } = useSidebar()
     const [openNote, setOpenNote] = useState<OpenNoteState | null>(null)
     const isCollapsed = state === 'collapsed'
+    const { conversationId } = useConversationContext()
+    const { mutate, isPending } = useCreateNoteResource(conversationId)
 
     const handleCreateNote = () => {
-        setOpen(true)
-        setOpenNote({ title: 'New note', text: '' })
+        mutate(undefined, {
+            onSuccess: ({ resource }: CreateNoteResponse) => {
+                setOpen(true)
+                setOpenNote({ text: resource.content.text, title: resource.title })
+            },
+        })
     }
 
     const openNoteView = (resource: NoteResource) => {
@@ -92,8 +99,8 @@ function StudioPanelSection() {
                 ))}
             </div>
             <Separator />
-            <ResourcesSection onOpenResource={handleOpenResource} />
-            <CreateNoteBtn onOpenNote={handleCreateNote} />
+            <ResourcesSection isCreatingNote={isPending} handleCreateNote={handleCreateNote} onOpenResource={handleOpenResource} />
+
         </aside>
     )
 }

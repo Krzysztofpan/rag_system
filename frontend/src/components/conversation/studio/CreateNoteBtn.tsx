@@ -15,7 +15,7 @@ const CreateNoteBtn = ({ onOpenNote }: CreateNoteBtnProps) => {
         <Button
             type="button"
             onClick={onOpenNote}
-            className={`${isCollapsed ? 'aspect-square px-2 scale-110 bottom-2' : 'space-x-2 px-7 py-5 bottom-0 '} rounded-2xl cursor-pointer absolute -translate-1/2 left-1/2`}
+            className={`${isCollapsed ? 'aspect-square px-2 scale-110' : 'space-x-2 px-7 py-5'} bottom-4 rounded-2xl cursor-pointer absolute -translate-x-1/2 left-1/2`}
         >
             <NotepadText />
             {!isCollapsed && <span>Add note</span>}
