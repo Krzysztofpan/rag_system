@@ -9,10 +9,15 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.db.models.resource import ResourceType
 from app.db.models import Resource
 from app.db.models.conversation import Conversation
+from app.lib.note_markdown import note_source_markdown, source_filename_from_title
 
 
 class ResourceNotEditableError(ValueError):
     """Raised when a resource exists but cannot be updated as a user note."""
+
+
+class ResourceNotConvertibleError(ValueError):
+    """Raised when a resource cannot be ingested as a source."""
 
 
 class ResourceService:
@@ -128,3 +133,24 @@ class ResourceService:
         await self.session.commit()
         await self.session.refresh(resource)
         return resource
+
+    async def get_note_source_payload(
+        self,
+        conversation_id: UUID,
+        resource_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> tuple[str, str]:
+        resource = await self.get_resource(
+            conversation_id,
+            resource_id,
+            user_id=user_id,
+        )
+        if resource.type != ResourceType.note:
+            raise ResourceNotConvertibleError("Only notes can be converted to sources")
+
+        markdown = note_source_markdown(resource.title, resource.content)
+        if not markdown:
+            raise ResourceNotConvertibleError("Note has no content")
+
+        return source_filename_from_title(resource.title), markdown

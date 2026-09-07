@@ -4,23 +4,24 @@ import { EllipsisVertical, type LucideIcon } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useSidebar } from '@/components/ui/sidebar'
 import { formatRelativeTime } from '@/lib/date'
+import { noteHasContent } from '@/lib/note'
+import type { Resource } from '@/services/api/types'
 
 import ResourceActionsMenu from './ResourceActionsMenu'
 
 type ResourceItemProps = {
-    id: string;
-    title: string;
+    resource: Resource;
     icon: LucideIcon;
-    createdAt: string;
     onOpen: () => void;
 }
 
-const ResourceItem = ({ id, title, icon: Icon, createdAt, onOpen }: ResourceItemProps) => {
+const ResourceItem = ({ resource, icon: Icon, onOpen }: ResourceItemProps) => {
     const { state } = useSidebar()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const isCollapsed = state === 'collapsed'
 
-    const formattedCreatedAt = formatRelativeTime(createdAt)
+    const formattedCreatedAt = formatRelativeTime(resource.createdAt)
+    const canConvertToSource = resource.type === 'note' && noteHasContent(resource.content)
 
     return (
         <div
@@ -42,7 +43,7 @@ const ResourceItem = ({ id, title, icon: Icon, createdAt, onOpen }: ResourceItem
                 ? (
                         <>
                             <div className="flex-1 text-sm flex flex-col">
-                                <span className="font-bold">{title}</span>
+                                <span className="font-bold">{resource.title}</span>
                                 <span className="text-muted-foreground">{formattedCreatedAt}</span>
                             </div>
                             <div
@@ -55,7 +56,9 @@ const ResourceItem = ({ id, title, icon: Icon, createdAt, onOpen }: ResourceItem
                                     </PopoverTrigger>
                                     <PopoverContent side="bottom" align="end" className="w-56 gap-0 p-1">
                                         <ResourceActionsMenu
-                                            resourceId={id}
+                                            resourceId={resource.id}
+                                            title={resource.title}
+                                            canConvertToSource={canConvertToSource}
                                             onClose={() => setIsMenuOpen(false)}
                                         />
                                     </PopoverContent>

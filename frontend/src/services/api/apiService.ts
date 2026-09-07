@@ -270,6 +270,13 @@ class ApiService {
         return data
     }
 
+    convertNoteToSource = async (conversationId: string, resourceId: string): Promise<SourceResponse> => {
+        const { data } = await this.client.post<SourceResponse>(
+            `/conversations/${conversationId}/sources/note/${resourceId}`,
+        )
+        return data
+    }
+
     sendMessage = async (conversation_id: string, document_ids: string[], message: string): Promise<SendMessageResponse> => {
         const { data } = await this.client.post<SendMessageResponse>(`/chat`, { conversation_id, document_ids, message })
 

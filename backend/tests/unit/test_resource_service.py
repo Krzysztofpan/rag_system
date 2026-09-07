@@ -7,7 +7,11 @@ from uuid import uuid4
 import pytest
 
 from app.db.models.resource import Resource, ResourceType
-from app.services.resource_service import ResourceNotEditableError, ResourceService
+from app.services.resource_service import (
+    ResourceNotConvertibleError,
+    ResourceNotEditableError,
+    ResourceService,
+)
 
 
 def _session_with_resource(resource: Resource | None) -> AsyncMock:
@@ -145,3 +149,59 @@ async def test_delete_resource_raises_when_missing():
 
     session.delete.assert_not_called()
     session.commit.assert_not_called()
+
+
+async def test_get_note_source_payload_builds_markdown_from_user_note():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="My Note",
+        content={"kind": "user", "html": "<p>Hello</p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    filename, markdown = await service.get_note_source_payload(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+    )
+
+    assert filename == "My Note.md"
+    assert markdown == "# My Note\n\nHello\n"
+
+
+async def test_get_note_source_payload_rejects_empty_note():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Empty",
+        content={"kind": "user", "html": "<p><br></p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotConvertibleError, match="Note has no content"):
+        await service.get_note_source_payload(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+        )
+
+
+async def test_get_note_source_payload_rejects_non_notes():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.mind_map,
+        title="Map",
+        content={"nodes": []},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotConvertibleError, match="Only notes can be converted"):
+        await service.get_note_source_payload(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+        )

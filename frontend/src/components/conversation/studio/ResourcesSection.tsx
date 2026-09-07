@@ -60,7 +60,7 @@ const ResourcesSection = ({ onOpenResource, handleCreateNote, isCreatingNote }: 
                             <ResourceItem
                                 key={resource.id}
                                 icon={icon}
-                                {...resource}
+                                resource={resource}
                                 onOpen={() => onOpenResource(resource)}
                             />
                         )

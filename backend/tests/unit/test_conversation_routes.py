@@ -28,7 +28,10 @@ from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.lib.upload_temp import UploadTooLargeError
 from app.routes.conversation_routes import conversation_router
-from app.services.resource_service import ResourceNotEditableError
+from app.services.resource_service import (
+    ResourceNotConvertibleError,
+    ResourceNotEditableError,
+)
 from app.services.usage_limits import LimitCode, LimitExceededError
 from tests.helpers import FakeVectorStore, override_authenticated_user
 
@@ -859,4 +862,111 @@ def test_delete_resource_not_found_returns_404(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resource missing"
+
+
+def test_ingest_note_resource_returns_202_and_enqueues_job(
+    client,
+    authenticated_user,
+    ingest_queue,
+    usage_limits,
+):
+    conversation_id = uuid4()
+    resource_id = uuid4()
+    document = Document(
+        conversation_id=conversation_id,
+        filename="My Note.md",
+        content_type="text/markdown",
+        status=DocumentStatus.pending,
+    )
+    tmp_path = Path("/tmp/fake-note-source.md")
+    markdown = "# My Note\n\nHello\n"
+
+    with (
+        patch(
+            "app.services.resource_service.ResourceService.get_note_source_payload",
+            new=AsyncMock(return_value=("My Note.md", markdown)),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(return_value=document),
+        ) as create_document,
+        patch(
+            "app.services.document_service.DocumentService.mark_processing",
+            new=_mark_processing(document),
+        ),
+        patch(
+            "app.routes.conversation_routes.save_bytes_to_temp",
+            return_value=(tmp_path, len(markdown.encode("utf-8"))),
+        ) as save_bytes,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/note/{resource_id}"
+        )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["id"] == str(document.id)
+    assert payload["status"] == "processing"
+    assert payload["contentType"] == "text/markdown"
+    assert payload["filename"] == "My Note.md"
+    save_bytes.assert_called_once_with(
+        markdown.encode("utf-8"),
+        suffix=".md",
+        max_bytes=usage_limits.settings.max_upload_bytes,
+    )
+    origin = create_document.await_args.kwargs["origin"]
+    assert origin.kind == "file"
+    ingest_queue.enqueue.assert_awaited_once()
+    job = ingest_queue.enqueue.await_args.args[0]
+    assert job.kind == "document"
+    assert job.document_id == document.id
+    assert job.user_id == authenticated_user.user_id
+    assert job.path == str(tmp_path)
+    assert job.filename == "My Note.md"
+
+
+def test_ingest_note_resource_empty_returns_400(client):
+    conversation_id = uuid4()
+    resource_id = uuid4()
+
+    with (
+        patch(
+            "app.services.resource_service.ResourceService.get_note_source_payload",
+            new=AsyncMock(side_effect=ResourceNotConvertibleError("Note has no content")),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(),
+        ) as create_document,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/note/{resource_id}"
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Note has no content"
+    create_document.assert_not_called()
+
+
+def test_ingest_note_resource_not_found_returns_404(client):
+    conversation_id = uuid4()
+    resource_id = uuid4()
+
+    with (
+        patch(
+            "app.services.resource_service.ResourceService.get_note_source_payload",
+            new=AsyncMock(side_effect=ValueError("Resource missing")),
+        ),
+        patch(
+            "app.services.document_service.DocumentService.create_document",
+            new=AsyncMock(),
+        ) as create_document,
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/sources/note/{resource_id}"
+        )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resource missing"
+    create_document.assert_not_called()
 

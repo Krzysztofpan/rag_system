@@ -65,6 +65,34 @@ async def save_upload_to_temp(
     return path, size
 
 
+def save_bytes_to_temp(
+    data: bytes,
+    *,
+    suffix: str,
+    max_bytes: int | None,
+) -> tuple[Path, int]:
+    """Persist in-memory bytes so ingest can run after the request ends."""
+    size = len(data)
+    if max_bytes is not None and size > max_bytes:
+        raise UploadTooLargeError(max_bytes=max_bytes, size=size)
+
+    directory = get_settings().upload_temp_dir
+    if directory is not None:
+        directory.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        suffix=suffix,
+        delete=False,
+        dir=directory,
+    ) as tmp:
+        path = Path(tmp.name)
+        try:
+            tmp.write(data)
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
+    return path, size
+
+
 def upload_file_from_path(
     path: Path,
     *,
