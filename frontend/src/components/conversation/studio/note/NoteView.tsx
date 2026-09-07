@@ -10,7 +10,7 @@ type NoteViewProps = {
     title?: string;
     initialContent?: string;
     isSaving?: boolean;
-    onBack?: (html: string) => void;
+    onBack: (html: string) => void;
     onDelete?: () => void;
     onContentChange?: (html: string) => void;
 }
@@ -30,12 +30,12 @@ const NoteView = ({
 
     const handleBack = () => {
         if (isSaving) return
-        onBack?.(editor?.getHTML() ?? initialContent)
+        onBack(editor?.getHTML() ?? initialContent)
     }
 
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
-            <NoteHeader title={title} onBack={onBack ? handleBack : undefined} onDelete={onDelete} isSaving={isSaving} />
+            <NoteHeader title={title} onBack={handleBack} onDelete={onDelete} isSaving={isSaving} />
 
             <Separator />
 
