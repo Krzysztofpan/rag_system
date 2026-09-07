@@ -13,6 +13,18 @@ const MessageItem = ({ message }: { message: Message }) => {
     const isUser = message.role === 'user'
     const { conversationId } = useConversationContext()
     const { mutate } = useCreateNoteResource(conversationId)
+
+    const saveInNote = () => {
+        mutate({
+            content: {
+                kind: 'chat',
+                markdown: message.text,
+                messageId: message.id,
+                sources: message.sources,
+            },
+        })
+    }
+
     return (
         <div className={cn('flex w-full px-3 py-3', isUser ? 'justify-end font-semibold' : 'font-normal')}>
             {isUser
@@ -37,7 +49,11 @@ const MessageItem = ({ message }: { message: Message }) => {
                                     ))}
                                 </div>
                             )}
-                            <Button onClick={() => mutate({ title: '', content: { text: message.text } })} variant="outline" className="w-40 cursor-pointer">
+                            <Button
+                                onClick={saveInNote}
+                                variant="outline"
+                                className="w-40 cursor-pointer"
+                            >
                                 <Pin />
                                 Save in note
                             </Button>

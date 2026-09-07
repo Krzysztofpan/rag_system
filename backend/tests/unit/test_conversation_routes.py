@@ -23,6 +23,7 @@ from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.db.models.message import Message, MessageRole
+from app.db.models.resource import Resource, ResourceType
 from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.lib.upload_temp import UploadTooLargeError
@@ -680,3 +681,80 @@ def test_delete_conversation_returns_deleted_conversation(client, authenticated_
 
     assert response.status_code == 200
     assert response.json()["deletedConversation"]["id"] == str(conversation.id)
+
+
+def test_create_note_defaults_to_user_html(client):
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(return_value=resource),
+    ) as create_resource:
+        response = client.post(f"/conversations/{conversation_id}/resources/note", json={})
+
+    assert response.status_code == 200
+    assert response.json()["resource"]["content"] == {"kind": "user", "html": ""}
+    assert create_resource.await_args.kwargs["content"] == {"kind": "user", "html": ""}
+
+
+def test_create_chat_note_stores_markdown(client):
+    conversation_id = uuid4()
+    message_id = uuid4()
+    chunk_id = uuid4()
+    source = {"index": 1, "kind": "chunk", "chunk_id": str(chunk_id)}
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="New Note",
+        content={
+            "kind": "chat",
+            "markdown": "# Hello",
+            "message_id": str(message_id),
+            "sources": [source],
+        },
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(return_value=resource),
+    ) as create_resource:
+        response = client.post(
+            f"/conversations/{conversation_id}/resources/note",
+            json={
+                "title": "",
+                "content": {
+                    "kind": "chat",
+                    "markdown": "# Hello",
+                    "messageId": str(message_id),
+                    "sources": [{
+                        "index": 1,
+                        "kind": "chunk",
+                        "chunkId": str(chunk_id),
+                    }],
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["resource"]["content"] == {
+        "kind": "chat",
+        "markdown": "# Hello",
+        "messageId": str(message_id),
+        "sources": [{
+            "index": 1,
+            "kind": "chunk",
+            "chunkId": str(chunk_id),
+        }],
+    }
+    assert create_resource.await_args.kwargs["content"] == {
+        "kind": "chat",
+        "markdown": "# Hello",
+        "message_id": str(message_id),
+        "sources": [source],
+    }

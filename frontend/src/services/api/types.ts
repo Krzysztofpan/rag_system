@@ -1,5 +1,5 @@
 
-import type { ChunkPreview } from '@/types/citation'
+import type { ChunkPreview, MessageSource } from '@/types/citation'
 import type { Conversation } from '@/types/conversation'
 import type { Message } from '@/types/Message'
 import type { SourceReport } from '@/types/report'
@@ -22,9 +22,19 @@ export type DeleteConversationResponse = {
 
 export type ResourceType = 'note' | 'mind_map'
 
-export type NoteContent = {
-    text: string;
+export type ChatNoteContent = {
+    kind: 'chat';
+    markdown: string;
+    messageId?: string;
+    sources?: MessageSource[];
 }
+
+export type UserNoteContent = {
+    kind: 'user';
+    html: string;
+}
+
+export type NoteContent = ChatNoteContent | UserNoteContent
 
 export type MindMapContent = Record<string, unknown>
 
@@ -53,8 +63,8 @@ export type GetResourcesResponse = {
 }
 
 export type CreateNoteRequest = {
-    title: string;
-    content: NoteContent;
+    title?: string;
+    content?: NoteContent;
 }
 
 export type CreateNoteResponse = {

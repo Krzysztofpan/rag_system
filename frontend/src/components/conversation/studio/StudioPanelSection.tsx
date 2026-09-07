@@ -1,12 +1,13 @@
 import { useState } from 'react'
 
+import ChatNoteView from '@/components/conversation/studio/note/ChatNoteView'
 import NoteView from '@/components/conversation/studio/note/NoteView'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
 import { cn } from '@/lib/utils'
-import type { CreateNoteResponse, NoteResource, Resource } from '@/services/api/types'
+import type { CreateNoteResponse, NoteContent, NoteResource, Resource } from '@/services/api/types'
 
 import CreateResourceItemType from './CreateResourceItemType'
 import ResourcesSection from './ResourcesSection'
@@ -15,7 +16,7 @@ import { resourcesItems } from './studio.contants'
 type OpenNoteState = {
     id?: string;
     title: string;
-    text: string;
+    content: NoteContent;
 }
 
 function StudioPanelSection() {
@@ -26,10 +27,14 @@ function StudioPanelSection() {
     const { mutate, isPending } = useCreateNoteResource(conversationId)
 
     const handleCreateNote = () => {
-        mutate(undefined, {
+        mutate({ title: 'New Note', content: { kind: 'user', html: '' } }, {
             onSuccess: ({ resource }: CreateNoteResponse) => {
                 setOpen(true)
-                setOpenNote({ text: resource.content.text, title: resource.title })
+                setOpenNote({
+                    id: resource.id,
+                    title: resource.title,
+                    content: resource.content,
+                })
             },
         })
     }
@@ -39,7 +44,7 @@ function StudioPanelSection() {
         setOpenNote({
             id: resource.id,
             title: resource.title,
-            text: resource.content.text,
+            content: resource.content,
         })
     }
 
@@ -63,12 +68,24 @@ function StudioPanelSection() {
                     'w-[min(46vw,40rem)]',
                 )}
             >
-                <NoteView
-                    key={openNote.id ?? 'new-note'}
-                    title={openNote.title}
-                    initialContent={openNote.text}
-                    onBack={() => setOpenNote(null)}
-                />
+                {openNote.content.kind === 'chat'
+                    ? (
+                            <ChatNoteView
+                                key={openNote.id ?? 'chat-note'}
+                                title={openNote.title}
+                                markdown={openNote.content.markdown}
+                                sources={openNote.content.sources}
+                                onBack={() => setOpenNote(null)}
+                            />
+                        )
+                    : (
+                            <NoteView
+                                key={openNote.id ?? 'new-note'}
+                                title={openNote.title}
+                                initialContent={openNote.content.html}
+                                onBack={() => setOpenNote(null)}
+                            />
+                        )}
             </aside>
         )
     }
