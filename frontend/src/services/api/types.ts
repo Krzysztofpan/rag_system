@@ -77,6 +77,10 @@ export type CreateNoteResponse = {
 
 export type UpdateNoteResponse = CreateNoteResponse
 
+export type DeleteResourceResponse = {
+    deletedResource: Resource;
+}
+
 export type SourceResponse = Source
 
 export type GetSourcesResponse = {

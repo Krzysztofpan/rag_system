@@ -37,8 +37,37 @@ export const useResourcesClient = (conversationId: string) => {
         )
     }
 
+    const deleteResource = async (resourceId: string) => {
+        await queryClient.cancelQueries({ queryKey })
+        let fallbackObj
+
+        queryClient.setQueryData<Resource[]>(queryKey, (current = []) =>
+            current.filter((resource, i) => {
+                if (resource.id !== resourceId) {
+                    return true
+                }
+
+                fallbackObj = { deletedResource: resource, index: i }
+                return false
+            }),
+        )
+
+        return fallbackObj
+    }
+
+    const insertResourceInIndex = (fallbackObj: { deletedResource: Resource; index: number }) => {
+        queryClient.setQueryData<Resource[]>(queryKey, (current = []) => {
+            const next = [...current]
+            const clampedIndex = Math.max(0, Math.min(fallbackObj.index, next.length))
+            next.splice(clampedIndex, 0, fallbackObj.deletedResource)
+            return next
+        })
+    }
+
     return {
         addResource,
         updateResource,
+        deleteResource,
+        insertResourceInIndex,
     }
 }

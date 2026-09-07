@@ -61,6 +61,7 @@ from app.schemas.resource import (
     CreateNoteRequest,
     CreateResourceResponse,
     UpdateNoteRequest,
+    DeleteResourceResponse,
     UserNoteContent,
     dump_note_content,
     resource_from_model,
@@ -478,6 +479,31 @@ async def update_note_resource(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return CreateResourceResponse(resource=resource_from_model(resource))
+
+
+@conversation_router.delete(
+    "/{conversation_id}/resources/{resource_id}",
+    response_model=DeleteResourceResponse,
+)
+async def delete_resource(
+    conversation_id: UUID,
+    resource_id: UUID,
+    current_user: CurrentUserDep,
+    resource_service: ResourceServiceDep,
+) -> DeleteResourceResponse:
+    try:
+        deleted_resource = await resource_service.delete_resource(
+            conversation_id,
+            resource_id,
+            user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return DeleteResourceResponse(
+        deleted_resource=resource_from_model(deleted_resource),
+    )
+
 
 @conversation_router.delete("/{conversation_id}/sources/{document_id}")
 async def delete_source(

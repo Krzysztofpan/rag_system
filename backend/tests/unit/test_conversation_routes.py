@@ -819,3 +819,44 @@ def test_update_chat_note_returns_400(client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Only user notes can be updated"
+
+
+def test_delete_resource_returns_deleted_resource(client):
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": "<p>Hi</p>"},
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.delete_resource",
+        new=AsyncMock(return_value=resource),
+    ):
+        response = client.delete(
+            f"/conversations/{conversation_id}/resources/{resource.id}"
+        )
+
+    assert response.status_code == 200
+    payload = response.json()["deletedResource"]
+    assert payload["id"] == str(resource.id)
+    assert payload["title"] == "New Note"
+    assert payload["content"] == {"kind": "user", "html": "<p>Hi</p>"}
+
+
+def test_delete_resource_not_found_returns_404(client):
+    conversation_id = uuid4()
+    resource_id = uuid4()
+
+    with patch(
+        "app.services.resource_service.ResourceService.delete_resource",
+        new=AsyncMock(side_effect=ValueError("Resource missing")),
+    ):
+        response = client.delete(
+            f"/conversations/{conversation_id}/resources/{resource_id}"
+        )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resource missing"
+

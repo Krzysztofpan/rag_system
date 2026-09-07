@@ -72,6 +72,10 @@ class CreateResourceResponse(APIModel):
     resource: ResourceResponse
 
 
+class DeleteResourceResponse(APIModel):
+    deleted_resource: ResourceResponse
+
+
 def resource_from_model(resource: Resource) -> ResourceResponse:
     content: dict[str, Any] = resource.content
     if resource.type == ResourceType.note:
