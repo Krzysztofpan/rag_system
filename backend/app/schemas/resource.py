@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, Optional
 from uuid import UUID
 
-from pydantic import Field, TypeAdapter, ValidationError, field_validator
+from pydantic import Field, TypeAdapter, ValidationError
 
 from app.db.models import Resource, ResourceType
 from app.schemas.base import APIModel
@@ -29,19 +29,6 @@ NoteContent = Annotated[
 _note_content_adapter = TypeAdapter(NoteContent)
 
 
-def coerce_stored_note_content(content: dict[str, Any] | None) -> dict[str, Any]:
-    """Map stored JSONB (including legacy `{text}`) into a NoteContent dict."""
-    if not content:
-        return {"kind": "user", "html": ""}
-    if "kind" not in content and "text" in content:
-        return {"kind": "chat", "markdown": str(content.get("text") or "")}
-    return content
-
-
-def parse_note_content(content: dict[str, Any] | None) -> ChatNoteContent | UserNoteContent:
-    return _note_content_adapter.validate_python(coerce_stored_note_content(content))
-
-
 def dump_note_content(
     content: ChatNoteContent | UserNoteContent,
     *,
@@ -52,9 +39,10 @@ def dump_note_content(
 
 def note_content_for_response(content: dict[str, Any] | None) -> dict[str, Any]:
     try:
-        return dump_note_content(parse_note_content(content), by_alias=True)
+        parsed = _note_content_adapter.validate_python(content)
     except ValidationError:
-        return dump_note_content(UserNoteContent(), by_alias=True)
+        parsed = UserNoteContent()
+    return dump_note_content(parsed, by_alias=True)
 
 
 class ResourceResponse(APIModel):
@@ -74,17 +62,6 @@ class GetResourcesResponse(APIModel):
 class CreateNoteRequest(APIModel):
     title: Optional[str] = None
     content: Optional[NoteContent] = None
-
-    @field_validator("content", mode="before")
-    @classmethod
-    def coerce_legacy_content(cls, value: Any) -> Any:
-        if value is None:
-            return None
-        if isinstance(value, (ChatNoteContent, UserNoteContent)):
-            return value
-        if isinstance(value, dict):
-            return coerce_stored_note_content(value)
-        return value
 
 
 class CreateResourceResponse(APIModel):
