@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
+import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
 import { cn } from '@/lib/utils'
 import type { CreateNoteResponse, NoteContent, NoteResource, Resource } from '@/services/api/types'
 
@@ -25,6 +26,7 @@ function StudioPanelSection() {
     const isCollapsed = state === 'collapsed'
     const { conversationId } = useConversationContext()
     const { mutate, isPending } = useCreateNoteResource(conversationId)
+    const { mutateAsync: saveNote, isPending: isSavingNote } = useUpdateNoteResource(conversationId)
 
     const handleCreateNote = () => {
         mutate({ title: 'New Note', content: { kind: 'user', html: '' } }, {
@@ -58,6 +60,28 @@ function StudioPanelSection() {
         }
     }
 
+    const handleLeaveUserNote = async (html: string) => {
+        if (isSavingNote) return
+        if (!openNote?.id) {
+            setOpenNote(null)
+            return
+        }
+        if (openNote.content.kind === 'user' && html === openNote.content.html) {
+            setOpenNote(null)
+            return
+        }
+        try {
+            await saveNote({
+                resourceId: openNote.id,
+                content: { kind: 'user', html },
+            })
+            setOpenNote(null)
+        }
+        catch {
+            // Toast is handled in useUpdateNoteResource
+        }
+    }
+
     if (openNote) {
         return (
             <aside
@@ -83,7 +107,8 @@ function StudioPanelSection() {
                                 key={openNote.id ?? 'new-note'}
                                 title={openNote.title}
                                 initialContent={openNote.content.html}
-                                onBack={() => setOpenNote(null)}
+                                isSaving={isSavingNote}
+                                onBack={handleLeaveUserNote}
                             />
                         )}
             </aside>

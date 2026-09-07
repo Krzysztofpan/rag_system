@@ -28,6 +28,7 @@ from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.lib.upload_temp import UploadTooLargeError
 from app.routes.conversation_routes import conversation_router
+from app.services.resource_service import ResourceNotEditableError
 from app.services.usage_limits import LimitCode, LimitExceededError
 from tests.helpers import FakeVectorStore, override_authenticated_user
 
@@ -758,3 +759,63 @@ def test_create_chat_note_stores_markdown(client):
         "message_id": str(message_id),
         "sources": [source],
     }
+
+
+def test_update_note_saves_user_html(client):
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": "<p>Saved</p>"},
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.update_note_content",
+        new=AsyncMock(return_value=resource),
+    ) as update_note_content:
+        response = client.patch(
+            f"/conversations/{conversation_id}/resources/note/{resource.id}",
+            json={"content": {"kind": "user", "html": "<p>Saved</p>"}},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["resource"]["content"] == {"kind": "user", "html": "<p>Saved</p>"}
+    assert update_note_content.await_args.kwargs["content"] == {
+        "kind": "user",
+        "html": "<p>Saved</p>",
+    }
+
+
+def test_update_note_not_found_returns_404(client):
+    conversation_id = uuid4()
+    resource_id = uuid4()
+
+    with patch(
+        "app.services.resource_service.ResourceService.update_note_content",
+        new=AsyncMock(side_effect=ValueError("Resource not found")),
+    ):
+        response = client.patch(
+            f"/conversations/{conversation_id}/resources/note/{resource_id}",
+            json={"content": {"html": "<p>Hi</p>"}},
+        )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resource not found"
+
+
+def test_update_chat_note_returns_400(client):
+    conversation_id = uuid4()
+    resource_id = uuid4()
+
+    with patch(
+        "app.services.resource_service.ResourceService.update_note_content",
+        new=AsyncMock(side_effect=ResourceNotEditableError("Only user notes can be updated")),
+    ):
+        response = client.patch(
+            f"/conversations/{conversation_id}/resources/note/{resource_id}",
+            json={"content": {"html": "<p>Hi</p>"}},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Only user notes can be updated"

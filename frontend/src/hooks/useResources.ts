@@ -31,7 +31,14 @@ export const useResourcesClient = (conversationId: string) => {
         )
     }
 
+    const updateResource = (resource: Resource) => {
+        queryClient.setQueryData<Resource[]>(queryKey, (current = []) =>
+            current.map((item) => (item.id === resource.id ? resource : item)),
+        )
+    }
+
     return {
         addResource,
+        updateResource,
     }
 }
