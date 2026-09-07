@@ -10,7 +10,8 @@ type ChatNoteViewProps = {
     markdown: string;
     sources?: MessageSource[];
     onBack: () => void;
-    onDelete?: () => void;
+    onDelete: () => void;
+    isDeleting?: boolean;
 }
 
 const ChatNoteView = ({
@@ -19,12 +20,13 @@ const ChatNoteView = ({
     sources = [],
     onBack,
     onDelete,
+    isDeleting,
 }: ChatNoteViewProps) => {
     const { conversationId } = useConversationContext()
 
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
-            <NoteHeader title={title} onBack={onBack} onDelete={onDelete} />
+            <NoteHeader title={title} onBack={onBack} onDelete={onDelete} isDeleting={isDeleting} />
             <Separator />
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
                 <MarkdownContent

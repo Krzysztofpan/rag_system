@@ -1,18 +1,23 @@
+import { useState } from 'react'
 import { EllipsisVertical, type LucideIcon } from 'lucide-react'
 
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useSidebar } from '@/components/ui/sidebar'
 import { formatDate } from '@/lib/date'
 
+import ResourceActionsMenu from './ResourceActionsMenu'
+
 type ResourceItemProps = {
+    id: string;
     title: string;
     icon: LucideIcon;
     createdAt: string;
-    type: string;
     onOpen: () => void;
 }
 
-const ResourceItem = ({ title, icon: Icon, createdAt, onOpen }: ResourceItemProps) => {
+const ResourceItem = ({ id, title, icon: Icon, createdAt, onOpen }: ResourceItemProps) => {
     const { state } = useSidebar()
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
     const isCollapsed = state === 'collapsed'
 
     const formattedCreatedAt = formatDate(createdAt, {
@@ -48,7 +53,17 @@ const ResourceItem = ({ title, icon: Icon, createdAt, onOpen }: ResourceItemProp
                                 onClick={(event) => event.stopPropagation()}
                                 onKeyDown={(event) => event.stopPropagation()}
                             >
-                                <EllipsisVertical size={18} />
+                                <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                                    <PopoverTrigger className="m-0 flex cursor-pointer items-center justify-center p-0 text-muted-foreground hover:text-foreground">
+                                        <EllipsisVertical size={18} />
+                                    </PopoverTrigger>
+                                    <PopoverContent side="bottom" align="end" className="w-56 gap-0 p-1">
+                                        <ResourceActionsMenu
+                                            resourceId={id}
+                                            onClose={() => setIsMenuOpen(false)}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                         </>
                     )

@@ -10,6 +10,7 @@ import type {
     CreateNoteRequest,
     CreateNoteResponse,
     DeleteConversationResponse,
+    DeleteResourceResponse,
     DeleteSourceResponse,
     GetConversationResponse,
     GetMessagesResponse,
@@ -228,6 +229,13 @@ class ApiService {
             body,
         )
 
+        return data
+    }
+
+    deleteResource = async (conversationId: string, resourceId: string): Promise<DeleteResourceResponse> => {
+        const { data } = await this.client.delete<DeleteResourceResponse>(
+            `/conversations/${conversationId}/resources/${resourceId}`,
+        )
         return data
     }
 

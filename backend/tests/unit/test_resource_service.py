@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -110,3 +112,36 @@ async def test_update_note_content_rejects_non_notes():
         )
 
     session.commit.assert_not_awaited()
+
+
+async def test_delete_resource_removes_owned_row():
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    deleted = await service.delete_resource(
+        conversation_id,
+        resource.id,
+        user_id=uuid4(),
+    )
+
+    assert deleted is resource
+    session.delete.assert_awaited_once_with(resource)
+    session.commit.assert_awaited_once()
+
+
+async def test_delete_resource_raises_when_missing():
+    session = _session_with_resource(None)
+    service = ResourceService(session)
+
+    with pytest.raises(ValueError, match="Resource .* not found"):
+        await service.delete_resource(uuid4(), uuid4(), user_id=uuid4())
+
+    session.delete.assert_not_called()
+    session.commit.assert_not_called()

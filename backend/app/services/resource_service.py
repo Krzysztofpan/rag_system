@@ -89,6 +89,22 @@ class ResourceService:
             raise ValueError(f"Resource {resource_id} not found")
         return resource
 
+    async def delete_resource(
+        self,
+        conversation_id: UUID,
+        resource_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> Resource:
+        resource = await self.get_resource(
+            conversation_id,
+            resource_id,
+            user_id=user_id,
+        )
+        await self.session.delete(resource)
+        await self.session.commit()
+        return resource
+
     async def update_note_content(
         self,
         conversation_id: UUID,

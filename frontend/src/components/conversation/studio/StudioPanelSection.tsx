@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
+import { useDeleteResource } from '@/hooks/useDeleteResource'
 import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
 import { isUnchangedUserNote, isUserNote, userNoteContent } from '@/lib/note'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,7 @@ function StudioPanelSection() {
     const { conversationId } = useConversationContext()
     const { mutate, isPending } = useCreateNoteResource(conversationId)
     const { mutate: saveNote, isPending: isSavingNote } = useUpdateNoteResource(conversationId)
+    const { mutate: deleteResource, isPending: isDeleting } = useDeleteResource(conversationId)
 
     const handleCreateNote = () => {
         mutate({ title: 'New Note', content: userNoteContent() }, {
@@ -80,6 +82,13 @@ function StudioPanelSection() {
         )
     }
 
+    const handleDeleteOpenNote = () => {
+        if (openNote?.id) {
+            deleteResource(openNote.id)
+        }
+        setOpenNote(null)
+    }
+
     if (openNote) {
         return (
             <aside
@@ -98,6 +107,8 @@ function StudioPanelSection() {
                                 initialContent={openNote.content.html}
                                 isSaving={isSavingNote}
                                 onBack={handleLeaveUserNote}
+                                onDelete={handleDeleteOpenNote}
+                                isDeleting={isDeleting}
                             />
                         )
                     : (
@@ -107,6 +118,8 @@ function StudioPanelSection() {
                                 markdown={openNote.content.markdown}
                                 sources={openNote.content.sources}
                                 onBack={() => setOpenNote(null)}
+                                onDelete={handleDeleteOpenNote}
+                                isDeleting={isDeleting}
                             />
                         )}
             </aside>
