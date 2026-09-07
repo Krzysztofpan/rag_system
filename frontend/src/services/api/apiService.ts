@@ -18,6 +18,8 @@ import type {
     SendMessageResponse,
     SourceReportResponse,
     SourceResponse,
+    UpdateNoteRequest,
+    UpdateNoteResponse,
 } from './types'
 
 export type AuthHandlers = {
@@ -212,6 +214,19 @@ class ApiService {
 
     createNoteResource = async (conversationId: string, body?: CreateNoteRequest): Promise<CreateNoteResponse> => {
         const { data } = await this.client.post<CreateNoteResponse>(`/conversations/${conversationId}/resources/note`, body ?? {})
+
+        return data
+    }
+
+    updateNoteResource = async (
+        conversationId: string,
+        resourceId: string,
+        body: UpdateNoteRequest,
+    ): Promise<UpdateNoteResponse> => {
+        const { data } = await this.client.patch<UpdateNoteResponse>(
+            `/conversations/${conversationId}/resources/note/${resourceId}`,
+            body,
+        )
 
         return data
     }

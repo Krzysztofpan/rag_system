@@ -67,9 +67,15 @@ export type CreateNoteRequest = {
     content?: NoteContent;
 }
 
+export type UpdateNoteRequest = {
+    content: UserNoteContent;
+}
+
 export type CreateNoteResponse = {
     resource: NoteResource;
 }
+
+export type UpdateNoteResponse = CreateNoteResponse
 
 export type SourceResponse = Source
 

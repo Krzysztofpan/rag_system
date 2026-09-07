@@ -60,10 +60,12 @@ from app.schemas.resource import (
     GetResourcesResponse,
     CreateNoteRequest,
     CreateResourceResponse,
+    UpdateNoteRequest,
     UserNoteContent,
     dump_note_content,
     resource_from_model,
 )
+from app.services.resource_service import ResourceNotEditableError
 from app.services.usage_limits import LimitCode, LimitExceededError
 
 conversation_router = APIRouter(
@@ -446,6 +448,32 @@ async def create_note_resource(
             title=body.title or "New Note",
             content=dump_note_content(note_content, by_alias=False),
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return CreateResourceResponse(resource=resource_from_model(resource))
+
+
+@conversation_router.patch(
+    '/{conversation_id}/resources/note/{resource_id}',
+    response_model=CreateResourceResponse,
+)
+async def update_note_resource(
+    conversation_id: UUID,
+    resource_id: UUID,
+    current_user: CurrentUserDep,
+    resource_service: ResourceServiceDep,
+    body: UpdateNoteRequest,
+) -> CreateResourceResponse:
+    try:
+        resource = await resource_service.update_note_content(
+            conversation_id,
+            resource_id,
+            user_id=current_user.user_id,
+            content=dump_note_content(body.content, by_alias=False),
+        )
+    except ResourceNotEditableError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

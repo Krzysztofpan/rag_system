@@ -9,7 +9,7 @@ type ChatNoteViewProps = {
     title?: string;
     markdown: string;
     sources?: MessageSource[];
-    onBack?: () => void;
+    onBack: () => void;
     onDelete?: () => void;
 }
 

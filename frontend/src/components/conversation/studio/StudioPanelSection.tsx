@@ -6,6 +6,8 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
+import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
+import { isUnchangedUserNote, isUserNote, userNoteContent } from '@/lib/note'
 import { cn } from '@/lib/utils'
 import type { CreateNoteResponse, NoteContent, NoteResource, Resource } from '@/services/api/types'
 
@@ -25,9 +27,10 @@ function StudioPanelSection() {
     const isCollapsed = state === 'collapsed'
     const { conversationId } = useConversationContext()
     const { mutate, isPending } = useCreateNoteResource(conversationId)
+    const { mutate: saveNote, isPending: isSavingNote } = useUpdateNoteResource(conversationId)
 
     const handleCreateNote = () => {
-        mutate({ title: 'New Note', content: { kind: 'user', html: '' } }, {
+        mutate({ title: 'New Note', content: userNoteContent() }, {
             onSuccess: ({ resource }: CreateNoteResponse) => {
                 setOpen(true)
                 setOpenNote({
@@ -58,6 +61,25 @@ function StudioPanelSection() {
         }
     }
 
+    const handleLeaveUserNote = (html: string) => {
+        if (isSavingNote) return
+        if (!openNote?.id) {
+            setOpenNote(null)
+            return
+        }
+        if (isUnchangedUserNote(openNote.content, html)) {
+            setOpenNote(null)
+            return
+        }
+        saveNote(
+            {
+                resourceId: openNote.id,
+                content: userNoteContent(html),
+            },
+            { onSuccess: () => setOpenNote(null) },
+        )
+    }
+
     if (openNote) {
         return (
             <aside
@@ -68,21 +90,22 @@ function StudioPanelSection() {
                     'w-[min(46vw,40rem)]',
                 )}
             >
-                {openNote.content.kind === 'chat'
+                {isUserNote(openNote.content)
                     ? (
+                            <NoteView
+                                key={openNote.id ?? 'new-note'}
+                                title={openNote.title}
+                                initialContent={openNote.content.html}
+                                isSaving={isSavingNote}
+                                onBack={handleLeaveUserNote}
+                            />
+                        )
+                    : (
                             <ChatNoteView
                                 key={openNote.id ?? 'chat-note'}
                                 title={openNote.title}
                                 markdown={openNote.content.markdown}
                                 sources={openNote.content.sources}
-                                onBack={() => setOpenNote(null)}
-                            />
-                        )
-                    : (
-                            <NoteView
-                                key={openNote.id ?? 'new-note'}
-                                title={openNote.title}
-                                initialContent={openNote.content.html}
                                 onBack={() => setOpenNote(null)}
                             />
                         )}

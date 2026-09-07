@@ -9,7 +9,8 @@ import NoteToolbar from './NoteToolbar'
 type NoteViewProps = {
     title?: string;
     initialContent?: string;
-    onBack?: () => void;
+    isSaving?: boolean;
+    onBack: (html: string) => void;
     onDelete?: () => void;
     onContentChange?: (html: string) => void;
 }
@@ -17,6 +18,7 @@ type NoteViewProps = {
 const NoteView = ({
     title = 'New note',
     initialContent = '',
+    isSaving = false,
     onBack,
     onDelete,
     onContentChange,
@@ -26,9 +28,14 @@ const NoteView = ({
         onContentChange,
     })
 
+    const handleBack = () => {
+        if (isSaving) return
+        onBack(editor?.getHTML() ?? initialContent)
+    }
+
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
-            <NoteHeader title={title} onBack={onBack} onDelete={onDelete} />
+            <NoteHeader title={title} onBack={handleBack} onDelete={onDelete} isSaving={isSaving} />
 
             <Separator />
 

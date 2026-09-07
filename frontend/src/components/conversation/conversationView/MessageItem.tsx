@@ -3,6 +3,7 @@ import { Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
+import { chatNoteFromMessage } from '@/lib/note'
 import { cn } from '@/lib/utils'
 import type { Message } from '@/types/Message'
 
@@ -15,14 +16,7 @@ const MessageItem = ({ message }: { message: Message }) => {
     const { mutate } = useCreateNoteResource(conversationId)
 
     const saveInNote = () => {
-        mutate({
-            content: {
-                kind: 'chat',
-                markdown: message.text,
-                messageId: message.id,
-                sources: message.sources,
-            },
-        })
+        mutate({ content: chatNoteFromMessage(message) })
     }
 
     return (

@@ -64,6 +64,10 @@ class CreateNoteRequest(APIModel):
     content: Optional[NoteContent] = None
 
 
+class UpdateNoteRequest(APIModel):
+    content: UserNoteContent
+
+
 class CreateResourceResponse(APIModel):
     resource: ResourceResponse
 

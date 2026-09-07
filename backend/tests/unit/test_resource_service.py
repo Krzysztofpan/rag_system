@@ -1,0 +1,112 @@
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
+
+import pytest
+
+from app.db.models.resource import Resource, ResourceType
+from app.services.resource_service import ResourceNotEditableError, ResourceService
+
+
+def _session_with_resource(resource: Resource | None) -> AsyncMock:
+    session = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = resource
+    session.execute = AsyncMock(return_value=result)
+    return session
+
+
+async def test_get_resource_returns_owned_row():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    result = await service.get_resource(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+    )
+
+    assert result is resource
+
+
+async def test_get_resource_raises_when_missing_or_foreign():
+    resource_id = uuid4()
+    session = _session_with_resource(None)
+    service = ResourceService(session)
+
+    with pytest.raises(ValueError, match=f"Resource {resource_id} not found"):
+        await service.get_resource(uuid4(), resource_id, user_id=uuid4())
+
+
+async def test_update_note_content_replaces_user_html():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+    content = {"kind": "user", "html": "<p>Saved</p>"}
+
+    updated = await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content=content,
+    )
+
+    assert updated is resource
+    assert resource.content == content
+    assert resource.updated_at > datetime(2026, 1, 1, tzinfo=UTC)
+    session.commit.assert_awaited_once()
+    session.refresh.assert_awaited_once_with(resource)
+
+
+async def test_update_note_content_rejects_chat_notes():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Pinned",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotEditableError, match="Only user notes can be updated"):
+        await service.update_note_content(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+            content={"kind": "user", "html": "<p>Nope</p>"},
+        )
+
+    session.commit.assert_not_awaited()
+
+
+async def test_update_note_content_rejects_non_notes():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.mind_map,
+        title="Map",
+        content={"nodes": []},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotEditableError, match="Only user notes can be updated"):
+        await service.update_note_content(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+            content={"kind": "user", "html": "<p>Nope</p>"},
+        )
+
+    session.commit.assert_not_awaited()

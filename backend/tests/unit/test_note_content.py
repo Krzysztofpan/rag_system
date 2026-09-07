@@ -7,6 +7,7 @@ from app.db.models.resource import Resource, ResourceType
 from app.schemas.resource import (
     ChatNoteContent,
     CreateNoteRequest,
+    UpdateNoteRequest,
     UserNoteContent,
     dump_note_content,
     resource_from_model,
@@ -48,6 +49,18 @@ def test_create_note_request_rejects_unknown_kind():
         CreateNoteRequest.model_validate({"content": {}})
     with pytest.raises(ValidationError):
         CreateNoteRequest.model_validate({"content": {"text": "pinned"}})
+
+
+def test_update_note_request_requires_user_html():
+    request = UpdateNoteRequest.model_validate({"content": {"html": "<p>Hi</p>"}})
+    assert request.content == UserNoteContent(html="<p>Hi</p>")
+
+
+def test_update_note_request_rejects_chat_content():
+    with pytest.raises(ValidationError):
+        UpdateNoteRequest.model_validate({"content": {"kind": "chat", "markdown": "# Hi"}})
+    with pytest.raises(ValidationError):
+        UpdateNoteRequest.model_validate({})
 
 
 def test_resource_from_model_dumps_valid_chat_note():
