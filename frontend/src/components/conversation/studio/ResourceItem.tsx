@@ -3,7 +3,7 @@ import { EllipsisVertical, type LucideIcon } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useSidebar } from '@/components/ui/sidebar'
-import { formatDate } from '@/lib/date'
+import { formatRelativeTime } from '@/lib/date'
 
 import ResourceActionsMenu from './ResourceActionsMenu'
 
@@ -20,11 +20,7 @@ const ResourceItem = ({ id, title, icon: Icon, createdAt, onOpen }: ResourceItem
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const isCollapsed = state === 'collapsed'
 
-    const formattedCreatedAt = formatDate(createdAt, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    })
+    const formattedCreatedAt = formatRelativeTime(createdAt)
 
     return (
         <div
