@@ -3,7 +3,7 @@ import { useIsMutating, useMutation } from '@tanstack/react-query'
 import { toast } from '@/components/ui/toast'
 import { apiErrorMessage } from '@/lib/apiError'
 import { apiService } from '@/services/api/apiService'
-import type { NoteContent } from '@/services/api/types'
+import type { CreateNoteRequest } from '@/services/api/types'
 
 import { useResourcesClient } from './useResources'
 
@@ -17,7 +17,7 @@ const useCreateNoteResource = (conversationId: string) => {
 
     const mutation = useMutation({
         mutationKey,
-        mutationFn: (body?: { title: string; content: NoteContent }) =>
+        mutationFn: (body?: CreateNoteRequest) =>
             apiService.createNoteResource(conversationId, body),
 
         onError: (error) => {

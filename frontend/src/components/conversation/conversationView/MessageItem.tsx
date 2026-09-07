@@ -37,7 +37,19 @@ const MessageItem = ({ message }: { message: Message }) => {
                                     ))}
                                 </div>
                             )}
-                            <Button onClick={() => mutate({ title: '', content: { text: message.text } })} variant="outline" className="w-40 cursor-pointer">
+                            <Button
+                                onClick={() => mutate({
+                                    title: '',
+                                    content: {
+                                        kind: 'chat',
+                                        markdown: message.text,
+                                        messageId: message.id,
+                                        sources: message.sources,
+                                    },
+                                })}
+                                variant="outline"
+                                className="w-40 cursor-pointer"
+                            >
                                 <Pin />
                                 Save in note
                             </Button>

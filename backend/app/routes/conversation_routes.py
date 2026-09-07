@@ -58,8 +58,10 @@ from app.schemas.source import (
 )
 from app.schemas.resource import (
     GetResourcesResponse,
-    CreateResourceRequest,
+    CreateNoteRequest,
     CreateResourceResponse,
+    UserNoteContent,
+    dump_note_content,
     resource_from_model,
 )
 from app.services.usage_limits import LimitCode, LimitExceededError
@@ -433,15 +435,16 @@ async def create_note_resource(
     conversation_id: UUID,
     current_user: CurrentUserDep,
     resource_service: ResourceServiceDep,
-    body: CreateResourceRequest,
+    body: CreateNoteRequest,
 ) -> CreateResourceResponse:
+    note_content = body.content if body.content is not None else UserNoteContent()
     try:
         resource = await resource_service.create_resource(
             conversation_id,
             user_id=current_user.user_id,
             type=ResourceType.note,
             title=body.title or "New Note",
-            content=body.content or {},
+            content=dump_note_content(note_content, by_alias=False),
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
