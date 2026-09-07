@@ -10,7 +10,7 @@ type NoteViewProps = {
     title?: string;
     initialContent?: string;
     isSaving?: boolean;
-    onBack?: (html: string) => void | Promise<void>;
+    onBack?: (html: string) => void;
     onDelete?: () => void;
     onContentChange?: (html: string) => void;
 }
@@ -30,7 +30,7 @@ const NoteView = ({
 
     const handleBack = () => {
         if (isSaving) return
-        void onBack?.(editor?.getHTML() ?? initialContent)
+        onBack?.(editor?.getHTML() ?? initialContent)
     }
 
     return (

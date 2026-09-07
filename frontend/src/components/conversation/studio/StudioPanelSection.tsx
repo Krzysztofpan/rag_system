@@ -7,6 +7,7 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
 import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
+import { isUnchangedUserNote, isUserNote, userNoteContent } from '@/lib/note'
 import { cn } from '@/lib/utils'
 import type { CreateNoteResponse, NoteContent, NoteResource, Resource } from '@/services/api/types'
 
@@ -26,10 +27,10 @@ function StudioPanelSection() {
     const isCollapsed = state === 'collapsed'
     const { conversationId } = useConversationContext()
     const { mutate, isPending } = useCreateNoteResource(conversationId)
-    const { mutateAsync: saveNote, isPending: isSavingNote } = useUpdateNoteResource(conversationId)
+    const { mutate: saveNote, isPending: isSavingNote } = useUpdateNoteResource(conversationId)
 
     const handleCreateNote = () => {
-        mutate({ title: 'New Note', content: { kind: 'user', html: '' } }, {
+        mutate({ title: 'New Note', content: userNoteContent() }, {
             onSuccess: ({ resource }: CreateNoteResponse) => {
                 setOpen(true)
                 setOpenNote({
@@ -60,26 +61,23 @@ function StudioPanelSection() {
         }
     }
 
-    const handleLeaveUserNote = async (html: string) => {
+    const handleLeaveUserNote = (html: string) => {
         if (isSavingNote) return
         if (!openNote?.id) {
             setOpenNote(null)
             return
         }
-        if (openNote.content.kind === 'user' && html === openNote.content.html) {
+        if (isUnchangedUserNote(openNote.content, html)) {
             setOpenNote(null)
             return
         }
-        try {
-            await saveNote({
+        saveNote(
+            {
                 resourceId: openNote.id,
-                content: { kind: 'user', html },
-            })
-            setOpenNote(null)
-        }
-        catch {
-            // Toast is handled in useUpdateNoteResource
-        }
+                content: userNoteContent(html),
+            },
+            { onSuccess: () => setOpenNote(null) },
+        )
     }
 
     if (openNote) {
@@ -92,23 +90,23 @@ function StudioPanelSection() {
                     'w-[min(46vw,40rem)]',
                 )}
             >
-                {openNote.content.kind === 'chat'
+                {isUserNote(openNote.content)
                     ? (
-                            <ChatNoteView
-                                key={openNote.id ?? 'chat-note'}
-                                title={openNote.title}
-                                markdown={openNote.content.markdown}
-                                sources={openNote.content.sources}
-                                onBack={() => setOpenNote(null)}
-                            />
-                        )
-                    : (
                             <NoteView
                                 key={openNote.id ?? 'new-note'}
                                 title={openNote.title}
                                 initialContent={openNote.content.html}
                                 isSaving={isSavingNote}
                                 onBack={handleLeaveUserNote}
+                            />
+                        )
+                    : (
+                            <ChatNoteView
+                                key={openNote.id ?? 'chat-note'}
+                                title={openNote.title}
+                                markdown={openNote.content.markdown}
+                                sources={openNote.content.sources}
+                                onBack={() => setOpenNote(null)}
                             />
                         )}
             </aside>
