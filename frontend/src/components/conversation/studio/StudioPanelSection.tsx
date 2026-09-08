@@ -7,7 +7,7 @@ import useCreateNoteResource from '@/hooks/useCreateNoteResource'
 import { useDeleteResource } from '@/hooks/useDeleteResource'
 import { useResources } from '@/hooks/useResources'
 import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
-import { isUnchangedUserNote, isUserNote, userNoteContent } from '@/lib/note'
+import { DEFAULT_NOTE_TITLE, isUnchangedUserNote, isUserNote, normalizeNoteTitle, userNoteContent } from '@/lib/note'
 import { cn } from '@/lib/utils'
 import type { CreateNoteResponse, NoteResource, Resource } from '@/services/api/types'
 
@@ -30,7 +30,7 @@ function StudioPanelSection() {
     const { mutate: deleteResource, isPending: isDeleting } = useDeleteResource(conversationId)
 
     const handleCreateNote = () => {
-        mutate({ title: 'New Note', content: userNoteContent() }, {
+        mutate({ title: DEFAULT_NOTE_TITLE, content: userNoteContent() }, {
             onSuccess: ({ resource }: CreateNoteResponse) => {
                 setOpen(true)
                 openStudioNote(resource)
@@ -53,13 +53,19 @@ function StudioPanelSection() {
         }
     }
 
-    const handleLeaveUserNote = (html: string) => {
+    const liveOpenNote = resources?.find((resource): resource is NoteResource => (
+        resource.type === 'note' && resource.id === openNote?.id
+    ))
+    const openNoteTitle = liveOpenNote?.title ?? openNote?.title ?? ''
+
+    const handleLeaveUserNote = (html: string, title: string) => {
         if (isSavingNote) return
         if (!openNote?.id) {
             setOpenNote(null)
             return
         }
-        if (isUnchangedUserNote(openNote.content, html)) {
+        const nextTitle = normalizeNoteTitle(title)
+        if (isUnchangedUserNote(openNote, html, nextTitle)) {
             setOpenNote(null)
             return
         }
@@ -67,6 +73,28 @@ function StudioPanelSection() {
             {
                 resourceId: openNote.id,
                 content: userNoteContent(html),
+                title: nextTitle,
+            },
+            { onSuccess: () => setOpenNote(null) },
+        )
+    }
+
+    const handleLeaveChatNote = (title: string) => {
+        if (isSavingNote) return
+        if (!openNote?.id) {
+            setOpenNote(null)
+            return
+        }
+        const nextTitle = normalizeNoteTitle(title)
+        const currentTitle = liveOpenNote?.title ?? openNote.title
+        if (nextTitle === currentTitle) {
+            setOpenNote(null)
+            return
+        }
+        saveNote(
+            {
+                resourceId: openNote.id,
+                title: nextTitle,
             },
             { onSuccess: () => setOpenNote(null) },
         )
@@ -78,11 +106,6 @@ function StudioPanelSection() {
         }
         setOpenNote(null)
     }
-
-    const liveOpenNote = resources?.find((resource): resource is NoteResource => (
-        resource.type === 'note' && resource.id === openNote?.id
-    ))
-    const openNoteTitle = liveOpenNote?.title ?? openNote?.title ?? ''
 
     if (openNote) {
         return (
@@ -112,8 +135,9 @@ function StudioPanelSection() {
                                 title={openNoteTitle}
                                 markdown={openNote.content.markdown}
                                 sources={openNote.content.sources}
-                                onBack={() => setOpenNote(null)}
+                                onBack={handleLeaveChatNote}
                                 onDelete={handleDeleteOpenNote}
+                                isSaving={isSavingNote}
                                 isDeleting={isDeleting}
                             />
                         )}

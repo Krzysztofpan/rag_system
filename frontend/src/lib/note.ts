@@ -1,6 +1,9 @@
 import type { ChatNoteContent, NoteContent, NoteResource, Resource, UserNoteContent } from '@/services/api/types'
 import type { Message } from '@/types/Message'
 
+export const DEFAULT_NOTE_TITLE = 'New Note'
+export const NOTE_TITLE_MAX_CHARS = 60
+
 export function isUserNote(content: NoteContent): content is UserNoteContent {
     return content.kind === 'user'
 }
@@ -22,8 +25,18 @@ export function noteHasContent(content: NoteContent): boolean {
     return htmlToPlainText(content.html).length > 0
 }
 
-export function isUnchangedUserNote(content: NoteContent, html: string): boolean {
-    return isUserNote(content) && content.html === html
+export function normalizeNoteTitle(title: string): string {
+    return title.trim() || DEFAULT_NOTE_TITLE
+}
+
+export function isUnchangedUserNote(
+    note: { content: NoteContent; title: string },
+    html: string,
+    title: string,
+): boolean {
+    return isUserNote(note.content)
+        && note.content.html === html
+        && note.title === normalizeNoteTitle(title)
 }
 
 export function userNoteContent(html = ''): UserNoteContent {

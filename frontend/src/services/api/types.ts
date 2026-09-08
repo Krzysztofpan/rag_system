@@ -68,7 +68,8 @@ export type CreateNoteRequest = {
 }
 
 export type UpdateNoteRequest = {
-    content: UserNoteContent;
+    content?: UserNoteContent;
+    title?: string;
 }
 
 export type CreateNoteResponse = {

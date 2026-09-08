@@ -74,6 +74,29 @@ def test_create_note_request_rejects_unknown_kind():
 def test_update_note_request_requires_user_html():
     request = UpdateNoteRequest.model_validate({"content": {"html": "<p>Hi</p>"}})
     assert request.content == UserNoteContent(html="<p>Hi</p>")
+    assert request.title is None
+
+
+def test_update_note_request_accepts_title():
+    request = UpdateNoteRequest.model_validate({
+        "content": {"html": "<p>Hi</p>"},
+        "title": "Invoice terms",
+    })
+    assert request.title == "Invoice terms"
+
+
+def test_update_note_request_accepts_title_only():
+    request = UpdateNoteRequest.model_validate({"title": "Invoice terms"})
+    assert request.title == "Invoice terms"
+    assert request.content is None
+
+
+def test_update_note_request_rejects_long_title():
+    with pytest.raises(ValidationError):
+        UpdateNoteRequest.model_validate({
+            "content": {"html": "<p>Hi</p>"},
+            "title": "x" * 61,
+        })
 
 
 def test_update_note_request_rejects_chat_content():
