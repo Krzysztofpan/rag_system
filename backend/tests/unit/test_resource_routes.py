@@ -309,6 +309,33 @@ def test_update_note_saves_user_html(client):
         "kind": "user",
         "html": "<p>Saved</p>",
     }
+    assert update_note_content.await_args.kwargs["title"] is None
+
+
+def test_update_note_saves_title(client):
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="Invoice terms",
+        content={"kind": "user", "html": "<p>Saved</p>"},
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.update_note_content",
+        new=AsyncMock(return_value=resource),
+    ) as update_note_content:
+        response = client.patch(
+            f"/conversations/{conversation_id}/resources/note/{resource.id}",
+            json={
+                "content": {"kind": "user", "html": "<p>Saved</p>"},
+                "title": "Invoice terms",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["resource"]["title"] == "Invoice terms"
+    assert update_note_content.await_args.kwargs["title"] == "Invoice terms"
 
 
 def test_update_note_not_found_returns_404(client):
@@ -334,7 +361,7 @@ def test_update_chat_note_returns_400(client):
 
     with patch(
         "app.services.resource_service.ResourceService.update_note_content",
-        new=AsyncMock(side_effect=ResourceNotEditableError("Only user notes can be updated")),
+        new=AsyncMock(side_effect=ResourceNotEditableError("Chat note content cannot be updated")),
     ):
         response = client.patch(
             f"/conversations/{conversation_id}/resources/note/{resource_id}",
@@ -342,7 +369,31 @@ def test_update_chat_note_returns_400(client):
         )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Only user notes can be updated"
+    assert response.json()["detail"] == "Chat note content cannot be updated"
+
+
+def test_update_chat_note_saves_title(client):
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="Invoice terms",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.update_note_content",
+        new=AsyncMock(return_value=resource),
+    ) as update_note_content:
+        response = client.patch(
+            f"/conversations/{conversation_id}/resources/note/{resource.id}",
+            json={"title": "Invoice terms"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["resource"]["title"] == "Invoice terms"
+    assert update_note_content.await_args.kwargs["content"] is None
+    assert update_note_content.await_args.kwargs["title"] == "Invoice terms"
 
 
 def test_delete_resource_returns_deleted_resource(client):

@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { EditorContent } from '@tiptap/react'
 
 import { Separator } from '@/components/ui/separator'
 import { useNoteEditor } from '@/hooks/useNoteEditor'
+import { DEFAULT_NOTE_TITLE } from '@/lib/note'
 
 import NoteHeader from './NoteHeader'
 import NoteToolbar from './NoteToolbar'
@@ -10,14 +12,14 @@ type NoteViewProps = {
     title?: string;
     initialContent?: string;
     isSaving?: boolean;
-    onBack: (html: string) => void;
+    onBack: (html: string, title: string) => void;
     onDelete: () => void;
     isDeleting?: boolean;
     onContentChange?: (html: string) => void;
 }
 
 const NoteView = ({
-    title = 'New note',
+    title: initialTitle = DEFAULT_NOTE_TITLE,
     initialContent = '',
     isSaving = false,
     onBack,
@@ -25,6 +27,7 @@ const NoteView = ({
     isDeleting,
     onContentChange,
 }: NoteViewProps) => {
+    const [title, setTitle] = useState(initialTitle)
     const editor = useNoteEditor({
         content: initialContent,
         onContentChange,
@@ -32,13 +35,14 @@ const NoteView = ({
 
     const handleBack = () => {
         if (isSaving) return
-        onBack(editor?.getHTML() ?? initialContent)
+        onBack(editor?.getHTML() ?? initialContent, title)
     }
 
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
             <NoteHeader
                 title={title}
+                onTitleChange={setTitle}
                 onBack={handleBack}
                 onDelete={onDelete}
                 isSaving={isSaving}

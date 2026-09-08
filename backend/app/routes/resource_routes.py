@@ -137,7 +137,12 @@ async def update_note_resource(
             conversation_id,
             resource_id,
             user_id=current_user.user_id,
-            content=dump_note_content(body.content, by_alias=False),
+            content=(
+                dump_note_content(body.content, by_alias=False)
+                if body.content is not None
+                else None
+            ),
+            title=body.title,
         )
     except ResourceNotEditableError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

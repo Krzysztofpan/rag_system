@@ -12,8 +12,8 @@ const useUpdateNoteResource = (conversationId: string) => {
     const { updateResource } = useResourcesClient(conversationId)
 
     return useMutation({
-        mutationFn: ({ resourceId, content }: { resourceId: string } & UpdateNoteRequest) =>
-            apiService.updateNoteResource(conversationId, resourceId, { content }),
+        mutationFn: ({ resourceId, ...body }: { resourceId: string } & UpdateNoteRequest) =>
+            apiService.updateNoteResource(conversationId, resourceId, body),
 
         onError: (error) => {
             toast.add({

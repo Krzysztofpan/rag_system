@@ -10,6 +10,7 @@ from app.db.models import Resource
 from app.db.models.conversation import Conversation
 from app.db.models.resource import ResourceType
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE, note_source_markdown, source_filename_from_title
+from app.prompts.resource import NOTE_TITLE_MAX_CHARS
 
 
 class ResourceNotEditableError(ValueError):
@@ -136,19 +137,26 @@ class ResourceService:
         resource_id: UUID,
         *,
         user_id: UUID,
-        content: dict[str, Any],
+        content: dict[str, Any] | None = None,
+        title: str | None = None,
     ) -> Resource:
         resource = await self.get_resource(
             conversation_id,
             resource_id,
             user_id=user_id,
         )
-        kind = (resource.content or {}).get("kind", "user")
-        if resource.type != ResourceType.note or kind == "chat":
-            raise ResourceNotEditableError("Only user notes can be updated")
+        if resource.type != ResourceType.note:
+            raise ResourceNotEditableError("Only notes can be updated")
 
-        resource.content = content
-        flag_modified(resource, "content")
+        kind = (resource.content or {}).get("kind", "user")
+        if content is not None:
+            if kind == "chat":
+                raise ResourceNotEditableError("Chat note content cannot be updated")
+            resource.content = content
+            flag_modified(resource, "content")
+        if title is not None:
+            next_title = title.strip() or DEFAULT_NOTE_TITLE
+            resource.title = next_title[:NOTE_TITLE_MAX_CHARS].rstrip()
         resource.updated_at = datetime.now(UTC)
         await self.session.commit()
         await self.session.refresh(resource)

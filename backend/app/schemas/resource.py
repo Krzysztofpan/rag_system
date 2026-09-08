@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, Optional
 from uuid import UUID
 
-from pydantic import Field, TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError, model_validator
 
 from app.db.models import Resource, ResourceType
+from app.prompts.resource import NOTE_TITLE_MAX_CHARS
 from app.schemas.base import APIModel
 from app.schemas.message_source import MessageSource
 
@@ -68,7 +69,14 @@ class CreateNoteRequest(APIModel):
 
 
 class UpdateNoteRequest(APIModel):
-    content: UserNoteContent
+    content: Optional[UserNoteContent] = None
+    title: Optional[str] = Field(default=None, max_length=NOTE_TITLE_MAX_CHARS)
+
+    @model_validator(mode="after")
+    def require_content_or_title(self) -> "UpdateNoteRequest":
+        if self.content is None and self.title is None:
+            raise ValueError("content or title is required")
+        return self
 
 
 class CreateResourceResponse(APIModel):

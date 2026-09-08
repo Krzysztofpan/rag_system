@@ -114,7 +114,74 @@ async def test_update_note_content_replaces_user_html():
     session.refresh.assert_awaited_once_with(resource)
 
 
-async def test_update_note_content_rejects_chat_notes():
+async def test_update_note_content_updates_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+    content = {"kind": "user", "html": "<p>Saved</p>"}
+
+    updated = await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content=content,
+        title="  Invoice terms  ",
+    )
+
+    assert updated is resource
+    assert resource.title == "Invoice terms"
+    assert resource.content == content
+    session.commit.assert_awaited_once()
+
+
+async def test_update_note_content_blank_title_uses_default():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Custom",
+        content={"kind": "user", "html": "<p>Hi</p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content={"kind": "user", "html": "<p>Hi</p>"},
+        title="   ",
+    )
+
+    assert resource.title == DEFAULT_NOTE_TITLE
+
+
+async def test_update_note_content_omitted_title_keeps_existing():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Keep me",
+        content={"kind": "user", "html": "<p>Hi</p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content={"kind": "user", "html": "<p>Updated</p>"},
+    )
+
+    assert resource.title == "Keep me"
+
+
+async def test_update_note_content_rejects_chat_note_body():
     resource = Resource(
         conversation_id=uuid4(),
         type=ResourceType.note,
@@ -124,7 +191,7 @@ async def test_update_note_content_rejects_chat_notes():
     session = _session_with_resource(resource)
     service = ResourceService(session)
 
-    with pytest.raises(ResourceNotEditableError, match="Only user notes can be updated"):
+    with pytest.raises(ResourceNotEditableError, match="Chat note content cannot be updated"):
         await service.update_note_content(
             resource.conversation_id,
             resource.id,
@@ -133,6 +200,29 @@ async def test_update_note_content_rejects_chat_notes():
         )
 
     session.commit.assert_not_awaited()
+
+
+async def test_update_note_content_updates_chat_note_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    updated = await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        title="Invoice terms",
+    )
+
+    assert updated is resource
+    assert resource.title == "Invoice terms"
+    assert resource.content == {"kind": "chat", "markdown": "# Hello"}
+    session.commit.assert_awaited_once()
 
 
 async def test_update_note_content_rejects_non_notes():
@@ -145,7 +235,7 @@ async def test_update_note_content_rejects_non_notes():
     session = _session_with_resource(resource)
     service = ResourceService(session)
 
-    with pytest.raises(ResourceNotEditableError, match="Only user notes can be updated"):
+    with pytest.raises(ResourceNotEditableError, match="Only notes can be updated"):
         await service.update_note_content(
             resource.conversation_id,
             resource.id,
