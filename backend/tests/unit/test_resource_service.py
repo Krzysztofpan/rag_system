@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.db.models.resource import Resource, ResourceType
+from app.lib.note_markdown import DEFAULT_NOTE_TITLE
 from app.services.resource_service import (
     ResourceNotConvertibleError,
     ResourceNotEditableError,
@@ -115,6 +116,52 @@ async def test_update_note_content_rejects_non_notes():
             content={"kind": "user", "html": "<p>Nope</p>"},
         )
 
+    session.commit.assert_not_awaited()
+
+
+async def test_update_title_replaces_default_note_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title=DEFAULT_NOTE_TITLE,
+        content={"kind": "chat", "markdown": "# Hello"},
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    updated = await service.update_title(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        title="Invoice terms",
+    )
+
+    assert updated is resource
+    assert resource.title == "Invoice terms"
+    assert resource.updated_at > datetime(2026, 1, 1, tzinfo=UTC)
+    session.commit.assert_awaited_once()
+
+
+async def test_update_title_keeps_custom_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Pinned recap",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    updated = await service.update_title(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        title="Invoice terms",
+    )
+
+    assert updated is resource
+    assert resource.title == "Pinned recap"
     session.commit.assert_not_awaited()
 
 

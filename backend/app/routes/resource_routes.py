@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth.deps import get_current_user
 from app.db.models.resource import ResourceType
-from app.dependencies import CurrentUserDep, ResourceServiceDep
+from app.dependencies import CurrentUserDep, ResourceServiceDep, StudioQueueDep
+from app.lib.note_markdown import DEFAULT_NOTE_TITLE
 from app.schemas.resource import (
+    ChatNoteContent,
     CreateNoteRequest,
     CreateResourceResponse,
     DeleteResourceResponse,
@@ -16,6 +18,7 @@ from app.schemas.resource import (
     resource_from_model,
 )
 from app.services.resource_service import ResourceNotEditableError
+from app.studio.queue import NoteTitleJob
 
 resource_router = APIRouter(
     prefix="/conversations",
@@ -55,19 +58,37 @@ async def create_note_resource(
     conversation_id: UUID,
     current_user: CurrentUserDep,
     resource_service: ResourceServiceDep,
+    studio_queue: StudioQueueDep,
     body: CreateNoteRequest,
 ) -> CreateResourceResponse:
     note_content = body.content if body.content is not None else UserNoteContent()
+    title = body.title.strip() if body.title else DEFAULT_NOTE_TITLE
+    if not title:
+        title = DEFAULT_NOTE_TITLE
     try:
         resource = await resource_service.create_resource(
             conversation_id,
             user_id=current_user.user_id,
             type=ResourceType.note,
-            title=body.title or "New Note",
+            title=title,
             content=dump_note_content(note_content, by_alias=False),
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    # Title generation is only for chat pins, not user-created notes.
+    if (
+        isinstance(note_content, ChatNoteContent)
+        and note_content.markdown.strip()
+        and title == DEFAULT_NOTE_TITLE
+    ):
+        await studio_queue.enqueue(
+            NoteTitleJob(
+                conversation_id=conversation_id,
+                resource_id=resource.id,
+                user_id=current_user.user_id,
+            )
+        )
 
     return CreateResourceResponse(resource=resource_from_model(resource))
 

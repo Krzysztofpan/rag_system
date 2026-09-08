@@ -1,5 +1,7 @@
+import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { userQueryKey } from '@/lib/queryKeys'
 import { apiService } from '@/services/api/apiService'
 import type { Resource } from '@/services/api/types'
 
@@ -24,10 +26,20 @@ export const useResources = (conversationId: string | null) => {
 export const useResourcesClient = (conversationId: string) => {
     const queryClient = useQueryClient()
     const queryKey = useUserQueryKey('conversation-resources', conversationId)
+    const userId = queryKey[0]
 
     const addResource = (resource: Resource) => {
+        const pendingTitlesKey = userQueryKey(userId, 'pending-resource-titles', conversationId)
+        const pending = queryClient.getQueryData<Record<string, string>>(pendingTitlesKey) ?? {}
+        const title = pending[resource.id] ?? resource.title
+        if (pending[resource.id] !== undefined) {
+            const rest = Object.fromEntries(
+                Object.entries(pending).filter(([id]) => id !== resource.id),
+            )
+            queryClient.setQueryData(pendingTitlesKey, rest)
+        }
         queryClient.setQueryData<Resource[]>(queryKey, (current = []) =>
-            [...current, resource],
+            [...current, { ...resource, title }],
         )
     }
 
@@ -36,6 +48,21 @@ export const useResourcesClient = (conversationId: string) => {
             current.map((item) => (item.id === resource.id ? resource : item)),
         )
     }
+
+    const patchResourceTitle = useCallback((resourceId: string, title: string) => {
+        const listQueryKey = userQueryKey(userId, 'conversation-resources', conversationId)
+        const pendingTitlesKey = userQueryKey(userId, 'pending-resource-titles', conversationId)
+        queryClient.setQueryData<Resource[]>(listQueryKey, (current = []) => {
+            if (!current.some((resource) => resource.id === resourceId)) {
+                const pending = queryClient.getQueryData<Record<string, string>>(pendingTitlesKey) ?? {}
+                queryClient.setQueryData(pendingTitlesKey, { ...pending, [resourceId]: title })
+                return current
+            }
+            return current.map((item) => (
+                item.id === resourceId ? { ...item, title } : item
+            ))
+        })
+    }, [conversationId, queryClient, userId])
 
     const deleteResource = async (resourceId: string) => {
         await queryClient.cancelQueries({ queryKey })
@@ -67,6 +94,7 @@ export const useResourcesClient = (conversationId: string) => {
     return {
         addResource,
         updateResource,
+        patchResourceTitle,
         deleteResource,
         insertResourceInIndex,
     }
