@@ -3,7 +3,6 @@ from typing import Any, List
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -11,18 +10,6 @@ from app.db.models import Resource
 from app.db.models.conversation import Conversation
 from app.db.models.resource import ResourceType
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE, note_source_markdown, source_filename_from_title
-
-
-def chat_note_message_id(content: dict[str, Any] | None) -> UUID | None:
-    if not content or content.get("kind") != "chat":
-        return None
-    raw = content.get("message_id")
-    if raw is None:
-        return None
-    try:
-        return UUID(str(raw))
-    except (AttributeError, TypeError, ValueError):
-        return None
 
 
 class ResourceNotEditableError(ValueError):
@@ -105,47 +92,6 @@ class ResourceService:
             )
         )
         return result.scalar_one_or_none()
-
-    async def create_note(
-        self,
-        conversation_id: UUID,
-        *,
-        user_id: UUID,
-        title: str,
-        content: dict[str, Any],
-    ) -> tuple[Resource, bool]:
-        message_id = chat_note_message_id(content)
-        if message_id is not None:
-            existing = await self.find_chat_note_by_message_id(
-                conversation_id,
-                message_id,
-                user_id=user_id,
-            )
-            if existing is not None:
-                return existing, False
-
-        try:
-            resource = await self.create_resource(
-                conversation_id,
-                user_id=user_id,
-                type=ResourceType.note,
-                title=title,
-                content=content,
-            )
-        except IntegrityError:
-            await self.session.rollback()
-            if message_id is None:
-                raise
-            existing = await self.find_chat_note_by_message_id(
-                conversation_id,
-                message_id,
-                user_id=user_id,
-            )
-            if existing is None:
-                raise
-            return existing, False
-
-        return resource, True
 
     async def get_resource(
         self,

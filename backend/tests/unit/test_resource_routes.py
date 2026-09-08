@@ -91,14 +91,14 @@ def test_create_note_defaults_to_user_html(client, studio_queue):
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.create_note",
-        new=AsyncMock(return_value=(resource, True)),
-    ) as create_note:
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(return_value=resource),
+    ) as create_resource:
         response = client.post(f"/conversations/{conversation_id}/resources/note", json={})
 
     assert response.status_code == 200
     assert response.json()["resource"]["content"] == {"kind": "user", "html": ""}
-    assert create_note.await_args.kwargs["content"] == {"kind": "user", "html": ""}
+    assert create_resource.await_args.kwargs["content"] == {"kind": "user", "html": ""}
     studio_queue.enqueue.assert_not_awaited()
 
 
@@ -120,9 +120,12 @@ def test_create_chat_note_stores_markdown(client, studio_queue):
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.create_note",
-        new=AsyncMock(return_value=(resource, True)),
-    ) as create_note:
+        "app.services.resource_service.ResourceService.find_chat_note_by_message_id",
+        new=AsyncMock(return_value=None),
+    ), patch(
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(return_value=resource),
+    ) as create_resource:
         response = client.post(
             f"/conversations/{conversation_id}/resources/note",
             json={
@@ -151,7 +154,7 @@ def test_create_chat_note_stores_markdown(client, studio_queue):
             "chunkId": str(chunk_id),
         }],
     }
-    assert create_note.await_args.kwargs["content"] == {
+    assert create_resource.await_args.kwargs["content"] == {
         "kind": "chat",
         "markdown": "# Hello",
         "message_id": str(message_id),
@@ -174,8 +177,8 @@ def test_create_chat_note_with_custom_title_skips_title_job(client, studio_queue
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.create_note",
-        new=AsyncMock(return_value=(resource, True)),
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(return_value=resource),
     ):
         response = client.post(
             f"/conversations/{conversation_id}/resources/note",
@@ -204,9 +207,12 @@ def test_create_chat_note_returns_existing_without_title_job(client, studio_queu
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.create_note",
-        new=AsyncMock(return_value=(resource, False)),
-    ) as create_note:
+        "app.services.resource_service.ResourceService.find_chat_note_by_message_id",
+        new=AsyncMock(return_value=resource),
+    ) as find_chat_note, patch(
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(),
+    ) as create_resource:
         response = client.post(
             f"/conversations/{conversation_id}/resources/note",
             json={
@@ -221,7 +227,8 @@ def test_create_chat_note_returns_existing_without_title_job(client, studio_queu
     assert response.status_code == 200
     assert response.json()["resource"]["id"] == str(resource.id)
     assert response.json()["resource"]["title"] == "Invoice terms"
-    create_note.assert_awaited_once()
+    find_chat_note.assert_awaited_once()
+    create_resource.assert_not_awaited()
     studio_queue.enqueue.assert_not_awaited()
 
 

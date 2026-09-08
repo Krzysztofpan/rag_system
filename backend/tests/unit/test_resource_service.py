@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 
 from app.db.models.resource import Resource, ResourceType
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE
@@ -13,7 +12,6 @@ from app.services.resource_service import (
     ResourceNotConvertibleError,
     ResourceNotEditableError,
     ResourceService,
-    chat_note_message_id,
 )
 
 
@@ -25,31 +23,7 @@ def _session_with_resource(resource: Resource | None) -> AsyncMock:
     return session
 
 
-def _session_with_execute_results(*values: object) -> AsyncMock:
-    session = AsyncMock()
-    session.add = MagicMock()
-    results = []
-    for value in values:
-        result = MagicMock()
-        result.scalar_one_or_none.return_value = value
-        results.append(result)
-    session.execute = AsyncMock(side_effect=results)
-    return session
-
-
-def test_chat_note_message_id_reads_chat_payload():
-    message_id = uuid4()
-    assert chat_note_message_id({
-        "kind": "chat",
-        "markdown": "# Hi",
-        "message_id": str(message_id),
-    }) == message_id
-    assert chat_note_message_id({"kind": "user", "html": ""}) is None
-    assert chat_note_message_id({"kind": "chat", "markdown": "# Hi"}) is None
-    assert chat_note_message_id({"kind": "chat", "message_id": "not-a-uuid"}) is None
-
-
-async def test_create_note_returns_existing_chat_pin():
+async def test_find_chat_note_by_message_id_returns_owned_pin():
     message_id = uuid4()
     resource = Resource(
         conversation_id=uuid4(),
@@ -61,116 +35,29 @@ async def test_create_note_returns_existing_chat_pin():
             "message_id": str(message_id),
         },
     )
-    session = _session_with_execute_results(resource)
+    session = _session_with_resource(resource)
     service = ResourceService(session)
 
-    result, created = await service.create_note(
+    result = await service.find_chat_note_by_message_id(
         resource.conversation_id,
+        message_id,
         user_id=uuid4(),
-        title="New Note",
-        content=resource.content,
     )
 
     assert result is resource
-    assert created is False
-    session.add.assert_not_called()
-    session.commit.assert_not_awaited()
 
 
-async def test_create_note_inserts_new_chat_pin():
-    message_id = uuid4()
-    conversation_id = uuid4()
-    content = {
-        "kind": "chat",
-        "markdown": "# Hello",
-        "message_id": str(message_id),
-    }
-    session = _session_with_execute_results(None, object())
+async def test_find_chat_note_by_message_id_returns_none_when_missing():
+    session = _session_with_resource(None)
     service = ResourceService(session)
 
-    result, created = await service.create_note(
-        conversation_id,
+    result = await service.find_chat_note_by_message_id(
+        uuid4(),
+        uuid4(),
         user_id=uuid4(),
-        title="New Note",
-        content=content,
     )
 
-    assert created is True
-    assert result.conversation_id == conversation_id
-    assert result.content == content
-    session.add.assert_called_once_with(result)
-    session.commit.assert_awaited_once()
-
-
-async def test_create_user_note_skips_message_lookup():
-    conversation_id = uuid4()
-    content = {"kind": "user", "html": ""}
-    session = _session_with_execute_results(object())
-    service = ResourceService(session)
-
-    result, created = await service.create_note(
-        conversation_id,
-        user_id=uuid4(),
-        title="New Note",
-        content=content,
-    )
-
-    assert created is True
-    assert result.content == content
-    assert session.execute.await_count == 1
-    session.add.assert_called_once()
-    session.commit.assert_awaited_once()
-
-
-async def test_create_note_recovers_from_unique_violation():
-    message_id = uuid4()
-    conversation_id = uuid4()
-    content = {
-        "kind": "chat",
-        "markdown": "# Hello",
-        "message_id": str(message_id),
-    }
-    existing = Resource(
-        conversation_id=conversation_id,
-        type=ResourceType.note,
-        title="Pinned",
-        content=content,
-    )
-    session = _session_with_execute_results(None, object(), existing)
-    session.commit = AsyncMock(side_effect=IntegrityError("", {}, Exception()))
-    service = ResourceService(session)
-
-    result, created = await service.create_note(
-        conversation_id,
-        user_id=uuid4(),
-        title="New Note",
-        content=content,
-    )
-
-    assert result is existing
-    assert created is False
-    session.rollback.assert_awaited_once()
-
-
-async def test_create_note_reraises_integrity_error_without_existing_pin():
-    message_id = uuid4()
-    session = _session_with_execute_results(None, object(), None)
-    session.commit = AsyncMock(side_effect=IntegrityError("", {}, Exception()))
-    service = ResourceService(session)
-
-    with pytest.raises(IntegrityError):
-        await service.create_note(
-            uuid4(),
-            user_id=uuid4(),
-            title="New Note",
-            content={
-                "kind": "chat",
-                "markdown": "# Hello",
-                "message_id": str(message_id),
-            },
-        )
-
-    session.rollback.assert_awaited_once()
+    assert result is None
 
 
 async def test_get_resource_returns_owned_row():

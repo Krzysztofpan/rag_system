@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth.deps import get_current_user
+from app.db.models.resource import ResourceType
 from app.dependencies import CurrentUserDep, ResourceServiceDep, StudioQueueDep
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE
 from app.schemas.resource import (
@@ -65,19 +66,28 @@ async def create_note_resource(
     if not title:
         title = DEFAULT_NOTE_TITLE
     try:
-        resource, created = await resource_service.create_note(
+        if isinstance(note_content, ChatNoteContent) and note_content.message_id is not None:
+            existing = await resource_service.find_chat_note_by_message_id(
+                conversation_id,
+                note_content.message_id,
+                user_id=current_user.user_id,
+            )
+            if existing is not None:
+                return CreateResourceResponse(resource=resource_from_model(existing))
+
+        resource = await resource_service.create_resource(
             conversation_id,
             user_id=current_user.user_id,
+            type=ResourceType.note,
             title=title,
             content=dump_note_content(note_content, by_alias=False),
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    # Title generation is only for new chat pins, not user-created notes.
+    # Title generation is only for chat pins, not user-created notes.
     if (
-        created
-        and isinstance(note_content, ChatNoteContent)
+        isinstance(note_content, ChatNoteContent)
         and note_content.markdown.strip()
         and title == DEFAULT_NOTE_TITLE
     ):
