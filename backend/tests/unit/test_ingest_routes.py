@@ -17,11 +17,11 @@ from app.container import (
     get_vector_store,
 )
 from app.db.models.document import Document, DocumentStatus
+from app.db.models.resource import Resource, ResourceType
 from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.lib.upload_temp import UploadTooLargeError
 from app.routes.ingest_routes import ingest_router
-from app.services.resource_service import ResourceNotConvertibleError
 from tests.helpers import FakeVectorStore, override_authenticated_user
 
 
@@ -328,7 +328,12 @@ def test_ingest_note_resource_returns_202_and_enqueues_job(
     usage_limits,
 ):
     conversation_id = uuid4()
-    resource_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="My Note",
+        content={"kind": "user", "html": "<p>Hello</p>"},
+    )
     document = Document(
         conversation_id=conversation_id,
         filename="My Note.md",
@@ -340,8 +345,8 @@ def test_ingest_note_resource_returns_202_and_enqueues_job(
 
     with (
         patch(
-            "app.services.resource_service.ResourceService.get_note_source_payload",
-            new=AsyncMock(return_value=("My Note.md", markdown)),
+            "app.services.resource_service.ResourceService.get_resource",
+            new=AsyncMock(return_value=resource),
         ),
         patch(
             "app.services.document_service.DocumentService.create_document",
@@ -357,7 +362,7 @@ def test_ingest_note_resource_returns_202_and_enqueues_job(
         ) as save_bytes,
     ):
         response = client.post(
-            f"/ingest/{conversation_id}/note/{resource_id}"
+            f"/ingest/{conversation_id}/note/{resource.id}"
         )
 
     assert response.status_code == 202
@@ -384,12 +389,17 @@ def test_ingest_note_resource_returns_202_and_enqueues_job(
 
 def test_ingest_note_resource_empty_returns_400(client):
     conversation_id = uuid4()
-    resource_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="Empty",
+        content={"kind": "user", "html": "<p></p>"},
+    )
 
     with (
         patch(
-            "app.services.resource_service.ResourceService.get_note_source_payload",
-            new=AsyncMock(side_effect=ResourceNotConvertibleError("Note has no content")),
+            "app.services.resource_service.ResourceService.get_resource",
+            new=AsyncMock(return_value=resource),
         ),
         patch(
             "app.services.document_service.DocumentService.create_document",
@@ -397,7 +407,7 @@ def test_ingest_note_resource_empty_returns_400(client):
         ) as create_document,
     ):
         response = client.post(
-            f"/ingest/{conversation_id}/note/{resource_id}"
+            f"/ingest/{conversation_id}/note/{resource.id}"
         )
 
     assert response.status_code == 400
@@ -411,7 +421,7 @@ def test_ingest_note_resource_not_found_returns_404(client):
 
     with (
         patch(
-            "app.services.resource_service.ResourceService.get_note_source_payload",
+            "app.services.resource_service.ResourceService.get_resource",
             new=AsyncMock(side_effect=ValueError("Resource missing")),
         ),
         patch(

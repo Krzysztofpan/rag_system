@@ -10,11 +10,31 @@ from app.schemas.resource import (
     UpdateNoteRequest,
     UserNoteContent,
     dump_note_content,
+    parse_note_content,
     resource_from_model,
 )
 
 
-def test_user_and_chat_notes_dump_for_storage_and_api():
+def test_parse_note_content_accepts_user_and_chat_payloads():
+    message_id = uuid4()
+    user = parse_note_content({"kind": "user", "html": "<p>Hi</p>"})
+    chat = parse_note_content({
+        "kind": "chat",
+        "markdown": "# Hi",
+        "messageId": str(message_id),
+    })
+
+    assert user == UserNoteContent(html="<p>Hi</p>")
+    assert isinstance(chat, ChatNoteContent)
+    assert chat.markdown == "# Hi"
+    assert chat.message_id == message_id
+
+
+def test_parse_note_content_falls_back_to_empty_user_note():
+    assert parse_note_content(None) == UserNoteContent()
+    assert parse_note_content({}) == UserNoteContent()
+    assert parse_note_content({"kind": "other", "html": "x"}) == UserNoteContent()
+    assert parse_note_content({"kind": "chat"}) == UserNoteContent()
     message_id = uuid4()
     chat = ChatNoteContent(markdown="# Hi", message_id=message_id)
     user = UserNoteContent(html="<p>Hi</p>")
