@@ -76,6 +76,7 @@ async def create_note_resource(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    # Title generation is only for chat pins, not user-created notes.
     if (
         isinstance(note_content, ChatNoteContent)
         and note_content.markdown.strip()
