@@ -2,7 +2,7 @@
 
 Chat with your own files. Answers that need a fact from a document come with a citation, not a guess.
 
-**Live demo:** [https://3.78.61.131.sslip.io](https://3.78.61.131.sslip.io)
+**Live demo:** (for now stopped, cost is too high) [https://3.78.61.131.sslip.io](https://3.78.61.131.sslip.io)
 
 [![Folio conversation with a policy PDF, cited answer, and source panel](docs/folio-chat.png)](https://3.78.61.131.sslip.io)
 
