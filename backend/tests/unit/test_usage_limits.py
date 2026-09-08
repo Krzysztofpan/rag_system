@@ -19,6 +19,7 @@ def _settings(**overrides):
         max_upload_bytes=5 * 1024 * 1024,
         max_conversations=10,
         max_messages_per_conversation=20,
+        max_chat_notes_per_day=3,
     )
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -60,12 +61,29 @@ async def test_enforce_conversation_messages_rejects_when_full():
     session.execute.assert_awaited_once()
 
 
+async def test_enforce_create_chat_note_rejects_at_limit():
+    session = _count_session(3)
+    with pytest.raises(LimitExceededError) as exc_info:
+        await _service(session).enforce_create_chat_note(uuid4())
+    assert exc_info.value.code is LimitCode.max_chat_notes_per_day
+    assert exc_info.value.status_code == 429
+    assert exc_info.value.limit == 3
+    assert exc_info.value.current == 3
+
+
+async def test_enforce_create_chat_note_allows_under_limit():
+    session = _count_session(2)
+    await _service(session).enforce_create_chat_note(uuid4())
+    session.execute.assert_awaited_once()
+
+
 async def test_enforce_skips_when_limits_are_disabled():
     session = _count_session(100)
     service = _service(session, _settings(limits_enabled=False))
 
     await service.enforce_create_conversation(uuid4())
     await service.enforce_conversation_messages(uuid4())
+    await service.enforce_create_chat_note(uuid4())
 
     session.execute.assert_not_called()
 

@@ -10,12 +10,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.auth.deps import AuthenticatedUser, get_current_user
-from app.container import get_studio_queue, get_vector_store
+from app.container import get_studio_queue, get_usage_limit_service, get_vector_store
 from app.db.models.resource import Resource, ResourceType
 from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.routes.resource_routes import resource_router
 from app.services.resource_service import ResourceNotEditableError
+from app.services.usage_limits import LimitCode, LimitExceededError
 from tests.helpers import FakeVectorStore, override_authenticated_user
 
 
@@ -50,7 +51,15 @@ def studio_queue():
 
 
 @pytest.fixture
-def client(authenticated_user, mock_session, studio_queue):
+def usage_limits():
+    service = AsyncMock()
+    service.enabled = True
+    service.settings.max_chat_notes_per_day = 3
+    return service
+
+
+@pytest.fixture
+def client(authenticated_user, mock_session, studio_queue, usage_limits):
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
@@ -65,6 +74,7 @@ def client(authenticated_user, mock_session, studio_queue):
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
     app.dependency_overrides[get_studio_queue] = lambda: studio_queue
+    app.dependency_overrides[get_usage_limit_service] = lambda: usage_limits
 
     with TestClient(app) as test_client:
         yield test_client
@@ -81,7 +91,7 @@ def test_resource_routes_require_authentication():
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_create_note_defaults_to_user_html(client, studio_queue):
+def test_create_note_defaults_to_user_html(client, studio_queue, usage_limits):
     conversation_id = uuid4()
     resource = Resource(
         conversation_id=conversation_id,
@@ -100,9 +110,10 @@ def test_create_note_defaults_to_user_html(client, studio_queue):
     assert response.json()["resource"]["content"] == {"kind": "user", "html": ""}
     assert create_resource.await_args.kwargs["content"] == {"kind": "user", "html": ""}
     studio_queue.enqueue.assert_not_awaited()
+    usage_limits.enforce_create_chat_note.assert_not_awaited()
 
 
-def test_create_chat_note_stores_markdown(client, studio_queue):
+def test_create_chat_note_stores_markdown(client, studio_queue, authenticated_user, usage_limits):
     conversation_id = uuid4()
     message_id = uuid4()
     chunk_id = uuid4()
@@ -165,6 +176,9 @@ def test_create_chat_note_stores_markdown(client, studio_queue):
     assert job.conversation_id == conversation_id
     assert job.resource_id == resource.id
     assert job.kind == "note_title"
+    usage_limits.enforce_create_chat_note.assert_awaited_once_with(
+        authenticated_user.user_id
+    )
 
 
 def test_create_chat_note_with_custom_title_skips_title_job(client, studio_queue):
@@ -192,7 +206,9 @@ def test_create_chat_note_with_custom_title_skips_title_job(client, studio_queue
     studio_queue.enqueue.assert_not_awaited()
 
 
-def test_create_chat_note_returns_existing_without_title_job(client, studio_queue):
+def test_create_chat_note_returns_existing_without_title_job(
+    client, studio_queue, usage_limits
+):
     conversation_id = uuid4()
     message_id = uuid4()
     resource = Resource(
@@ -230,6 +246,43 @@ def test_create_chat_note_returns_existing_without_title_job(client, studio_queu
     find_chat_note.assert_awaited_once()
     create_resource.assert_not_awaited()
     studio_queue.enqueue.assert_not_awaited()
+    usage_limits.enforce_create_chat_note.assert_not_awaited()
+
+
+def test_create_chat_note_limit_returns_429(client, usage_limits):
+    conversation_id = uuid4()
+    message_id = uuid4()
+    usage_limits.enforce_create_chat_note.side_effect = LimitExceededError(
+        LimitCode.max_chat_notes_per_day,
+        limit=3,
+        current=3,
+        message="Daily chat note limit reached (3).",
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.find_chat_note_by_message_id",
+        new=AsyncMock(return_value=None),
+    ), patch(
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(),
+    ) as create_resource:
+        response = client.post(
+            f"/conversations/{conversation_id}/resources/note",
+            json={
+                "content": {
+                    "kind": "chat",
+                    "markdown": "# Hello",
+                    "messageId": str(message_id),
+                },
+            },
+        )
+
+    assert response.status_code == 429
+    payload = response.json()["detail"]
+    assert payload["code"] == "max_chat_notes_per_day"
+    assert payload["limit"] == 3
+    assert payload["current"] == 3
+    create_resource.assert_not_awaited()
 
 
 def test_update_note_saves_user_html(client):

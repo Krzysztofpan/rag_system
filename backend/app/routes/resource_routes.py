@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth.deps import get_current_user
 from app.db.models.resource import ResourceType
-from app.dependencies import CurrentUserDep, ResourceServiceDep, StudioQueueDep
+from app.dependencies import (
+    CurrentUserDep,
+    ResourceServiceDep,
+    StudioQueueDep,
+    UsageLimitServiceDep,
+)
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE
 from app.schemas.resource import (
     ChatNoteContent,
@@ -18,6 +23,7 @@ from app.schemas.resource import (
     resource_from_model,
 )
 from app.services.resource_service import ResourceNotEditableError
+from app.services.usage_limits import LimitExceededError
 from app.studio.queue import NoteTitleJob
 
 resource_router = APIRouter(
@@ -25,6 +31,13 @@ resource_router = APIRouter(
     tags=["resources"],
     dependencies=[Depends(get_current_user)],
 )
+
+
+def _http_limit(exc: LimitExceededError) -> HTTPException:
+    return HTTPException(
+        status_code=exc.status_code,
+        detail=exc.as_detail(),
+    )
 
 
 @resource_router.get(
@@ -59,6 +72,7 @@ async def create_note_resource(
     current_user: CurrentUserDep,
     resource_service: ResourceServiceDep,
     studio_queue: StudioQueueDep,
+    usage_limits: UsageLimitServiceDep,
     body: CreateNoteRequest,
 ) -> CreateResourceResponse:
     note_content = body.content if body.content is not None else UserNoteContent()
@@ -75,6 +89,9 @@ async def create_note_resource(
             if existing is not None:
                 return CreateResourceResponse(resource=resource_from_model(existing))
 
+        if isinstance(note_content, ChatNoteContent):
+            await usage_limits.enforce_create_chat_note(current_user.user_id)
+
         resource = await resource_service.create_resource(
             conversation_id,
             user_id=current_user.user_id,
@@ -82,6 +99,8 @@ async def create_note_resource(
             title=title,
             content=dump_note_content(note_content, by_alias=False),
         )
+    except LimitExceededError as exc:
+        raise _http_limit(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

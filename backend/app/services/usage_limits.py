@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import NoReturn
 from uuid import UUID
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings, get_settings
 from app.db.models.conversation import Conversation
 from app.db.models.message import Message
+from app.db.models.resource import Resource, ResourceType
 
 
 class LimitCode(StrEnum):
@@ -18,6 +20,7 @@ class LimitCode(StrEnum):
     max_messages_per_day = "max_messages_per_day"
     max_conversations = "max_conversations"
     max_messages_per_conversation = "max_messages_per_conversation"
+    max_chat_notes_per_day = "max_chat_notes_per_day"
 
 
 class LimitExceededError(Exception):
@@ -105,4 +108,34 @@ class UsageLimitService:
                 limit=limit,
                 current=current,
                 message=f"This conversation has reached the {limit} message limit.",
+            )
+
+    async def enforce_create_chat_note(self, user_id: UUID) -> None:
+        if not self.enabled:
+            return
+        day_start = datetime.now(UTC).replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        result = await self.session.execute(
+            select(func.count())
+            .select_from(Resource)
+            .join(Conversation, Conversation.id == Resource.conversation_id)
+            .where(
+                Conversation.user_id == user_id,
+                Resource.type == ResourceType.note,
+                Resource.content["kind"].astext == "chat",
+                Resource.created_at >= day_start,
+            )
+        )
+        current = result.scalar_one()
+        limit = self.settings.max_chat_notes_per_day
+        if current >= limit:
+            raise LimitExceededError(
+                LimitCode.max_chat_notes_per_day,
+                limit=limit,
+                current=current,
+                message=f"Daily chat note limit reached ({limit}).",
             )
