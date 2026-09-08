@@ -1,4 +1,4 @@
-import type { ChatNoteContent, NoteContent, UserNoteContent } from '@/services/api/types'
+import type { ChatNoteContent, NoteContent, NoteResource, Resource, UserNoteContent } from '@/services/api/types'
 import type { Message } from '@/types/Message'
 
 export function isUserNote(content: NoteContent): content is UserNoteContent {
@@ -37,4 +37,15 @@ export function chatNoteFromMessage(message: Message): ChatNoteContent {
         messageId: message.id,
         sources: message.sources,
     }
+}
+
+export function chatNoteForMessage(
+    resources: Resource[] | undefined,
+    messageId: string,
+): NoteResource | undefined {
+    return resources?.find((resource): resource is NoteResource => (
+        resource.type === 'note'
+        && resource.content.kind === 'chat'
+        && resource.content.messageId === messageId
+    ))
 }

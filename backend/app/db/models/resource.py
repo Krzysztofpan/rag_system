@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
-from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum, ForeignKey, Text, Uuid
+from sqlalchemy import CheckConstraint, Column, DateTime, Enum as SAEnum, ForeignKey, Index, Text, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -23,6 +23,16 @@ class Resource(SQLModel, table=True):
         CheckConstraint(
             "type IN ('note', 'mind_map')",
             name="resources_type_check",
+        ),
+        Index(
+            "idx_resources_chat_note_message",
+            "conversation_id",
+            sa.text("(content->>'message_id')"),
+            unique=True,
+            postgresql_where=sa.text(
+                "type = 'note' AND content->>'kind' = 'chat' "
+                "AND content->>'message_id' IS NOT NULL"
+            ),
         ),
     )
 

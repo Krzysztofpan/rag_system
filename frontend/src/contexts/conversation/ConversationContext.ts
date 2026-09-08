@@ -1,12 +1,19 @@
 import { createContext, type Dispatch, type SetStateAction, useContext } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 
+import type { NoteContent, NoteResource } from '@/services/api/types'
 import type { Message } from '@/types/Message'
 import type { Source } from '@/types/source'
 
 export type ToolInvocation = {
     id: string;
     name: string;
+}
+
+export type OpenStudioNote = {
+    id?: string;
+    title: string;
+    content: NoteContent;
 }
 
 export type ConversationContextValue = {
@@ -23,6 +30,9 @@ export type ConversationContextValue = {
     streamError: string | null;
     toolInvocations: ToolInvocation[];
     armConversationEvents: (resourceId?: string) => void;
+    studioOpenNote: OpenStudioNote | null;
+    setStudioOpenNote: Dispatch<SetStateAction<OpenStudioNote | null>>;
+    openStudioNote: (resource: NoteResource) => void;
 }
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null)

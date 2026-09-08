@@ -42,8 +42,8 @@ const ResourceItem = ({ resource, icon: Icon, onOpen }: ResourceItemProps) => {
             {!isCollapsed
                 ? (
                         <>
-                            <div className="flex-1 text-sm flex flex-col">
-                                <span className="font-bold">{resource.title}</span>
+                            <div className="flex-1 text-sm flex flex-col truncate">
+                                <span className="font-bold ">{resource.title}</span>
                                 <span className="text-muted-foreground">{formattedCreatedAt}</span>
                             </div>
                             <div

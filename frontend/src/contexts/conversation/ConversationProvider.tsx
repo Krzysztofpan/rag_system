@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 
 import { toast } from '@/components/ui/toast'
@@ -9,9 +9,10 @@ import { useSources } from '@/hooks/useSources'
 import { useStreamResponse } from '@/hooks/useStreamResponse'
 import { isLimitError } from '@/lib/apiError'
 import { chatSendErrorMessage } from '@/lib/chatError'
+import type { NoteResource } from '@/services/api/types'
 import type { Message } from '@/types/Message'
 
-import { ConversationContext, type ConversationContextValue } from './ConversationContext'
+import { ConversationContext, type ConversationContextValue, type OpenStudioNote } from './ConversationContext'
 
 export function ConversationProvider({ children }: { children: ReactNode }) {
     const { conversationId } = useParams<{ conversationId?: string }>()
@@ -26,6 +27,20 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     const { markConversationUpdated } = useConversationsClient()
     const stream = useStreamResponse(activeConversationId)
     const armConversationEvents = useConversationEvents(conversationId, sources)
+    const [studioOpenNote, setStudioOpenNote] = useState<OpenStudioNote | null>(null)
+    const [studioNoteConversationId, setStudioNoteConversationId] = useState(conversationId)
+    if (conversationId !== studioNoteConversationId) {
+        setStudioNoteConversationId(conversationId)
+        setStudioOpenNote(null)
+    }
+
+    const openStudioNote = useCallback((resource: NoteResource) => {
+        setStudioOpenNote({
+            id: resource.id,
+            title: resource.title,
+            content: resource.content,
+        })
+    }, [])
 
     useEffect(() => {
         if (stream.persistedMessage) {
@@ -117,6 +132,9 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             name: toolCall.name,
         })),
         armConversationEvents,
+        studioOpenNote,
+        setStudioOpenNote,
+        openStudioNote,
     }
 
     return <ConversationContext.Provider value={conversationContextObj}>{children}</ConversationContext.Provider>
