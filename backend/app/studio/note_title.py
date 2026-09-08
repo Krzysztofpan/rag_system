@@ -52,6 +52,20 @@ async def apply_note_title(
     resource_id: UUID,
     user_id: UUID,
 ) -> None:
+    try:
+        await _apply_note_title(conversation_id, resource_id, user_id)
+    except Exception:
+        logger.exception(
+            "note title generation failed",
+            extra={"resource_id": str(resource_id)},
+        )
+
+
+async def _apply_note_title(
+    conversation_id: UUID,
+    resource_id: UUID,
+    user_id: UUID,
+) -> None:
     with conversation_tracing(
         conversation_id,
         user_id=user_id,
@@ -69,7 +83,7 @@ async def apply_note_title(
                 )
             except ValueError:
                 logger.info(
-                    "note title job skipped; resource %s is gone",
+                    "note title skipped; resource %s is gone",
                     resource_id,
                 )
                 return
@@ -98,7 +112,7 @@ async def apply_note_title(
                 )
             except ValueError:
                 logger.info(
-                    "note title job skipped; resource %s is gone",
+                    "note title skipped; resource %s is gone",
                     resource_id,
                 )
                 return

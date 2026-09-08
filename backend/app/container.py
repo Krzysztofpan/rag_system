@@ -13,13 +13,11 @@ from app.services.resource_service import ResourceService
 from app.services.usage_limits import UsageLimitService
 from app.services.vector_store import VectorStore
 from app.services.message_service import MessageService
-from app.studio.queue import StudioQueue
 
 _vector_store: VectorStore | None = None
 _run_registry: RedisRunRegistry | None = None
 _conversation_event_broker: ConversationEventBroker | None = None
 _ingest_queue: IngestQueue | None = None
-_studio_queue: StudioQueue | None = None
 
 
 def get_vector_store() -> VectorStore:
@@ -48,13 +46,6 @@ def get_ingest_queue() -> IngestQueue:
     if _ingest_queue is None:
         _ingest_queue = IngestQueue(get_redis())
     return _ingest_queue
-
-
-def get_studio_queue() -> StudioQueue:
-    global _studio_queue
-    if _studio_queue is None:
-        _studio_queue = StudioQueue(get_redis())
-    return _studio_queue
 
 
 def create_document_service(

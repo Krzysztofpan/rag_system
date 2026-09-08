@@ -1,13 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.auth.deps import get_current_user
 from app.db.models.resource import ResourceType
 from app.dependencies import (
     CurrentUserDep,
     ResourceServiceDep,
-    StudioQueueDep,
     UsageLimitServiceDep,
 )
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE
@@ -24,7 +23,7 @@ from app.schemas.resource import (
 )
 from app.services.resource_service import ResourceNotEditableError
 from app.services.usage_limits import LimitExceededError
-from app.studio.queue import NoteTitleJob
+from app.studio.note_title import apply_note_title
 
 resource_router = APIRouter(
     prefix="/conversations",
@@ -71,8 +70,8 @@ async def create_note_resource(
     conversation_id: UUID,
     current_user: CurrentUserDep,
     resource_service: ResourceServiceDep,
-    studio_queue: StudioQueueDep,
     usage_limits: UsageLimitServiceDep,
+    background_tasks: BackgroundTasks,
     body: CreateNoteRequest,
 ) -> CreateResourceResponse:
     note_content = body.content if body.content is not None else UserNoteContent()
@@ -110,12 +109,11 @@ async def create_note_resource(
         and note_content.markdown.strip()
         and title == DEFAULT_NOTE_TITLE
     ):
-        await studio_queue.enqueue(
-            NoteTitleJob(
-                conversation_id=conversation_id,
-                resource_id=resource.id,
-                user_id=current_user.user_id,
-            )
+        background_tasks.add_task(
+            apply_note_title,
+            conversation_id,
+            resource.id,
+            current_user.user_id,
         )
 
     return CreateResourceResponse(resource=resource_from_model(resource))

@@ -188,3 +188,11 @@ async def test_apply_note_title_skips_user_notes():
     generate.assert_not_awaited()
     service.update_title.assert_not_called()
     broker.publish.assert_not_awaited()
+
+
+async def test_apply_note_title_swallows_generation_errors():
+    with patch(
+        "app.studio.note_title._apply_note_title",
+        new=AsyncMock(side_effect=RuntimeError("llm down")),
+    ):
+        await apply_note_title(uuid4(), uuid4(), uuid4())
