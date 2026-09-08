@@ -167,6 +167,7 @@ function StudioPanelSection() {
                         type={resource.type}
                         color={resource.color}
                         icon={resource.icon}
+                        unavailable={resource.unavailable ?? false}
                     />
                 ))}
             </div>
