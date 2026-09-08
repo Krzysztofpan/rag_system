@@ -26,6 +26,7 @@ from app.lib.rate_limit import (
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
 from app.routes.ingest_routes import ingest_router
+from app.routes.resource_routes import resource_router
 from app.services.security.prompt_guard import get_prompt_guard_service
 from tests.helpers import FakeVectorStore, override_authenticated_user
 
@@ -110,6 +111,7 @@ def _client(authenticated_user) -> TestClient:
     configure_rate_limiting(app)
     limiter.enabled = True
     app.include_router(conversation_router)
+    app.include_router(resource_router)
     app.include_router(ingest_router)
     app.include_router(chat_stream_router)
 

@@ -13,7 +13,6 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
-from app.db.models.resource import ResourceType
 
 from app.auth.deps import get_current_user
 from app.dependencies import (
@@ -22,7 +21,6 @@ from app.dependencies import (
     CurrentUserDep,
     DocumentServiceDep,
     MessageServiceDep,
-    ResourceServiceDep,
     UsageLimitServiceDep,
 )
 from app.services.documents_catalog import refresh_and_publish_documents_summary
@@ -43,17 +41,6 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
-from app.schemas.resource import (
-    GetResourcesResponse,
-    CreateNoteRequest,
-    CreateResourceResponse,
-    UpdateNoteRequest,
-    DeleteResourceResponse,
-    UserNoteContent,
-    dump_note_content,
-    resource_from_model,
-)
-from app.services.resource_service import ResourceNotEditableError
 from app.services.usage_limits import LimitExceededError
 
 conversation_router = APIRouter(
@@ -268,96 +255,6 @@ async def get_sources(
     return GetSourcesResponse(
         count=len(sources),
         conversation_sources=sources,
-    )
-
-@conversation_router.get('/{conversation_id}/resources')
-async def get_resources(
-    conversation_id: UUID,
-    current_user: CurrentUserDep,
-    resource_service: ResourceServiceDep,
-):
-    try:
-        resources = await resource_service.get_conversation_resources(
-            conversation_id,
-            user_id=current_user.user_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    return GetResourcesResponse(
-        count=len(resources),
-        conversation_resources=[resource_from_model(r) for r in resources],
-    )
-
-@conversation_router.post('/{conversation_id}/resources/note', response_model=CreateResourceResponse)
-async def create_note_resource(
-    conversation_id: UUID,
-    current_user: CurrentUserDep,
-    resource_service: ResourceServiceDep,
-    body: CreateNoteRequest,
-) -> CreateResourceResponse:
-    note_content = body.content if body.content is not None else UserNoteContent()
-    try:
-        resource = await resource_service.create_resource(
-            conversation_id,
-            user_id=current_user.user_id,
-            type=ResourceType.note,
-            title=body.title or "New Note",
-            content=dump_note_content(note_content, by_alias=False),
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    return CreateResourceResponse(resource=resource_from_model(resource))
-
-
-@conversation_router.patch(
-    '/{conversation_id}/resources/note/{resource_id}',
-    response_model=CreateResourceResponse,
-)
-async def update_note_resource(
-    conversation_id: UUID,
-    resource_id: UUID,
-    current_user: CurrentUserDep,
-    resource_service: ResourceServiceDep,
-    body: UpdateNoteRequest,
-) -> CreateResourceResponse:
-    try:
-        resource = await resource_service.update_note_content(
-            conversation_id,
-            resource_id,
-            user_id=current_user.user_id,
-            content=dump_note_content(body.content, by_alias=False),
-        )
-    except ResourceNotEditableError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    return CreateResourceResponse(resource=resource_from_model(resource))
-
-
-@conversation_router.delete(
-    "/{conversation_id}/resources/{resource_id}",
-    response_model=DeleteResourceResponse,
-)
-async def delete_resource(
-    conversation_id: UUID,
-    resource_id: UUID,
-    current_user: CurrentUserDep,
-    resource_service: ResourceServiceDep,
-) -> DeleteResourceResponse:
-    try:
-        deleted_resource = await resource_service.delete_resource(
-            conversation_id,
-            resource_id,
-            user_id=current_user.user_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    return DeleteResourceResponse(
-        deleted_resource=resource_from_model(deleted_resource),
     )
 
 
