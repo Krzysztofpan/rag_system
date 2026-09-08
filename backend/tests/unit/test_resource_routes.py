@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.auth.deps import AuthenticatedUser, get_current_user
-from app.container import get_studio_queue, get_usage_limit_service, get_vector_store
+from app.container import get_usage_limit_service, get_vector_store
 from app.db.models.resource import Resource, ResourceType
 from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
@@ -44,10 +44,12 @@ def mock_session():
 
 
 @pytest.fixture
-def studio_queue():
-    queue = AsyncMock()
-    queue.enqueue = AsyncMock()
-    return queue
+def apply_note_title():
+    with patch(
+        "app.routes.resource_routes.apply_note_title",
+        new=AsyncMock(),
+    ) as mock:
+        yield mock
 
 
 @pytest.fixture
@@ -59,7 +61,7 @@ def usage_limits():
 
 
 @pytest.fixture
-def client(authenticated_user, mock_session, studio_queue, usage_limits):
+def client(authenticated_user, mock_session, apply_note_title, usage_limits):
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
@@ -73,7 +75,6 @@ def client(authenticated_user, mock_session, studio_queue, usage_limits):
     )
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
-    app.dependency_overrides[get_studio_queue] = lambda: studio_queue
     app.dependency_overrides[get_usage_limit_service] = lambda: usage_limits
 
     with TestClient(app) as test_client:
@@ -91,7 +92,7 @@ def test_resource_routes_require_authentication():
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_create_note_defaults_to_user_html(client, studio_queue, usage_limits):
+def test_create_note_defaults_to_user_html(client, apply_note_title, usage_limits):
     conversation_id = uuid4()
     resource = Resource(
         conversation_id=conversation_id,
@@ -109,11 +110,11 @@ def test_create_note_defaults_to_user_html(client, studio_queue, usage_limits):
     assert response.status_code == 200
     assert response.json()["resource"]["content"] == {"kind": "user", "html": ""}
     assert create_resource.await_args.kwargs["content"] == {"kind": "user", "html": ""}
-    studio_queue.enqueue.assert_not_awaited()
+    apply_note_title.assert_not_awaited()
     usage_limits.enforce_create_chat_note.assert_not_awaited()
 
 
-def test_create_chat_note_stores_markdown(client, studio_queue, authenticated_user, usage_limits):
+def test_create_chat_note_stores_markdown(client, apply_note_title, authenticated_user, usage_limits):
     conversation_id = uuid4()
     message_id = uuid4()
     chunk_id = uuid4()
@@ -171,17 +172,17 @@ def test_create_chat_note_stores_markdown(client, studio_queue, authenticated_us
         "message_id": str(message_id),
         "sources": [source],
     }
-    studio_queue.enqueue.assert_awaited_once()
-    job = studio_queue.enqueue.await_args.args[0]
-    assert job.conversation_id == conversation_id
-    assert job.resource_id == resource.id
-    assert job.kind == "note_title"
+    apply_note_title.assert_awaited_once_with(
+        conversation_id,
+        resource.id,
+        authenticated_user.user_id,
+    )
     usage_limits.enforce_create_chat_note.assert_awaited_once_with(
         authenticated_user.user_id
     )
 
 
-def test_create_chat_note_with_custom_title_skips_title_job(client, studio_queue):
+def test_create_chat_note_with_custom_title_skips_title_generation(client, apply_note_title):
     conversation_id = uuid4()
     resource = Resource(
         conversation_id=conversation_id,
@@ -203,11 +204,11 @@ def test_create_chat_note_with_custom_title_skips_title_job(client, studio_queue
         )
 
     assert response.status_code == 200
-    studio_queue.enqueue.assert_not_awaited()
+    apply_note_title.assert_not_awaited()
 
 
-def test_create_chat_note_returns_existing_without_title_job(
-    client, studio_queue, usage_limits
+def test_create_chat_note_returns_existing_without_title_generation(
+    client, apply_note_title, usage_limits
 ):
     conversation_id = uuid4()
     message_id = uuid4()
@@ -245,7 +246,7 @@ def test_create_chat_note_returns_existing_without_title_job(
     assert response.json()["resource"]["title"] == "Invoice terms"
     find_chat_note.assert_awaited_once()
     create_resource.assert_not_awaited()
-    studio_queue.enqueue.assert_not_awaited()
+    apply_note_title.assert_not_awaited()
     usage_limits.enforce_create_chat_note.assert_not_awaited()
 
 
