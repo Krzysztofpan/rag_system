@@ -16,6 +16,11 @@ from app.prompts.parser import (
     LLM_REPAIR_SYSTEM_PROMPT,
     llm_repair_human_message,
 )
+from app.prompts.resource import (
+    NOTE_TITLE_CONTENT_CHAR_LIMIT,
+    NOTE_TITLE_MAX_CHARS,
+    NOTE_TITLE_TEMPLATE,
+)
 from app.prompts.search import HYDE_QUERY_REWRITE_TEMPLATE
 
 __all__ = [
@@ -24,6 +29,9 @@ __all__ = [
     "DOCUMENT_SUMMARY_TEMPLATE",
     "DOCUMENTS_CATALOG_ENTRY_CHAR_LIMIT",
     "DOCUMENTS_CATALOG_TEMPLATE",
+    "NOTE_TITLE_CONTENT_CHAR_LIMIT",
+    "NOTE_TITLE_MAX_CHARS",
+    "NOTE_TITLE_TEMPLATE",
     "conversation_documents_catalog_message",
     "HYDE_QUERY_REWRITE_TEMPLATE",
     "LLM_REPAIR_HUMAN_INSTRUCTIONS",

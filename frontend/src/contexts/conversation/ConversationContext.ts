@@ -22,7 +22,7 @@ export type ConversationContextValue = {
     streamedMessage: Message | null;
     streamError: string | null;
     toolInvocations: ToolInvocation[];
-    armConversationEvents: () => void;
+    armConversationEvents: (resourceId?: string) => void;
 }
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null)

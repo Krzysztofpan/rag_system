@@ -21,6 +21,7 @@ _HEARTBEAT = object()
 ConversationEvent = dict[str, Any]
 
 CONVERSATION_UPDATED_EVENT = "conversation.updated"
+RESOURCE_UPDATED_EVENT = "resource.updated"
 HEARTBEAT = _HEARTBEAT
 DEFAULT_REPLAY_TTL_SECONDS = 30
 
@@ -41,6 +42,19 @@ def conversation_updated_event(
         "title": title,
         "topic": topic,
         "documentsSummary": documents_summary,
+    }
+
+
+def resource_updated_event(
+    conversation_id: UUID,
+    resource_id: UUID,
+    title: str,
+) -> ConversationEvent:
+    return {
+        "event": RESOURCE_UPDATED_EVENT,
+        "conversationId": str(conversation_id),
+        "resourceId": str(resource_id),
+        "title": title,
     }
 
 

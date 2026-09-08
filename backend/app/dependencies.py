@@ -12,6 +12,7 @@ from app.container import (
     get_message_service,
     get_resource_service,
     get_run_registry,
+    get_studio_queue,
     get_usage_limit_service,
 )
 from app.ingest.queue import IngestQueue
@@ -24,6 +25,7 @@ from app.services.message_service import MessageService
 from app.services.resource_service import ResourceService
 from app.services.security import PromptGuardService, get_prompt_guard_service
 from app.services.usage_limits import UsageLimitService
+from app.studio.queue import StudioQueue
 
 ConversationServiceDep = Annotated[
     ConversationService, Depends(get_conversation_service)
@@ -53,6 +55,7 @@ ConversationEventBrokerDep = Annotated[
     ConversationEventBroker, Depends(get_conversation_event_broker)
 ]
 IngestQueueDep = Annotated[IngestQueue, Depends(get_ingest_queue)]
+StudioQueueDep = Annotated[StudioQueue, Depends(get_studio_queue)]
 CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
 
 __all__ = [
@@ -67,10 +70,12 @@ __all__ = [
     "PromptGuardServiceDep",
     "RedisRunRegistryDep",
     "ResourceServiceDep",
+    "StudioQueueDep",
     "UsageLimitServiceDep",
     "get_conversation_service",
     "get_current_user",
     "get_document_service",
     "get_resource_service",
+    "get_studio_queue",
     "get_usage_limit_service",
 ]

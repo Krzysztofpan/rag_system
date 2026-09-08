@@ -34,7 +34,7 @@ export BACKEND_IMAGE FRONTEND_IMAGE
 compose=(docker compose -f docker-compose.prod.yml)
 # Redis image/config does not change with app deploys. Pulling redis:7-alpine
 # every time can move the tag and recreate the broker (SSE, rate-limit counters).
-app_services=(backend ingest-worker frontend)
+app_services=(backend ingest-worker studio-worker frontend)
 
 "${compose[@]}" pull "${app_services[@]}"
 "${compose[@]}" run --rm --no-deps backend alembic upgrade head

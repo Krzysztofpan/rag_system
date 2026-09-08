@@ -13,6 +13,7 @@ from app.container import (
     get_conversation_memory_service,
     get_ingest_queue,
     get_run_registry,
+    get_studio_queue,
     get_usage_limit_service,
     get_vector_store,
 )
@@ -135,6 +136,7 @@ def _client(authenticated_user) -> TestClient:
     app.dependency_overrides[get_run_registry] = lambda: registry
     app.dependency_overrides[get_conversation_memory_service] = lambda: AsyncMock()
     app.dependency_overrides[get_ingest_queue] = lambda: AsyncMock()
+    app.dependency_overrides[get_studio_queue] = lambda: AsyncMock()
     return TestClient(app)
 
 

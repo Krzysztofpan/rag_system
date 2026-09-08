@@ -6,10 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.db.models.resource import ResourceType
 from app.db.models import Resource
 from app.db.models.conversation import Conversation
-from app.lib.note_markdown import note_source_markdown, source_filename_from_title
+from app.db.models.resource import ResourceType
+from app.lib.note_markdown import DEFAULT_NOTE_TITLE, note_source_markdown, source_filename_from_title
 
 
 class ResourceNotEditableError(ValueError):
@@ -129,6 +129,30 @@ class ResourceService:
 
         resource.content = content
         flag_modified(resource, "content")
+        resource.updated_at = datetime.now(UTC)
+        await self.session.commit()
+        await self.session.refresh(resource)
+        return resource
+
+    async def update_title(
+        self,
+        conversation_id: UUID,
+        resource_id: UUID,
+        *,
+        user_id: UUID,
+        title: str,
+    ) -> Resource:
+        resource = await self.get_resource(
+            conversation_id,
+            resource_id,
+            user_id=user_id,
+        )
+        if not title:
+            raise ValueError("You have to define new title.")
+        if resource.title != DEFAULT_NOTE_TITLE:
+            return resource
+
+        resource.title = title
         resource.updated_at = datetime.now(UTC)
         await self.session.commit()
         await self.session.refresh(resource)

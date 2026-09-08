@@ -7,6 +7,7 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
 import { useDeleteResource } from '@/hooks/useDeleteResource'
+import { useResources } from '@/hooks/useResources'
 import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
 import { isUnchangedUserNote, isUserNote, userNoteContent } from '@/lib/note'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,7 @@ function StudioPanelSection() {
     const [openNote, setOpenNote] = useState<OpenNoteState | null>(null)
     const isCollapsed = state === 'collapsed'
     const { conversationId } = useConversationContext()
+    const { data: resources } = useResources(conversationId)
     const { mutate, isPending } = useCreateNoteResource(conversationId)
     const { mutate: saveNote, isPending: isSavingNote } = useUpdateNoteResource(conversationId)
     const { mutate: deleteResource, isPending: isDeleting } = useDeleteResource(conversationId)
@@ -89,6 +91,11 @@ function StudioPanelSection() {
         setOpenNote(null)
     }
 
+    const liveOpenNote = resources?.find((resource): resource is NoteResource => (
+        resource.type === 'note' && resource.id === openNote?.id
+    ))
+    const openNoteTitle = liveOpenNote?.title ?? openNote?.title ?? ''
+
     if (openNote) {
         return (
             <aside
@@ -103,7 +110,7 @@ function StudioPanelSection() {
                     ? (
                             <NoteView
                                 key={openNote.id ?? 'new-note'}
-                                title={openNote.title}
+                                title={openNoteTitle}
                                 initialContent={openNote.content.html}
                                 isSaving={isSavingNote}
                                 onBack={handleLeaveUserNote}
@@ -114,7 +121,7 @@ function StudioPanelSection() {
                     : (
                             <ChatNoteView
                                 key={openNote.id ?? 'chat-note'}
-                                title={openNote.title}
+                                title={openNoteTitle}
                                 markdown={openNote.content.markdown}
                                 sources={openNote.content.sources}
                                 onBack={() => setOpenNote(null)}

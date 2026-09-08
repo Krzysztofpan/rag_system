@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import type { ConversationTopicName } from '@/lib/conversationTopic'
-import { parseConversationUpdatedEvent, readSseDataFrames } from '@/lib/sse'
+import { parseConversationUpdatedEvent, parseResourceUpdatedEvent, readSseDataFrames } from '@/lib/sse'
 import { apiService } from '@/services/api/apiService'
 import type { Source } from '@/types/source'
 
 import { useConversationsClient } from './useConversations'
+import { useResourcesClient } from './useResources'
 
 const RECONNECT_MS = 1500
 const CONVERSATION_EVENTS_IDLE_MS = 30_000
+const RESOURCE_TITLE_WAIT_MS = 90_000
 
 function isAbortError(error: unknown): boolean {
     return error instanceof DOMException && error.name === 'AbortError'
@@ -28,10 +30,19 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
     })
 }
 
+type ConversationEventHandlers = {
+    onConversationUpdated: (
+        title: string,
+        topic: ConversationTopicName,
+        documentsSummary: string | null,
+    ) => void;
+    onResourceUpdated: (resourceId: string, title: string) => void;
+}
+
 async function listenForConversationUpdates(
     conversationId: string,
     signal: AbortSignal,
-    onUpdated: (title: string, topic: ConversationTopicName, documentsSummary: string | null) => void,
+    handlers: ConversationEventHandlers,
 ): Promise<void> {
     while (!signal.aborted) {
         try {
@@ -45,9 +56,18 @@ async function listenForConversationUpdates(
             }
 
             await readSseDataFrames(response.body, (data) => {
-                const event = parseConversationUpdatedEvent(data)
-                if (event?.conversationId === conversationId) {
-                    onUpdated(event.title, event.topic, event.documentsSummary)
+                const conversationEvent = parseConversationUpdatedEvent(data)
+                if (conversationEvent?.conversationId === conversationId) {
+                    handlers.onConversationUpdated(
+                        conversationEvent.title,
+                        conversationEvent.topic,
+                        conversationEvent.documentsSummary,
+                    )
+                    return
+                }
+                const resourceEvent = parseResourceUpdatedEvent(data)
+                if (resourceEvent?.conversationId === conversationId) {
+                    handlers.onResourceUpdated(resourceEvent.resourceId, resourceEvent.title)
                 }
             })
             if (signal.aborted) {
@@ -69,12 +89,21 @@ export function useConversationEvents(
     sources: Source[],
 ) {
     const { patchConversation } = useConversationsClient()
+    const { patchResourceTitle } = useResourcesClient(conversationId ?? '')
     const [armed, setArmed] = useState(false)
+    const [pendingResourceIds, setPendingResourceIds] = useState<string[]>([])
     const sourceInFlight = sources.some(
         (source) => source.status === 'pending' || source.status === 'processing',
     )
-    const armConversationEvents = useCallback(() => {
+    const resourceTitleInFlight = pendingResourceIds.length > 0
+    const armConversationEvents = useCallback((resourceId?: string) => {
         setArmed(true)
+        if (!resourceId) {
+            return
+        }
+        setPendingResourceIds((current) => (
+            current.includes(resourceId) ? current : [...current, resourceId]
+        ))
     }, [])
 
     useEffect(() => {
@@ -84,22 +113,28 @@ export function useConversationEvents(
         }
 
         const controller = new AbortController()
-        void listenForConversationUpdates(activeConversationId, controller.signal, (title, topic, documentsSummary) => {
-            patchConversation(activeConversationId, {
-                title,
-                topic,
-                documentsSummary,
-                updatedAt: new Date().toISOString(),
-            })
+        void listenForConversationUpdates(activeConversationId, controller.signal, {
+            onConversationUpdated: (title, topic, documentsSummary) => {
+                patchConversation(activeConversationId, {
+                    title,
+                    topic,
+                    documentsSummary,
+                    updatedAt: new Date().toISOString(),
+                })
+            },
+            onResourceUpdated: (resourceId, title) => {
+                patchResourceTitle(resourceId, title)
+                setPendingResourceIds((current) => current.filter((id) => id !== resourceId))
+            },
         })
 
         return () => {
             controller.abort()
         }
-    }, [armed, conversationId, patchConversation])
+    }, [armed, conversationId, patchConversation, patchResourceTitle])
 
     useEffect(() => {
-        if (!armed || sourceInFlight) {
+        if (!armed || sourceInFlight || resourceTitleInFlight) {
             return
         }
         const timeout = window.setTimeout(() => {
@@ -108,7 +143,19 @@ export function useConversationEvents(
         return () => {
             window.clearTimeout(timeout)
         }
-    }, [armed, sourceInFlight])
+    }, [armed, resourceTitleInFlight, sourceInFlight])
+
+    useEffect(() => {
+        if (!resourceTitleInFlight) {
+            return
+        }
+        const timeout = window.setTimeout(() => {
+            setPendingResourceIds([])
+        }, RESOURCE_TITLE_WAIT_MS)
+        return () => {
+            window.clearTimeout(timeout)
+        }
+    }, [resourceTitleInFlight])
 
     return armConversationEvents
 }

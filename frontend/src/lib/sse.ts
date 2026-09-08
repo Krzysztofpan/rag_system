@@ -8,6 +8,13 @@ export type ConversationUpdatedEvent = {
     documentsSummary: string | null;
 }
 
+export type ResourceUpdatedEvent = {
+    event: 'resource.updated';
+    conversationId: string;
+    resourceId: string;
+    title: string;
+}
+
 export function parseConversationUpdatedEvent(data: string): ConversationUpdatedEvent | null {
     let parsed: unknown
     try {
@@ -46,6 +53,40 @@ export function parseConversationUpdatedEvent(data: string): ConversationUpdated
         title,
         topic: topic as ConversationTopicName,
         documentsSummary: typeof documentsSummaryValue === 'string' ? documentsSummaryValue : null,
+    }
+}
+
+export function parseResourceUpdatedEvent(data: string): ResourceUpdatedEvent | null {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(data) as unknown
+    }
+    catch {
+        return null
+    }
+    if (typeof parsed !== 'object' || parsed === null) {
+        return null
+    }
+    const record = parsed as Record<string, unknown>
+    if (record.event !== 'resource.updated') {
+        return null
+    }
+    const conversationId = record.conversationId
+    const resourceId = record.resourceId
+    const title = record.title
+    if (
+        typeof conversationId !== 'string'
+        || typeof resourceId !== 'string'
+        || typeof title !== 'string'
+        || !title
+    ) {
+        return null
+    }
+    return {
+        event: 'resource.updated',
+        conversationId,
+        resourceId,
+        title,
     }
 }
 

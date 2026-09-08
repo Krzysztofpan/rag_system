@@ -6,6 +6,8 @@ from typing import Any
 
 from app.schemas.resource import ChatNoteContent, parse_note_content
 
+DEFAULT_NOTE_TITLE = "New Note"
+
 _UNSAFE_FILENAME_CHARS = re.compile(r'[\x00-\x1f\\/:*?"<>|]+')
 _BLOCK_TAGS = frozenset({
     "p",
@@ -64,11 +66,11 @@ def note_source_markdown(title: str, content: dict[str, Any] | None) -> str:
     body = note_body_text(content)
     if not body:
         return ""
-    heading = title.strip() or "New Note"
+    heading = title.strip() or DEFAULT_NOTE_TITLE
     return f"# {heading}\n\n{body}\n"
 
 
 def source_filename_from_title(title: str) -> str:
     stem = _UNSAFE_FILENAME_CHARS.sub("-", title.strip())
-    stem = re.sub(r"-{2,}", "-", stem).strip("-. ") or "New Note"
+    stem = re.sub(r"-{2,}", "-", stem).strip("-. ") or DEFAULT_NOTE_TITLE
     return f"{stem}.md"

@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.auth.deps import AuthenticatedUser, get_current_user
-from app.container import get_vector_store
+from app.container import get_studio_queue, get_vector_store
 from app.db.models.resource import Resource, ResourceType
 from app.db.session import get_session
 from app.lib.rate_limit import configure_rate_limiting, limiter
@@ -43,7 +43,14 @@ def mock_session():
 
 
 @pytest.fixture
-def client(authenticated_user, mock_session):
+def studio_queue():
+    queue = AsyncMock()
+    queue.enqueue = AsyncMock()
+    return queue
+
+
+@pytest.fixture
+def client(authenticated_user, mock_session, studio_queue):
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
@@ -57,6 +64,7 @@ def client(authenticated_user, mock_session):
     )
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
+    app.dependency_overrides[get_studio_queue] = lambda: studio_queue
 
     with TestClient(app) as test_client:
         yield test_client
@@ -73,7 +81,7 @@ def test_resource_routes_require_authentication():
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_create_note_defaults_to_user_html(client):
+def test_create_note_defaults_to_user_html(client, studio_queue):
     conversation_id = uuid4()
     resource = Resource(
         conversation_id=conversation_id,
@@ -91,9 +99,10 @@ def test_create_note_defaults_to_user_html(client):
     assert response.status_code == 200
     assert response.json()["resource"]["content"] == {"kind": "user", "html": ""}
     assert create_resource.await_args.kwargs["content"] == {"kind": "user", "html": ""}
+    studio_queue.enqueue.assert_not_awaited()
 
 
-def test_create_chat_note_stores_markdown(client):
+def test_create_chat_note_stores_markdown(client, studio_queue):
     conversation_id = uuid4()
     message_id = uuid4()
     chunk_id = uuid4()
@@ -148,6 +157,36 @@ def test_create_chat_note_stores_markdown(client):
         "message_id": str(message_id),
         "sources": [source],
     }
+    studio_queue.enqueue.assert_awaited_once()
+    job = studio_queue.enqueue.await_args.args[0]
+    assert job.conversation_id == conversation_id
+    assert job.resource_id == resource.id
+    assert job.kind == "note_title"
+
+
+def test_create_chat_note_with_custom_title_skips_title_job(client, studio_queue):
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="Pinned recap",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+
+    with patch(
+        "app.services.resource_service.ResourceService.create_resource",
+        new=AsyncMock(return_value=resource),
+    ):
+        response = client.post(
+            f"/conversations/{conversation_id}/resources/note",
+            json={
+                "title": "Pinned recap",
+                "content": {"kind": "chat", "markdown": "# Hello"},
+            },
+        )
+
+    assert response.status_code == 200
+    studio_queue.enqueue.assert_not_awaited()
 
 
 def test_update_note_saves_user_html(client):
