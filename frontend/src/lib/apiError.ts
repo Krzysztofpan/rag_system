@@ -6,6 +6,7 @@ const LIMIT_CODES = new Set([
     'max_messages_per_day',
     'max_conversations',
     'max_messages_per_conversation',
+    'max_chat_notes_per_day',
 ])
 
 export type ApiErrorInfo = {
@@ -62,6 +63,10 @@ export function limitUserMessage(code: string, limit?: number): string | null {
             return limit != null
                 ? `You've reached today's source limit (${limit}). Try again tomorrow.`
                 : 'You\'ve reached today\'s source limit. Try again tomorrow.'
+        case 'max_chat_notes_per_day':
+            return limit != null
+                ? `You've reached today's chat note limit (${limit}). Try again tomorrow.`
+                : 'You\'ve used today\'s chat note limit. Try again tomorrow.'
         case 'max_upload_bytes':
             return limit != null
                 ? `This file is too large. Maximum size is ${formatByteLimit(limit)}.`
