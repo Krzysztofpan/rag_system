@@ -14,6 +14,7 @@ from app.lib.rate_limit import configure_rate_limiting
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
 from app.routes.health_routes import health_router
+from app.routes.ingest_routes import ingest_router
 from app.services.usage_limits import LimitExceededError
 
 API_PREFIX = "/api"
@@ -69,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api = APIRouter(prefix=API_PREFIX)
     api.include_router(health_router)
     api.include_router(conversation_router)
+    api.include_router(ingest_router)
     api.include_router(chat_stream_router)
     app.include_router(api)
     return app
