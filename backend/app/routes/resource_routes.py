@@ -66,6 +66,15 @@ async def create_note_resource(
     if not title:
         title = DEFAULT_NOTE_TITLE
     try:
+        if isinstance(note_content, ChatNoteContent) and note_content.message_id is not None:
+            existing = await resource_service.find_chat_note_by_message_id(
+                conversation_id,
+                note_content.message_id,
+                user_id=current_user.user_id,
+            )
+            if existing is not None:
+                return CreateResourceResponse(resource=resource_from_model(existing))
+
         resource = await resource_service.create_resource(
             conversation_id,
             user_id=current_user.user_id,

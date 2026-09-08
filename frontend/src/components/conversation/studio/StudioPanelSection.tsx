@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 import ChatNoteView from '@/components/conversation/studio/note/ChatNoteView'
 import NoteView from '@/components/conversation/studio/note/NoteView'
 import { Separator } from '@/components/ui/separator'
@@ -11,23 +9,21 @@ import { useResources } from '@/hooks/useResources'
 import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
 import { isUnchangedUserNote, isUserNote, userNoteContent } from '@/lib/note'
 import { cn } from '@/lib/utils'
-import type { CreateNoteResponse, NoteContent, NoteResource, Resource } from '@/services/api/types'
+import type { CreateNoteResponse, NoteResource, Resource } from '@/services/api/types'
 
 import CreateResourceItemType from './CreateResourceItemType'
 import ResourcesSection from './ResourcesSection'
 import { resourcesItems } from './studio.contants'
 
-type OpenNoteState = {
-    id?: string;
-    title: string;
-    content: NoteContent;
-}
-
 function StudioPanelSection() {
     const { state, setOpen } = useSidebar()
-    const [openNote, setOpenNote] = useState<OpenNoteState | null>(null)
     const isCollapsed = state === 'collapsed'
-    const { conversationId } = useConversationContext()
+    const {
+        conversationId,
+        studioOpenNote: openNote,
+        setStudioOpenNote: setOpenNote,
+        openStudioNote,
+    } = useConversationContext()
     const { data: resources } = useResources(conversationId)
     const { mutate, isPending } = useCreateNoteResource(conversationId)
     const { mutate: saveNote, isPending: isSavingNote } = useUpdateNoteResource(conversationId)
@@ -37,22 +33,14 @@ function StudioPanelSection() {
         mutate({ title: 'New Note', content: userNoteContent() }, {
             onSuccess: ({ resource }: CreateNoteResponse) => {
                 setOpen(true)
-                setOpenNote({
-                    id: resource.id,
-                    title: resource.title,
-                    content: resource.content,
-                })
+                openStudioNote(resource)
             },
         })
     }
 
     const openNoteView = (resource: NoteResource) => {
         setOpen(true)
-        setOpenNote({
-            id: resource.id,
-            title: resource.title,
-            content: resource.content,
-        })
+        openStudioNote(resource)
     }
 
     const handleOpenResource = (resource: Resource) => {

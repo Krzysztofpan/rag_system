@@ -3,7 +3,8 @@ import { Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
 import useCreateNoteResource from '@/hooks/useCreateNoteResource'
-import { chatNoteFromMessage } from '@/lib/note'
+import { useResources } from '@/hooks/useResources'
+import { chatNoteForMessage, chatNoteFromMessage } from '@/lib/note'
 import { cn } from '@/lib/utils'
 import type { Message } from '@/types/Message'
 
@@ -12,11 +13,20 @@ import MarkdownContent from './MarkdownContent'
 
 const MessageItem = ({ message }: { message: Message }) => {
     const isUser = message.role === 'user'
-    const { conversationId } = useConversationContext()
+    const { conversationId, openStudioNote } = useConversationContext()
+    const { data: resources } = useResources(conversationId)
     const { mutate } = useCreateNoteResource(conversationId)
+    const existingNote = chatNoteForMessage(resources, message.id)
 
     const saveInNote = () => {
-        mutate({ content: chatNoteFromMessage(message) })
+        if (existingNote) {
+            openStudioNote(existingNote)
+            return
+        }
+        mutate(
+            { content: chatNoteFromMessage(message) },
+            { onSuccess: ({ resource }) => openStudioNote(resource) },
+        )
     }
 
     return (
@@ -49,7 +59,7 @@ const MessageItem = ({ message }: { message: Message }) => {
                                 className="w-40 cursor-pointer"
                             >
                                 <Pin />
-                                Save in note
+                                {existingNote ? 'Open note' : 'Save in note'}
                             </Button>
                         </div>
                     )}

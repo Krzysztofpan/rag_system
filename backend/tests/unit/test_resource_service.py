@@ -23,6 +23,43 @@ def _session_with_resource(resource: Resource | None) -> AsyncMock:
     return session
 
 
+async def test_find_chat_note_by_message_id_returns_owned_pin():
+    message_id = uuid4()
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Pinned",
+        content={
+            "kind": "chat",
+            "markdown": "# Hello",
+            "message_id": str(message_id),
+        },
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    result = await service.find_chat_note_by_message_id(
+        resource.conversation_id,
+        message_id,
+        user_id=uuid4(),
+    )
+
+    assert result is resource
+
+
+async def test_find_chat_note_by_message_id_returns_none_when_missing():
+    session = _session_with_resource(None)
+    service = ResourceService(session)
+
+    result = await service.find_chat_note_by_message_id(
+        uuid4(),
+        uuid4(),
+        user_id=uuid4(),
+    )
+
+    assert result is None
+
+
 async def test_get_resource_returns_owned_row():
     resource = Resource(
         conversation_id=uuid4(),

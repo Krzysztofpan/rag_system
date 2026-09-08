@@ -73,6 +73,26 @@ class ResourceService:
         await self.session.commit()
         return resource
 
+    async def find_chat_note_by_message_id(
+        self,
+        conversation_id: UUID,
+        message_id: UUID,
+        *,
+        user_id: UUID,
+    ) -> Resource | None:
+        result = await self.session.execute(
+            select(Resource)
+            .join(Conversation, Conversation.id == Resource.conversation_id)
+            .where(
+                Resource.conversation_id == conversation_id,
+                Conversation.user_id == user_id,
+                Resource.type == ResourceType.note,
+                Resource.content["kind"].astext == "chat",
+                Resource.content["message_id"].astext == str(message_id),
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_resource(
         self,
         conversation_id: UUID,

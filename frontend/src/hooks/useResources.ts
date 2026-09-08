@@ -38,9 +38,16 @@ export const useResourcesClient = (conversationId: string) => {
             )
             queryClient.setQueryData(pendingTitlesKey, rest)
         }
-        queryClient.setQueryData<Resource[]>(queryKey, (current = []) =>
-            [...current, { ...resource, title }],
-        )
+        queryClient.setQueryData<Resource[]>(queryKey, (current = []) => {
+            const next = { ...resource, title }
+            const index = current.findIndex((item) => item.id === resource.id)
+            if (index === -1) {
+                return [...current, next]
+            }
+            const copy = [...current]
+            copy[index] = next
+            return copy
+        })
     }
 
     const updateResource = (resource: Resource) => {
