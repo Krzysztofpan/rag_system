@@ -29,6 +29,13 @@ NoteContent = Annotated[
 _note_content_adapter = TypeAdapter(NoteContent)
 
 
+def parse_note_content(content: dict[str, Any] | None) -> ChatNoteContent | UserNoteContent:
+    try:
+        return _note_content_adapter.validate_python(content)
+    except ValidationError:
+        return UserNoteContent()
+
+
 def dump_note_content(
     content: ChatNoteContent | UserNoteContent,
     *,
@@ -38,11 +45,7 @@ def dump_note_content(
 
 
 def note_content_for_response(content: dict[str, Any] | None) -> dict[str, Any]:
-    try:
-        parsed = _note_content_adapter.validate_python(content)
-    except ValidationError:
-        parsed = UserNoteContent()
-    return dump_note_content(parsed, by_alias=True)
+    return dump_note_content(parse_note_content(content), by_alias=True)
 
 
 class ResourceResponse(APIModel):

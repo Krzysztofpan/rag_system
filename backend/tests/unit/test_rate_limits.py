@@ -25,6 +25,7 @@ from app.lib.rate_limit import (
 )
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
+from app.routes.ingest_routes import ingest_router
 from app.services.security.prompt_guard import get_prompt_guard_service
 from tests.helpers import FakeVectorStore, override_authenticated_user
 
@@ -109,6 +110,7 @@ def _client(authenticated_user) -> TestClient:
     configure_rate_limiting(app)
     limiter.enabled = True
     app.include_router(conversation_router)
+    app.include_router(ingest_router)
     app.include_router(chat_stream_router)
 
     async def override_session():
@@ -162,16 +164,16 @@ def test_ingest_endpoints_share_daily_quota(authenticated_user):
             new=AsyncMock(side_effect=mark_processing),
         ),
         patch(
-            "app.routes.conversation_routes.save_upload_to_temp",
+            "app.routes.ingest_routes.save_upload_to_temp",
             new=AsyncMock(return_value=(Path("/tmp/note.md"), 12)),
         ),
     ):
-        url = f"/conversations/{conversation_id}/sources/url"
+        url = f"/ingest/{conversation_id}/url"
         payload = {"url": "https://www.youtube.com/watch?v=dQw4w9wgXcQ"}
         assert client.post(url, json=payload).status_code == 202
         assert client.post(url, json=payload).status_code == 202
         file_response = client.post(
-            f"/conversations/{conversation_id}/sources/document",
+            f"/ingest/{conversation_id}/document",
             files={"file": ("note.md", b"# hello", "text/markdown")},
         )
         assert file_response.status_code == 202
@@ -243,7 +245,7 @@ def test_daily_limits_are_not_enforced_when_disabled(authenticated_user):
     app = FastAPI()
     configure_rate_limiting(app)
     limiter.enabled = False
-    app.include_router(conversation_router)
+    app.include_router(ingest_router)
 
     async def override_session():
         yield AsyncMock()
@@ -273,7 +275,7 @@ def test_daily_limits_are_not_enforced_when_disabled(authenticated_user):
             new=AsyncMock(side_effect=mark_processing),
         ),
     ):
-        url = f"/conversations/{conversation_id}/sources/url"
+        url = f"/ingest/{conversation_id}/url"
         payload = {"url": "https://www.youtube.com/watch?v=dQw4w9wgXcQ"}
         statuses = [
             client.post(url, json=payload).status_code for _ in range(4)

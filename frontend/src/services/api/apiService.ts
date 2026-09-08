@@ -261,12 +261,19 @@ class ApiService {
     }
 
     uploadSource = async (conversationId: string, formData: FormData): Promise<SourceResponse> => {
-        const { data } = await this.client.post<SourceResponse>(`/conversations/${conversationId}/sources/document`, formData)
+        const { data } = await this.client.post<SourceResponse>(`/ingest/${conversationId}/document`, formData)
         return data
     }
 
     addUrlSource = async (conversationId: string, url: string): Promise<SourceResponse> => {
-        const { data } = await this.client.post<SourceResponse>(`/conversations/${conversationId}/sources/url`, { url })
+        const { data } = await this.client.post<SourceResponse>(`/ingest/${conversationId}/url`, { url })
+        return data
+    }
+
+    convertNoteToSource = async (conversationId: string, resourceId: string): Promise<SourceResponse> => {
+        const { data } = await this.client.post<SourceResponse>(
+            `/ingest/${conversationId}/note/${resourceId}`,
+        )
         return data
     }
 

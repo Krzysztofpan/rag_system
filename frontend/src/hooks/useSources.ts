@@ -116,6 +116,21 @@ export const useSourcesClient = (conversationId: string) => {
         }
     }
 
+    const convertNoteToSource = async (resourceId: string, filename: string) => {
+        conversation?.armConversationEvents()
+        const pendingSource = createPendingSource(filename, 'text/markdown')
+        await addSource(pendingSource)
+
+        try {
+            const source = await apiService.convertNoteToSource(conversationId, resourceId)
+            await replaceSource(pendingSource.id, source)
+            bumpSourceCount(conversationId, 1)
+        }
+        catch (error) {
+            await replaceSource(pendingSource.id, rejectSource(pendingSource, failSource(error)))
+        }
+    }
+
     const editSourceName = (sourceId: string, updatedName: string) => {
         let previousName: string | undefined
 
@@ -137,6 +152,7 @@ export const useSourcesClient = (conversationId: string) => {
         replaceSource,
         addUrlSource,
         uploadSource,
+        convertNoteToSource,
         editSourceName,
     }
 }

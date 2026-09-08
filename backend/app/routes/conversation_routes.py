@@ -7,12 +7,9 @@ from fastapi import (
     BackgroundTasks,
     Body,
     Depends,
-    File,
     HTTPException,
     Query,
     Request,
-    Response,
-    UploadFile,
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
@@ -24,35 +21,25 @@ from app.dependencies import (
     ConversationServiceDep,
     CurrentUserDep,
     DocumentServiceDep,
-    IngestQueueDep,
     MessageServiceDep,
     ResourceServiceDep,
     UsageLimitServiceDep,
 )
-from app.ingest.queue import DocumentIngestJob, YoutubeIngestJob
 from app.services.documents_catalog import refresh_and_publish_documents_summary
 from app.services.conversation_events import HEARTBEAT
-from app.lib.file_types import FileTypes, resolve_document_file_type
-from app.lib.rate_limit import ingest_error_message, ingest_limit_value, limiter
-from app.lib.upload_temp import UploadTooLargeError, save_upload_to_temp
-from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
 from app.schemas.chunk import ChunkResponse
 from app.schemas.conversation import (
     ConversationResponse,
     CreateConversationResponse,
     DeleteConversationResponse,
     GetConversationsResponse,
-    
     conversation_from_model,
 )
 from app.schemas.message import GetConversationMessagesResponse
-from app.schemas.origin import FileOrigin, YoutubeOrigin
 from app.schemas.source import (
     DeleteSourceResponse,
     GetSourcesResponse,
-    IngestUrlRequest,
     SourceReportResponse,
-    SourceResponse,
     report_from_document_report,
     source_from_document,
 )
@@ -67,7 +54,7 @@ from app.schemas.resource import (
     resource_from_model,
 )
 from app.services.resource_service import ResourceNotEditableError
-from app.services.usage_limits import LimitCode, LimitExceededError
+from app.services.usage_limits import LimitExceededError
 
 conversation_router = APIRouter(
     prefix="/conversations",
@@ -257,137 +244,6 @@ async def get_chunk(
         pages=chunk.pages,
         chunk_index=chunk.chunk_index,
     )
-   
-
-@conversation_router.post(
-    "/{conversation_id}/sources/url",
-    response_model=SourceResponse,
-    status_code=202,
-)
-@limiter.shared_limit(
-    ingest_limit_value,
-    scope="ingest",
-    error_message=ingest_error_message,
-)
-async def ingest_source_url(
-    request: Request,
-    response: Response,
-    conversation_id: UUID,
-    current_user: CurrentUserDep,
-    conversation_service: ConversationServiceDep,
-    document_service: DocumentServiceDep,
-    ingest_queue: IngestQueueDep,
-    body: IngestUrlRequest,
-) -> SourceResponse:
-    try:
-        video = parse_youtube_url(body.url)
-    except InvalidYoutubeUrlError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    try:
-        await conversation_service.get_conversation(
-            conversation_id,
-            user_id=current_user.user_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    document = await document_service.create_document(
-        conversation_id=conversation_id,
-        filename=f"youtube:{video.video_id}",
-        content_type=FileTypes.YOUTUBE,
-        origin=YoutubeOrigin(video_id=video.video_id, url=video.url),
-    )
-    document = await document_service.mark_processing(document.id)
-    await ingest_queue.enqueue(
-        YoutubeIngestJob(
-            conversation_id=conversation_id,
-            document_id=document.id,
-            user_id=current_user.user_id,
-            url=video.url,
-            video_id=video.video_id,
-        )
-    )
-    return source_from_document(document)
-
-
-@conversation_router.post(
-    "/{conversation_id}/sources/document",
-    response_model=SourceResponse,
-    status_code=202,
-)
-@limiter.shared_limit(
-    ingest_limit_value,
-    scope="ingest",
-    error_message=ingest_error_message,
-)
-async def ingest_source_document(
-    request: Request,
-    response: Response,
-    conversation_id: UUID,
-    current_user: CurrentUserDep,
-    conversation_service: ConversationServiceDep,
-    document_service: DocumentServiceDep,
-    usage_limits: UsageLimitServiceDep,
-    ingest_queue: IngestQueueDep,
-    file: UploadFile = File(...),
-) -> SourceResponse:
-    try:
-        resolve_document_file_type(file.content_type, file.filename)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    try:
-        await conversation_service.get_conversation(
-            conversation_id,
-            user_id=current_user.user_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    filename = file.filename or "unknown"
-    content_type = file.content_type
-    try:
-        path, size = await save_upload_to_temp(
-            file,
-            max_bytes=(
-                usage_limits.settings.max_upload_bytes
-                if usage_limits.enabled
-                else None
-            ),
-        )
-    except UploadTooLargeError as exc:
-        raise _http_limit(
-            LimitExceededError(
-                LimitCode.max_upload_bytes,
-                limit=usage_limits.settings.max_upload_bytes,
-                current=exc.size,
-                message=f"File exceeds the {usage_limits.settings.max_upload_bytes} byte upload limit.",
-            )
-        ) from exc
-    try:
-        document = await document_service.create_document(
-            conversation_id=conversation_id,
-            filename=filename,
-            content_type=content_type,
-            origin=FileOrigin(file_size_bytes=size),
-        )
-        document = await document_service.mark_processing(document.id)
-        await ingest_queue.enqueue(
-            DocumentIngestJob(
-                conversation_id=conversation_id,
-                document_id=document.id,
-                user_id=current_user.user_id,
-                path=str(path),
-                filename=filename,
-                content_type=content_type,
-            )
-        )
-    except Exception:
-        path.unlink(missing_ok=True)
-        raise
-
-    return source_from_document(document)
 
 
 @conversation_router.get(

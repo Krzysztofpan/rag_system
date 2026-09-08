@@ -84,7 +84,7 @@ async def rate_limit_exceeded_handler(
 ) -> JSONResponse:
     settings = get_settings()
     path = request.url.path
-    if "/sources/" in path:
+    if "/ingest/" in path:
         code = LimitCode.max_ingests_per_day
         limit = settings.max_ingests_per_day
     elif path.rstrip("/").endswith("commands"):
