@@ -10,11 +10,11 @@ from app.prompts import DOCUMENT_SUMMARY_TEMPLATE
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker.base import Chunker
 from app.services.chunker.factory import ChunkerFactory
-from app.services.document_service import DocumentService
+from app.services.document.document_service import DocumentService
 from app.services.parser.base import ParseQualityError, ParseResult, Parser
 from app.services.parser.factory import ParserFactory
 from app.services.parser.complex.quality_audit import ensure_chunk_quality
-from app.services.vector_store import VectorStore
+from app.services.retrieval.vector_store import VectorStore
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser

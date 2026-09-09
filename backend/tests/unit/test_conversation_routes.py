@@ -22,6 +22,7 @@ from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.db.models.message import Message, MessageRole
 from app.db.session import get_session
+from app.lib.exceptions import register_limit_exceeded_handler
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.routes.conversation_routes import conversation_router
 from app.services.usage_limits import LimitCode, LimitExceededError
@@ -64,6 +65,7 @@ def client(authenticated_user, mock_session, usage_limits):
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
+    register_limit_exceeded_handler(app)
     app.include_router(conversation_router)
 
     async def override_session():
@@ -96,7 +98,7 @@ def test_create_conversation_returns_ids(client, authenticated_user, usage_limit
     conversation = Conversation(user_id=authenticated_user.user_id)
 
     with patch(
-        "app.services.conversation_service.ConversationService.create_conversation",
+        "app.services.conversation.conversation_service.ConversationService.create_conversation",
         new=AsyncMock(return_value=conversation),
     ):
         response = client.post("/conversations/")
@@ -129,7 +131,7 @@ def test_create_conversation_limit_returns_429(client, usage_limits):
 
 def test_create_conversation_unknown_user_returns_400(client):
     with patch(
-        "app.services.conversation_service.ConversationService.create_conversation",
+        "app.services.conversation.conversation_service.ConversationService.create_conversation",
         new=AsyncMock(side_effect=IntegrityError("", {}, Exception())),
     ):
         response = client.post("/conversations/")
@@ -145,7 +147,7 @@ def test_get_conversations_returns_service_result(client, authenticated_user):
     ]
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversations",
+        "app.services.conversation.conversation_service.ConversationService.get_conversations",
         new=AsyncMock(return_value=conversations),
     ):
         response = client.get("/conversations/")
@@ -158,7 +160,7 @@ def test_get_conversation_returns_serialized_conversation(client, authenticated_
     conversation = Conversation(user_id=authenticated_user.user_id, title="My chat", topic="ai")
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversation",
+        "app.services.conversation.conversation_service.ConversationService.get_conversation",
         new=AsyncMock(return_value=conversation),
     ):
         response = client.get(f"/conversations/{conversation.id}")
@@ -186,7 +188,7 @@ def test_get_conversation_includes_documents_summary(client, authenticated_user)
     )
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversation",
+        "app.services.conversation.conversation_service.ConversationService.get_conversation",
         new=AsyncMock(return_value=conversation),
     ):
         response = client.get(f"/conversations/{conversation.id}")
@@ -199,7 +201,7 @@ def test_get_conversation_not_found_returns_404(client):
     conversation_id = uuid4()
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversation",
+        "app.services.conversation.conversation_service.ConversationService.get_conversation",
         new=AsyncMock(side_effect=ValueError(f"Conversation {conversation_id} not found")),
     ):
         response = client.get(f"/conversations/{conversation_id}")
@@ -236,7 +238,7 @@ def test_conversation_events_not_found_returns_404(client):
     conversation_id = uuid4()
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversation",
+        "app.services.conversation.conversation_service.ConversationService.get_conversation",
         new=AsyncMock(side_effect=ValueError(f"Conversation {conversation_id} not found")),
     ):
         response = client.get(f"/conversations/{conversation_id}/events")
@@ -260,11 +262,11 @@ def test_get_messages_serializes_sources_with_api_aliases(client):
 
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(return_value=SimpleNamespace(id=conversation_id)),
         ),
         patch(
-            "app.services.message_service.MessageService.get_messages",
+            "app.services.conversation.message_service.MessageService.get_messages",
             new=AsyncMock(return_value=page),
         ),
     ):
@@ -289,7 +291,7 @@ def test_get_sources_returns_documents(client, authenticated_user):
     ]
 
     with patch(
-        "app.services.document_service.DocumentService.get_conversation_documents",
+        "app.services.document.document_service.DocumentService.get_conversation_documents",
         new=AsyncMock(return_value=documents),
     ):
         response = client.get(f"/conversations/{conversation_id}/sources")
@@ -305,7 +307,7 @@ def test_get_sources_not_found_returns_404(client):
     conversation_id = uuid4()
 
     with patch(
-        "app.services.document_service.DocumentService.get_conversation_documents",
+        "app.services.document.document_service.DocumentService.get_conversation_documents",
         new=AsyncMock(side_effect=ValueError("Conversation missing")),
     ):
         response = client.get(f"/conversations/{conversation_id}/sources")
@@ -323,7 +325,7 @@ def test_delete_source_returns_deleted_document(client):
     )
 
     with patch(
-        "app.services.document_service.DocumentService.delete_document",
+        "app.services.document.document_service.DocumentService.delete_document",
         new=AsyncMock(return_value=document),
     ), patch(
         "app.routes.conversation_routes.refresh_and_publish_documents_summary",
@@ -342,7 +344,7 @@ def test_change_source_name_returns_updated_name(client):
     document_id = uuid4()
 
     with patch(
-        "app.services.document_service.DocumentService.change_document_name",
+        "app.services.document.document_service.DocumentService.change_document_name",
         new=AsyncMock(return_value="renamed.md"),
     ):
         response = client.patch(
@@ -376,7 +378,7 @@ def test_get_source_report_returns_report_payload(client):
     )
 
     with patch(
-        "app.services.document_service.DocumentService.get_report",
+        "app.services.document.document_service.DocumentService.get_report",
         new=AsyncMock(return_value=report),
     ):
         response = client.get(
@@ -404,7 +406,7 @@ def test_get_chunk_returns_payload(client):
     document = SimpleNamespace(id=document_id, filename="regulamin.pdf")
 
     with patch(
-        "app.services.document_service.DocumentService.get_chunk",
+        "app.services.document.document_service.DocumentService.get_chunk",
         new=AsyncMock(return_value=(chunk, document)),
     ):
         response = client.get(
@@ -426,7 +428,7 @@ def test_get_chunk_not_found_returns_404(client):
     chunk_id = uuid4()
 
     with patch(
-        "app.services.document_service.DocumentService.get_chunk",
+        "app.services.document.document_service.DocumentService.get_chunk",
         new=AsyncMock(side_effect=ValueError("Chunk not found")),
     ):
         response = client.get(
@@ -440,7 +442,7 @@ def test_delete_conversation_returns_deleted_conversation(client, authenticated_
     conversation = Conversation(user_id=authenticated_user.user_id)
 
     with patch(
-        "app.services.conversation_service.ConversationService.delete_conversation",
+        "app.services.conversation.conversation_service.ConversationService.delete_conversation",
         new=AsyncMock(return_value=conversation),
     ):
         response = client.delete(f"/conversations/{conversation.id}")

@@ -4,8 +4,8 @@ from uuid import uuid4
 from pinecone.core.openapi.db_data.model.scored_vector import ScoredVector
 from pinecone.db_data.dataclasses.query_response import QueryResponse
 
-from app.services.fts_retriever import PostgresFTSRetriever
-from app.services.vector_retriever import HydratedPineconeRetriever
+from app.services.retrieval.fts_retriever import PostgresFTSRetriever
+from app.services.retrieval.vector_retriever import HydratedPineconeRetriever
 
 
 async def test_fts_retriever_returns_empty_without_document_ids():

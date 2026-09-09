@@ -8,8 +8,8 @@ from app.container import get_vector_store
 from app.db.session import get_session_factory
 from app.graphs.search_documents_graph import SearchDocumentsGraph
 from app.lib.tracing import conversation_tracing
-from app.services.document_service import DocumentService
-from app.services.fts_retriever import PostgresFTSRetriever
+from app.services.document.document_service import DocumentService
+from app.services.retrieval.fts_retriever import PostgresFTSRetriever
 
 logger = logging.getLogger(__name__)
 

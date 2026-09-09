@@ -18,8 +18,8 @@ from app.prompts import (
     NOTE_TITLE_TEMPLATE,
 )
 from app.schemas.resource import ChatNoteContent, parse_note_content
-from app.services.conversation_events import resource_updated_event
-from app.services.resource_service import ResourceService
+from app.services.conversation.conversation_events import resource_updated_event
+from app.services.resource.resource_service import ResourceService
 
 logger = logging.getLogger(__name__)
 

@@ -23,7 +23,7 @@ blocked = [
     "app.services.parser.complex.parser",
     "app.ingest.factory",
     "app.ingest.summary",
-    "app.services.file_ingest",
+    "app.services.document.file_ingest",
     "app.services.youtube.ingest",
 ]
 leaked = [name for name in blocked if name in sys.modules]

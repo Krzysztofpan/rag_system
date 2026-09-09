@@ -23,8 +23,8 @@ from app.dependencies import (
     MessageServiceDep,
     UsageLimitServiceDep,
 )
-from app.services.documents_catalog import refresh_and_publish_documents_summary
-from app.services.conversation_events import HEARTBEAT
+from app.services.conversation.documents_catalog import refresh_and_publish_documents_summary
+from app.services.conversation.conversation_events import HEARTBEAT
 from app.schemas.chunk import ChunkResponse
 from app.schemas.conversation import (
     ConversationResponse,
@@ -41,20 +41,12 @@ from app.schemas.source import (
     report_from_document_report,
     source_from_document,
 )
-from app.services.usage_limits import LimitExceededError
 
 conversation_router = APIRouter(
     prefix="/conversations",
     tags=["conversations"],
     dependencies=[Depends(get_current_user)],
 )
-
-
-def _http_limit(exc: LimitExceededError) -> HTTPException:
-    return HTTPException(
-        status_code=exc.status_code,
-        detail=exc.as_detail(),
-    )
 
 
 @conversation_router.post("/", response_model=CreateConversationResponse)
@@ -64,10 +56,7 @@ async def create_conversation(
     usage_limits: UsageLimitServiceDep,
 ) -> CreateConversationResponse:
     """Create a conversation for the authenticated Supabase Auth user."""
-    try:
-        await usage_limits.enforce_create_conversation(current_user.user_id)
-    except LimitExceededError as exc:
-        raise _http_limit(exc) from exc
+    await usage_limits.enforce_create_conversation(current_user.user_id)
     try:
         conversation = await conversation_service.create_conversation(user_id=current_user.user_id)
     except IntegrityError as exc:

@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.services.document_indexing_service import IngestResult
-from app.services.file_ingest import FileIngestService
+from app.services.document.document_indexing_service import IngestResult
+from app.services.document.file_ingest import FileIngestService
 from app.services.parser.base import ParseQualityError
 
 
@@ -36,15 +36,15 @@ async def test_file_ingest_indexes_and_cleans_up_temp(tmp_path):
 
     with (
         patch(
-            "app.services.file_ingest.get_session_factory",
+            "app.services.document.file_ingest.get_session_factory",
             return_value=_session_factory(),
         ),
         patch(
-            "app.services.file_ingest.create_indexing_service",
+            "app.services.document.file_ingest.create_indexing_service",
             return_value=indexing,
         ),
         patch(
-            "app.services.file_ingest.apply_document_summary",
+            "app.services.document.file_ingest.apply_document_summary",
             new=summarize,
         ),
     ):
@@ -77,19 +77,19 @@ async def test_file_ingest_marks_failed_and_cleans_up_temp(tmp_path):
 
     with (
         patch(
-            "app.services.file_ingest.get_session_factory",
+            "app.services.document.file_ingest.get_session_factory",
             return_value=_session_factory(),
         ),
         patch(
-            "app.services.file_ingest.create_indexing_service",
+            "app.services.document.file_ingest.create_indexing_service",
             return_value=indexing,
         ),
         patch(
-            "app.services.file_ingest.create_document_service",
+            "app.services.document.file_ingest.create_document_service",
             return_value=document_service,
         ),
         patch(
-            "app.services.file_ingest.apply_document_summary",
+            "app.services.document.file_ingest.apply_document_summary",
             new=summarize,
         ),
         pytest.raises(RuntimeError, match="parse exploded"),
@@ -122,19 +122,19 @@ async def test_file_ingest_swallows_parse_quality_error_and_cleans_up_temp(tmp_p
 
     with (
         patch(
-            "app.services.file_ingest.get_session_factory",
+            "app.services.document.file_ingest.get_session_factory",
             return_value=_session_factory(),
         ),
         patch(
-            "app.services.file_ingest.create_indexing_service",
+            "app.services.document.file_ingest.create_indexing_service",
             return_value=indexing,
         ),
         patch(
-            "app.services.file_ingest.create_document_service",
+            "app.services.document.file_ingest.create_document_service",
             return_value=document_service,
         ),
         patch(
-            "app.services.file_ingest.apply_document_summary",
+            "app.services.document.file_ingest.apply_document_summary",
             new=summarize,
         ),
     ):

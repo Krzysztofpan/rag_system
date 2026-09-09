@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import get_settings
 from app.services.chunker.base import ChunkResult
-from app.services.vector_retriever import HydratedPineconeRetriever
+from app.services.retrieval.vector_retriever import HydratedPineconeRetriever
 
 settings = get_settings()
 

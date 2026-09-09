@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.db.models.conversation import Conversation
-from app.services.conversation_service import ConversationMetadata, ConversationService
+from app.services.conversation.conversation_service import ConversationMetadata, ConversationService
 from tests.helpers import FakeVectorStore
 
 
@@ -134,10 +134,10 @@ async def test_update_from_summary_updates_title_and_topic():
 
     with (
         patch(
-            "app.services.conversation_service.ChatPromptTemplate.from_template",
+            "app.services.conversation.conversation_service.ChatPromptTemplate.from_template",
             return_value=chain,
         ),
-        patch("app.services.conversation_service.ChatOpenAI"),
+        patch("app.services.conversation.conversation_service.ChatOpenAI"),
     ):
         title, topic = await service.update_from_summary(
             conversation.id,

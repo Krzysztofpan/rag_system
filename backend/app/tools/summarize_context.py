@@ -3,7 +3,7 @@ from langchain.tools import ToolRuntime, tool
 from app.agent.sources import cite_excerpt
 from app.agent.types import AgentContext
 from app.db.session import get_session_factory
-from app.services.document_service import DocumentService
+from app.services.document.document_service import DocumentService
 from app.services.security import (
     PromptAttackError,
     get_prompt_shields_service,

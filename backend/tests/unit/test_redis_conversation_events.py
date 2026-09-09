@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from fakeredis import FakeAsyncRedis
 
-from app.services.conversation_events import (
+from app.services.conversation.conversation_events import (
     HEARTBEAT,
     ConversationEventBroker,
     conversation_updated_event,
@@ -160,7 +160,7 @@ async def test_events_yields_heartbeat_when_idle(redis):
         raise TimeoutError
 
     with patch(
-        "app.services.conversation_events.asyncio.wait_for",
+        "app.services.conversation.conversation_events.asyncio.wait_for",
         side_effect=timeout_after_closing_awaitable,
     ):
         stream = subscription.events()

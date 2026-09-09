@@ -8,7 +8,7 @@ import pytest
 
 from app.db.models.resource import Resource, ResourceType
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE
-from app.services.resource_service import (
+from app.services.resource.resource_service import (
     ResourceNotConvertibleError,
     ResourceNotEditableError,
     ResourceService,

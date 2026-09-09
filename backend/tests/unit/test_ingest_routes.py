@@ -19,6 +19,7 @@ from app.container import (
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.resource import Resource, ResourceType
 from app.db.session import get_session
+from app.lib.exceptions import register_limit_exceeded_handler
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.lib.upload_temp import UploadTooLargeError
 from app.routes.ingest_routes import ingest_router
@@ -76,6 +77,7 @@ def client(authenticated_user, mock_session, usage_limits, ingest_queue):
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
+    register_limit_exceeded_handler(app)
     app.include_router(ingest_router)
 
     async def override_session():
@@ -111,7 +113,7 @@ def test_ingest_source_url_rejects_invalid_url_without_creating_document(client)
     conversation_id = uuid4()
 
     with patch(
-        "app.services.document_service.DocumentService.create_document",
+        "app.services.document.document_service.DocumentService.create_document",
         new=AsyncMock(),
     ) as create_document:
         response = client.post(
@@ -139,15 +141,15 @@ def test_ingest_source_url_returns_202_and_enqueues_job(
 
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(return_value=MagicMock()),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(return_value=document),
         ) as create_document,
         patch(
-            "app.services.document_service.DocumentService.mark_processing",
+            "app.services.document.document_service.DocumentService.mark_processing",
             new=_mark_processing(document),
         ),
     ):
@@ -178,7 +180,7 @@ def test_ingest_source_document_rejects_unsupported_type_without_creating_docume
     conversation_id = uuid4()
 
     with patch(
-        "app.services.document_service.DocumentService.create_document",
+        "app.services.document.document_service.DocumentService.create_document",
         new=AsyncMock(),
     ) as create_document:
         response = client.post(
@@ -207,15 +209,15 @@ def test_ingest_source_document_returns_202_and_enqueues_job(
 
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(return_value=MagicMock()),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(return_value=document),
         ) as create_document,
         patch(
-            "app.services.document_service.DocumentService.mark_processing",
+            "app.services.document.document_service.DocumentService.mark_processing",
             new=_mark_processing(document),
         ),
         patch(
@@ -251,7 +253,7 @@ def test_ingest_source_document_oversize_returns_413(client, usage_limits):
 
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(return_value=MagicMock()),
         ),
         patch(
@@ -261,7 +263,7 @@ def test_ingest_source_document_oversize_returns_413(client, usage_limits):
             ),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(),
         ) as create_document,
     ):
@@ -282,11 +284,11 @@ def test_ingest_source_document_missing_conversation_returns_404(client):
 
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(side_effect=ValueError("Conversation missing")),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(),
         ) as create_document,
     ):
@@ -304,11 +306,11 @@ def test_ingest_source_url_missing_conversation_returns_404(client):
 
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(side_effect=ValueError("Conversation missing")),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(),
         ) as create_document,
     ):
@@ -345,15 +347,15 @@ def test_ingest_note_resource_returns_202_and_enqueues_job(
 
     with (
         patch(
-            "app.services.resource_service.ResourceService.get_resource",
+            "app.services.resource.resource_service.ResourceService.get_resource",
             new=AsyncMock(return_value=resource),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(return_value=document),
         ) as create_document,
         patch(
-            "app.services.document_service.DocumentService.mark_processing",
+            "app.services.document.document_service.DocumentService.mark_processing",
             new=_mark_processing(document),
         ),
         patch(
@@ -398,11 +400,11 @@ def test_ingest_note_resource_empty_returns_400(client):
 
     with (
         patch(
-            "app.services.resource_service.ResourceService.get_resource",
+            "app.services.resource.resource_service.ResourceService.get_resource",
             new=AsyncMock(return_value=resource),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(),
         ) as create_document,
     ):
@@ -421,11 +423,11 @@ def test_ingest_note_resource_not_found_returns_404(client):
 
     with (
         patch(
-            "app.services.resource_service.ResourceService.get_resource",
+            "app.services.resource.resource_service.ResourceService.get_resource",
             new=AsyncMock(side_effect=ValueError("Resource missing")),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(),
         ) as create_document,
     ):

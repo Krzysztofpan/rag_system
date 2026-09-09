@@ -17,12 +17,12 @@ from app.prompts import (
     conversation_memory_system_message,
 )
 from app.schemas.conversation_memory import ConversationMemorySummary
-from app.services.conversation_memory_compactor import (
+from app.services.conversation.conversation_memory_compactor import (
     ConversationMemoryCompactor,
     MemoryTurn,
 )
-from app.services.conversation_service import ConversationService
-from app.services.message_service import MessageService
+from app.services.conversation.conversation_service import ConversationService
+from app.services.conversation.message_service import MessageService
 
 logger = logging.getLogger(__name__)
 

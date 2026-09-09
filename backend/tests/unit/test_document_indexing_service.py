@@ -11,7 +11,7 @@ from app.db.models.document import DocumentStatus
 from app.schemas.origin import FileOrigin
 from app.services.chunker.factory import ChunkerFactory
 from app.services.chunker.simple import SimpleChunker
-from app.services.document_indexing_service import DocumentIndexingService
+from app.services.document.document_indexing_service import DocumentIndexingService
 from app.services.parser.base import ParseQualityError, ParseResult
 from app.services.parser.complex.ocr_repair import REPLACEMENT_CHAR
 from app.services.parser.factory import ParserFactory
@@ -410,16 +410,16 @@ async def test_summarize_document_writes_with_a_fresh_session(fake_document_serv
 
     with (
         patch(
-            "app.services.document_indexing_service.ChatPromptTemplate.from_template",
+            "app.services.document.document_indexing_service.ChatPromptTemplate.from_template",
             return_value=chain,
         ),
-        patch("app.services.document_indexing_service.ChatOpenAI"),
+        patch("app.services.document.document_indexing_service.ChatOpenAI"),
         patch(
-            "app.services.document_indexing_service.get_session_factory",
+            "app.services.document.document_indexing_service.get_session_factory",
             return_value=session_factory,
         ),
         patch(
-            "app.services.document_indexing_service.DocumentService",
+            "app.services.document.document_indexing_service.DocumentService",
             return_value=store,
         ) as store_cls,
     ):

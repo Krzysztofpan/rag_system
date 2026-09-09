@@ -18,6 +18,7 @@ from app.container import (
 )
 from app.db.models.document import Document, DocumentStatus
 from app.db.session import get_session
+from app.lib.exceptions import register_limit_exceeded_handler
 from app.lib.rate_limit import (
     bind_limiter_storage,
     configure_rate_limiting,
@@ -109,6 +110,7 @@ def _client(authenticated_user) -> TestClient:
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
+    register_limit_exceeded_handler(app)
     limiter.enabled = True
     app.include_router(conversation_router)
     app.include_router(resource_router)
@@ -154,15 +156,15 @@ def test_ingest_endpoints_share_daily_quota(authenticated_user):
     client = _client(authenticated_user)
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(return_value=MagicMock()),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(return_value=document),
         ),
         patch(
-            "app.services.document_service.DocumentService.mark_processing",
+            "app.services.document.document_service.DocumentService.mark_processing",
             new=AsyncMock(side_effect=mark_processing),
         ),
         patch(
@@ -209,7 +211,7 @@ def test_chat_commands_daily_message_limit_returns_429(authenticated_user):
     }
 
     with patch(
-        "app.services.conversation_service.ConversationService.get_conversation",
+        "app.services.conversation.conversation_service.ConversationService.get_conversation",
         new=AsyncMock(return_value=MagicMock()),
     ):
         for _ in range(20):
@@ -265,15 +267,15 @@ def test_daily_limits_are_not_enforced_when_disabled(authenticated_user):
 
     with (
         patch(
-            "app.services.conversation_service.ConversationService.get_conversation",
+            "app.services.conversation.conversation_service.ConversationService.get_conversation",
             new=AsyncMock(return_value=MagicMock()),
         ),
         patch(
-            "app.services.document_service.DocumentService.create_document",
+            "app.services.document.document_service.DocumentService.create_document",
             new=AsyncMock(return_value=document),
         ),
         patch(
-            "app.services.document_service.DocumentService.mark_processing",
+            "app.services.document.document_service.DocumentService.mark_processing",
             new=AsyncMock(side_effect=mark_processing),
         ),
     ):
