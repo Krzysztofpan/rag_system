@@ -13,9 +13,10 @@ from app.auth.deps import AuthenticatedUser, get_current_user
 from app.container import get_usage_limit_service, get_vector_store
 from app.db.models.resource import Resource, ResourceType
 from app.db.session import get_session
+from app.lib.exceptions import register_limit_exceeded_handler
 from app.lib.rate_limit import configure_rate_limiting, limiter
 from app.routes.resource_routes import resource_router
-from app.services.resource_service import ResourceNotEditableError
+from app.services.resource.resource_service import ResourceNotEditableError
 from app.services.usage_limits import LimitCode, LimitExceededError
 from tests.helpers import FakeVectorStore, override_authenticated_user
 
@@ -65,6 +66,7 @@ def client(authenticated_user, mock_session, apply_note_title, usage_limits):
     limiter.reset()
     app = FastAPI()
     configure_rate_limiting(app)
+    register_limit_exceeded_handler(app)
     app.include_router(resource_router)
 
     async def override_session():
@@ -102,7 +104,7 @@ def test_create_note_defaults_to_user_html(client, apply_note_title, usage_limit
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.create_resource",
+        "app.services.resource.resource_service.ResourceService.create_resource",
         new=AsyncMock(return_value=resource),
     ) as create_resource:
         response = client.post(f"/conversations/{conversation_id}/resources/note", json={})
@@ -132,10 +134,10 @@ def test_create_chat_note_stores_markdown(client, apply_note_title, authenticate
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.find_chat_note_by_message_id",
+        "app.services.resource.resource_service.ResourceService.find_chat_note_by_message_id",
         new=AsyncMock(return_value=None),
     ), patch(
-        "app.services.resource_service.ResourceService.create_resource",
+        "app.services.resource.resource_service.ResourceService.create_resource",
         new=AsyncMock(return_value=resource),
     ) as create_resource:
         response = client.post(
@@ -192,7 +194,7 @@ def test_create_chat_note_with_custom_title_skips_title_generation(client, apply
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.create_resource",
+        "app.services.resource.resource_service.ResourceService.create_resource",
         new=AsyncMock(return_value=resource),
     ):
         response = client.post(
@@ -224,10 +226,10 @@ def test_create_chat_note_returns_existing_without_title_generation(
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.find_chat_note_by_message_id",
+        "app.services.resource.resource_service.ResourceService.find_chat_note_by_message_id",
         new=AsyncMock(return_value=resource),
     ) as find_chat_note, patch(
-        "app.services.resource_service.ResourceService.create_resource",
+        "app.services.resource.resource_service.ResourceService.create_resource",
         new=AsyncMock(),
     ) as create_resource:
         response = client.post(
@@ -261,10 +263,10 @@ def test_create_chat_note_limit_returns_429(client, usage_limits):
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.find_chat_note_by_message_id",
+        "app.services.resource.resource_service.ResourceService.find_chat_note_by_message_id",
         new=AsyncMock(return_value=None),
     ), patch(
-        "app.services.resource_service.ResourceService.create_resource",
+        "app.services.resource.resource_service.ResourceService.create_resource",
         new=AsyncMock(),
     ) as create_resource:
         response = client.post(
@@ -296,7 +298,7 @@ def test_update_note_saves_user_html(client):
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.update_note_content",
+        "app.services.resource.resource_service.ResourceService.update_note_content",
         new=AsyncMock(return_value=resource),
     ) as update_note_content:
         response = client.patch(
@@ -323,7 +325,7 @@ def test_update_note_saves_title(client):
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.update_note_content",
+        "app.services.resource.resource_service.ResourceService.update_note_content",
         new=AsyncMock(return_value=resource),
     ) as update_note_content:
         response = client.patch(
@@ -344,7 +346,7 @@ def test_update_note_not_found_returns_404(client):
     resource_id = uuid4()
 
     with patch(
-        "app.services.resource_service.ResourceService.update_note_content",
+        "app.services.resource.resource_service.ResourceService.update_note_content",
         new=AsyncMock(side_effect=ValueError("Resource not found")),
     ):
         response = client.patch(
@@ -361,7 +363,7 @@ def test_update_chat_note_returns_400(client):
     resource_id = uuid4()
 
     with patch(
-        "app.services.resource_service.ResourceService.update_note_content",
+        "app.services.resource.resource_service.ResourceService.update_note_content",
         new=AsyncMock(side_effect=ResourceNotEditableError("Chat note content cannot be updated")),
     ):
         response = client.patch(
@@ -383,7 +385,7 @@ def test_update_chat_note_saves_title(client):
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.update_note_content",
+        "app.services.resource.resource_service.ResourceService.update_note_content",
         new=AsyncMock(return_value=resource),
     ) as update_note_content:
         response = client.patch(
@@ -407,7 +409,7 @@ def test_delete_resource_returns_deleted_resource(client):
     )
 
     with patch(
-        "app.services.resource_service.ResourceService.delete_resource",
+        "app.services.resource.resource_service.ResourceService.delete_resource",
         new=AsyncMock(return_value=resource),
     ):
         response = client.delete(
@@ -426,7 +428,7 @@ def test_delete_resource_not_found_returns_404(client):
     resource_id = uuid4()
 
     with patch(
-        "app.services.resource_service.ResourceService.delete_resource",
+        "app.services.resource.resource_service.ResourceService.delete_resource",
         new=AsyncMock(side_effect=ValueError("Resource missing")),
     ):
         response = client.delete(

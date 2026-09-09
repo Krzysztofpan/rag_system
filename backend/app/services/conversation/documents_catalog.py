@@ -7,8 +7,8 @@ from app.container import (
     get_conversation_event_broker,
 )
 from app.db.session import get_session_factory
-from app.services.conversation_documents_summary import ConversationDocumentsSummarizer
-from app.services.conversation_events import conversation_updated_event
+from app.services.conversation.conversation_documents_summary import ConversationDocumentsSummarizer
+from app.services.conversation.conversation_events import conversation_updated_event
 
 
 async def refresh_and_publish_documents_summary(

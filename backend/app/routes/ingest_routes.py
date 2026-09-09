@@ -26,7 +26,7 @@ from app.lib.upload_temp import UploadTooLargeError, save_bytes_to_temp, save_up
 from app.lib.youtube_url import InvalidYoutubeUrlError, parse_youtube_url
 from app.schemas.origin import FileOrigin, YoutubeOrigin
 from app.schemas.source import IngestUrlRequest, SourceResponse, source_from_document
-from app.services.resource_service import ResourceNotConvertibleError
+from app.services.resource.resource_service import ResourceNotConvertibleError
 from app.services.usage_limits import LimitCode, LimitExceededError
 
 ingest_router = APIRouter(
@@ -34,13 +34,6 @@ ingest_router = APIRouter(
     tags=["ingest"],
     dependencies=[Depends(get_current_user)],
 )
-
-
-def _http_limit(exc: LimitExceededError) -> HTTPException:
-    return HTTPException(
-        status_code=exc.status_code,
-        detail=exc.as_detail(),
-    )
 
 
 @ingest_router.post(
@@ -141,13 +134,11 @@ async def ingest_source_document(
             ),
         )
     except UploadTooLargeError as exc:
-        raise _http_limit(
-            LimitExceededError(
-                LimitCode.max_upload_bytes,
-                limit=usage_limits.settings.max_upload_bytes,
-                current=exc.size,
-                message=f"File exceeds the {usage_limits.settings.max_upload_bytes} byte upload limit.",
-            )
+        raise LimitExceededError(
+            LimitCode.max_upload_bytes,
+            limit=usage_limits.settings.max_upload_bytes,
+            current=exc.size,
+            message=f"File exceeds the {usage_limits.settings.max_upload_bytes} byte upload limit.",
         ) from exc
     try:
         document = await document_service.create_document(
@@ -217,13 +208,11 @@ async def ingest_note_resource(
             ),
         )
     except UploadTooLargeError as exc:
-        raise _http_limit(
-            LimitExceededError(
-                LimitCode.max_upload_bytes,
-                limit=usage_limits.settings.max_upload_bytes,
-                current=exc.size,
-                message=f"File exceeds the {usage_limits.settings.max_upload_bytes} byte upload limit.",
-            )
+        raise LimitExceededError(
+            LimitCode.max_upload_bytes,
+            limit=usage_limits.settings.max_upload_bytes,
+            current=exc.size,
+            message=f"File exceeds the {usage_limits.settings.max_upload_bytes} byte upload limit.",
         ) from exc
 
     try:

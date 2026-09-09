@@ -16,12 +16,12 @@ from app.container import (
 )
 from app.ingest.queue import IngestQueue
 from app.services.chat.redis_run_registry import RedisRunRegistry
-from app.services.conversation_events import ConversationEventBroker
-from app.services.conversation_service import ConversationService
-from app.services.conversation_memory_service import ConversationMemoryService
-from app.services.document_service import DocumentService
-from app.services.message_service import MessageService
-from app.services.resource_service import ResourceService
+from app.services.conversation.conversation_events import ConversationEventBroker
+from app.services.conversation.conversation_service import ConversationService
+from app.services.conversation.conversation_memory_service import ConversationMemoryService
+from app.services.document.document_service import DocumentService
+from app.services.conversation.message_service import MessageService
+from app.services.resource.resource_service import ResourceService
 from app.services.security import PromptGuardService, get_prompt_guard_service
 from app.services.usage_limits import UsageLimitService
 

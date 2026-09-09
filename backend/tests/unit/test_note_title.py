@@ -4,7 +4,7 @@ from uuid import uuid4
 from app.db.models.resource import Resource, ResourceType
 from app.lib.note_markdown import DEFAULT_NOTE_TITLE
 from app.prompts import NOTE_TITLE_CONTENT_CHAR_LIMIT
-from app.studio.note_title import NoteTitle, apply_note_title, generate_note_title
+from app.services.resource.note_title import NoteTitle, apply_note_title, generate_note_title
 
 
 def _session_factory(resource: Resource | None = None):
@@ -22,10 +22,10 @@ async def test_generate_note_title_uses_structured_output():
 
     with (
         patch(
-            "app.studio.note_title.ChatPromptTemplate.from_template",
+            "app.services.resource.note_title.ChatPromptTemplate.from_template",
             return_value=chain,
         ),
-        patch("app.studio.note_title.ChatOpenAI"),
+        patch("app.services.resource.note_title.ChatOpenAI"),
     ):
         title = await generate_note_title("A long assistant message about invoices.")
 
@@ -43,10 +43,10 @@ async def test_generate_note_title_truncates_long_content():
 
     with (
         patch(
-            "app.studio.note_title.ChatPromptTemplate.from_template",
+            "app.services.resource.note_title.ChatPromptTemplate.from_template",
             return_value=chain,
         ),
-        patch("app.studio.note_title.ChatOpenAI"),
+        patch("app.services.resource.note_title.ChatOpenAI"),
     ):
         await generate_note_title("x" * 2000)
 
@@ -81,19 +81,19 @@ async def test_apply_note_title_updates_and_publishes():
 
     with (
         patch(
-            "app.studio.note_title.get_session_factory",
+            "app.services.resource.note_title.get_session_factory",
             return_value=session_factory,
         ),
         patch(
-            "app.studio.note_title.ResourceService",
+            "app.services.resource.note_title.ResourceService",
             return_value=service,
         ),
         patch(
-            "app.studio.note_title.generate_note_title",
+            "app.services.resource.note_title.generate_note_title",
             new=AsyncMock(return_value="Contract recap"),
         ),
         patch(
-            "app.studio.note_title.get_conversation_event_broker",
+            "app.services.resource.note_title.get_conversation_event_broker",
             return_value=broker,
         ),
     ):
@@ -128,19 +128,19 @@ async def test_apply_note_title_skips_missing_resource():
 
     with (
         patch(
-            "app.studio.note_title.get_session_factory",
+            "app.services.resource.note_title.get_session_factory",
             return_value=session_factory,
         ),
         patch(
-            "app.studio.note_title.ResourceService",
+            "app.services.resource.note_title.ResourceService",
             return_value=service,
         ),
         patch(
-            "app.studio.note_title.generate_note_title",
+            "app.services.resource.note_title.generate_note_title",
             new=AsyncMock(),
         ) as generate,
         patch(
-            "app.studio.note_title.get_conversation_event_broker",
+            "app.services.resource.note_title.get_conversation_event_broker",
             return_value=broker,
         ),
     ):
@@ -167,19 +167,19 @@ async def test_apply_note_title_skips_user_notes():
 
     with (
         patch(
-            "app.studio.note_title.get_session_factory",
+            "app.services.resource.note_title.get_session_factory",
             return_value=session_factory,
         ),
         patch(
-            "app.studio.note_title.ResourceService",
+            "app.services.resource.note_title.ResourceService",
             return_value=service,
         ),
         patch(
-            "app.studio.note_title.generate_note_title",
+            "app.services.resource.note_title.generate_note_title",
             new=AsyncMock(),
         ) as generate,
         patch(
-            "app.studio.note_title.get_conversation_event_broker",
+            "app.services.resource.note_title.get_conversation_event_broker",
             return_value=broker,
         ),
     ):
@@ -191,8 +191,40 @@ async def test_apply_note_title_skips_user_notes():
 
 
 async def test_apply_note_title_swallows_generation_errors():
-    with patch(
-        "app.studio.note_title._apply_note_title",
-        new=AsyncMock(side_effect=RuntimeError("llm down")),
+    conversation_id = uuid4()
+    user_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title=DEFAULT_NOTE_TITLE,
+        content={"kind": "chat", "markdown": "Hello about contracts"},
+    )
+    session_factory, _session, _ = _session_factory(resource)
+    service = MagicMock()
+    service.get_resource = AsyncMock(return_value=resource)
+    service.update_title = AsyncMock()
+    broker = MagicMock()
+    broker.publish = AsyncMock()
+
+    with (
+        patch(
+            "app.services.resource.note_title.get_session_factory",
+            return_value=session_factory,
+        ),
+        patch(
+            "app.services.resource.note_title.ResourceService",
+            return_value=service,
+        ),
+        patch(
+            "app.services.resource.note_title.generate_note_title",
+            new=AsyncMock(side_effect=RuntimeError("llm down")),
+        ),
+        patch(
+            "app.services.resource.note_title.get_conversation_event_broker",
+            return_value=broker,
+        ),
     ):
-        await apply_note_title(uuid4(), uuid4(), uuid4())
+        await apply_note_title(conversation_id, resource.id, user_id)
+
+    service.update_title.assert_not_called()
+    broker.publish.assert_not_awaited()

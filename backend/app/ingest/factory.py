@@ -2,10 +2,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.container import get_vector_store
 from app.services.chunker.factory import ChunkerFactory
-from app.services.document_indexing_service import DocumentIndexingService
-from app.services.document_service import DocumentService
+from app.services.document.document_indexing_service import DocumentIndexingService
+from app.services.document.document_service import DocumentService
 from app.services.parser.factory import ParserFactory
-from app.services.vector_store import VectorStore
+from app.services.retrieval.vector_store import VectorStore
 
 
 def create_indexing_service(

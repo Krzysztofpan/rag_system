@@ -21,26 +21,18 @@ from app.schemas.resource import (
     dump_note_content,
     resource_from_model,
 )
-from app.services.resource_service import ResourceNotEditableError
-from app.services.usage_limits import LimitExceededError
-from app.studio.note_title import apply_note_title
+from app.services.resource.resource_service import ResourceNotEditableError
+from app.services.resource.note_title import apply_note_title
 
 resource_router = APIRouter(
-    prefix="/conversations",
+    prefix="/conversations/{conversation_id}/resources",
     tags=["resources"],
     dependencies=[Depends(get_current_user)],
 )
 
 
-def _http_limit(exc: LimitExceededError) -> HTTPException:
-    return HTTPException(
-        status_code=exc.status_code,
-        detail=exc.as_detail(),
-    )
-
-
 @resource_router.get(
-    "/{conversation_id}/resources",
+    "",
     response_model=GetResourcesResponse,
 )
 async def get_resources(
@@ -63,7 +55,7 @@ async def get_resources(
 
 
 @resource_router.post(
-    "/{conversation_id}/resources/note",
+    "/note",
     response_model=CreateResourceResponse,
 )
 async def create_note_resource(
@@ -98,8 +90,6 @@ async def create_note_resource(
             title=title,
             content=dump_note_content(note_content, by_alias=False),
         )
-    except LimitExceededError as exc:
-        raise _http_limit(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -120,7 +110,7 @@ async def create_note_resource(
 
 
 @resource_router.patch(
-    "/{conversation_id}/resources/note/{resource_id}",
+    "/note/{resource_id}",
     response_model=CreateResourceResponse,
 )
 async def update_note_resource(
@@ -151,7 +141,7 @@ async def update_note_resource(
 
 
 @resource_router.delete(
-    "/{conversation_id}/resources/{resource_id}",
+    "/{resource_id}",
     response_model=DeleteResourceResponse,
 )
 async def delete_resource(

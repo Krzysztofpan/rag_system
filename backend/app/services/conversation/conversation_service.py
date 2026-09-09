@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.config import ConversationTopicName
 from app.db.models.conversation import Conversation
 from app.prompts import CONVERSATION_METADATA_TEMPLATE
-from app.services.vector_store import VectorStore
+from app.services.retrieval.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 

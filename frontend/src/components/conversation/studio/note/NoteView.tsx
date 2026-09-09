@@ -8,6 +8,8 @@ import { DEFAULT_NOTE_TITLE } from '@/lib/note'
 import NoteHeader from './NoteHeader'
 import NoteToolbar from './NoteToolbar'
 
+import './note-editor.css'
+
 type NoteViewProps = {
     title?: string;
     initialContent?: string;

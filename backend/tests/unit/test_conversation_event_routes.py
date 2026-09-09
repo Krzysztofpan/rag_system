@@ -6,7 +6,7 @@ from uuid import uuid4
 from app.auth.deps import AuthenticatedUser
 from app.db.models.conversation import Conversation
 from app.routes.conversation_routes import conversation_events
-from app.services.conversation_events import HEARTBEAT, conversation_updated_event
+from app.services.conversation.conversation_events import HEARTBEAT, conversation_updated_event
 
 
 def _current_user(user_id):

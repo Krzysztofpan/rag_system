@@ -3,9 +3,9 @@ from uuid import UUID
 from app.container import get_conversation_event_broker
 from app.lib.tracing import conversation_tracing
 from app.services.chunker.factory import ChunkerFactory
-from app.services.conversation_events import conversation_updated_event
-from app.services.document_indexing_service import DocumentIndexingService
-from app.services.documents_catalog import store_documents_catalog
+from app.services.conversation.conversation_events import conversation_updated_event
+from app.services.document.document_indexing_service import DocumentIndexingService
+from app.services.conversation.documents_catalog import store_documents_catalog
 from app.services.parser.factory import ParserFactory
 
 

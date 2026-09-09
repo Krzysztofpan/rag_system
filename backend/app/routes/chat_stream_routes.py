@@ -26,7 +26,7 @@ from app.schemas.chat import (
 )
 from app.services.chat.run_session import HEARTBEAT, RunSession
 from app.services.chat.stream_runner import ChatStreamRunner
-from app.services.conversation_documents_summary import format_agent_document_catalog
+from app.services.conversation.conversation_documents_summary import format_agent_document_catalog
 from app.services.security import PROMPT_ATTACK_MESSAGE
 from app.services.usage_limits import LimitExceededError
 
