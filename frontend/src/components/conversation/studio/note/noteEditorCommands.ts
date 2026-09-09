@@ -1,6 +1,30 @@
+import {
+    Bold,
+    Code,
+    CodeXml,
+    ImageIcon,
+    Italic,
+    Link as LinkIcon,
+    List,
+    ListOrdered,
+    type LucideIcon,
+    Minus,
+    Quote,
+    Redo2,
+    RemoveFormatting,
+    Undo2,
+} from 'lucide-react'
 import type { Editor } from '@tiptap/react'
 
 import { applyTextStyle, getActiveTextStyle, type TextStyle } from './noteTextStyle'
+
+export type ToolbarItem = {
+    label: string;
+    icon: LucideIcon;
+    onClick: () => void;
+    active?: boolean;
+    disabled?: boolean;
+}
 
 export function createNoteEditorCommands(editor: Editor) {
     return {
@@ -74,3 +98,30 @@ export function createNoteEditorCommands(editor: Editor) {
 }
 
 export type NoteEditorCommands = ReturnType<typeof createNoteEditorCommands>
+
+export function historyItems(commands: NoteEditorCommands): ToolbarItem[] {
+    return [
+        { label: 'Undo', icon: Undo2, onClick: commands.undo, disabled: !commands.canUndo() },
+        { label: 'Redo', icon: Redo2, onClick: commands.redo, disabled: !commands.canRedo() },
+    ]
+}
+
+export function formatGroups(commands: NoteEditorCommands): ToolbarItem[][] {
+    return [
+        [
+            { label: 'Bold', icon: Bold, onClick: commands.toggleBold, active: commands.isBold() },
+            { label: 'Italic', icon: Italic, onClick: commands.toggleItalic, active: commands.isItalic() },
+            { label: 'Link', icon: LinkIcon, onClick: commands.setLink, active: commands.isLink() },
+            { label: 'Inline code', icon: Code, onClick: commands.toggleCode, active: commands.isCode() },
+            { label: 'Code block', icon: CodeXml, onClick: commands.toggleCodeBlock, active: commands.isCodeBlock() },
+            { label: 'Image', icon: ImageIcon, onClick: commands.addImage },
+        ],
+        [
+            { label: 'Bullet list', icon: List, onClick: commands.toggleBulletList, active: commands.isBulletList() },
+            { label: 'Numbered list', icon: ListOrdered, onClick: commands.toggleOrderedList, active: commands.isOrderedList() },
+            { label: 'Quote', icon: Quote, onClick: commands.toggleBlockquote, active: commands.isBlockquote() },
+            { label: 'Divider', icon: Minus, onClick: commands.setHorizontalRule },
+            { label: 'Clear formatting', icon: RemoveFormatting, onClick: commands.clearFormatting },
+        ],
+    ]
+}

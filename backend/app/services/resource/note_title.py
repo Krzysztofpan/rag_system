@@ -53,75 +53,67 @@ async def apply_note_title(
     user_id: UUID,
 ) -> None:
     try:
-        await _apply_note_title(conversation_id, resource_id, user_id)
+        with conversation_tracing(
+            conversation_id,
+            user_id=user_id,
+            tags=["studio"],
+            extra_metadata={"resource_id": resource_id},
+        ):
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                service = ResourceService(session)
+                try:
+                    resource = await service.get_resource(
+                        conversation_id,
+                        resource_id,
+                        user_id=user_id,
+                    )
+                except ValueError:
+                    logger.info(
+                        "note title skipped; resource %s is gone",
+                        resource_id,
+                    )
+                    return
+
+                if resource.type != ResourceType.note:
+                    return
+                if resource.title != DEFAULT_NOTE_TITLE:
+                    return
+                parsed = parse_note_content(resource.content)
+                if not isinstance(parsed, ChatNoteContent):
+                    return
+                body = note_body_text(resource.content)
+                if not body:
+                    return
+
+            title = await generate_note_title(body)
+
+            async with session_factory() as session:
+                service = ResourceService(session)
+                try:
+                    resource = await service.update_title(
+                        conversation_id,
+                        resource_id,
+                        user_id=user_id,
+                        title=title,
+                    )
+                except ValueError:
+                    logger.info(
+                        "note title skipped; resource %s is gone",
+                        resource_id,
+                    )
+                    return
+
+            await get_conversation_event_broker().publish(
+                conversation_id,
+                resource_updated_event(
+                    conversation_id,
+                    resource.id,
+                    resource.title,
+                ),
+            )
     except Exception:
         logger.exception(
             "note title generation failed",
             extra={"resource_id": str(resource_id)},
-        )
-
-
-async def _apply_note_title(
-    conversation_id: UUID,
-    resource_id: UUID,
-    user_id: UUID,
-) -> None:
-    with conversation_tracing(
-        conversation_id,
-        user_id=user_id,
-        tags=["studio"],
-        extra_metadata={"resource_id": resource_id},
-    ):
-        session_factory = get_session_factory()
-        async with session_factory() as session:
-            service = ResourceService(session)
-            try:
-                resource = await service.get_resource(
-                    conversation_id,
-                    resource_id,
-                    user_id=user_id,
-                )
-            except ValueError:
-                logger.info(
-                    "note title skipped; resource %s is gone",
-                    resource_id,
-                )
-                return
-
-            if resource.type != ResourceType.note:
-                return
-            if resource.title != DEFAULT_NOTE_TITLE:
-                return
-            parsed = parse_note_content(resource.content)
-            if not isinstance(parsed, ChatNoteContent):
-                return
-            body = note_body_text(resource.content)
-            if not body:
-                return
-
-        title = await generate_note_title(body)
-
-        async with session_factory() as session:
-            service = ResourceService(session)
-            try:
-                resource = await service.update_title(
-                    conversation_id,
-                    resource_id,
-                    user_id=user_id,
-                    title=title,
-                )
-            except ValueError:
-                logger.info(
-                    "note title skipped; resource %s is gone",
-                    resource_id,
-                )
-                return
-
-        await get_conversation_event_broker().publish(
-            conversation_id,
-            resource_updated_event(
-                conversation_id,
-                resource.id,
-                resource.title,
-            ),
         )

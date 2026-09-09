@@ -191,8 +191,40 @@ async def test_apply_note_title_skips_user_notes():
 
 
 async def test_apply_note_title_swallows_generation_errors():
-    with patch(
-        "app.services.resource.note_title._apply_note_title",
-        new=AsyncMock(side_effect=RuntimeError("llm down")),
+    conversation_id = uuid4()
+    user_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title=DEFAULT_NOTE_TITLE,
+        content={"kind": "chat", "markdown": "Hello about contracts"},
+    )
+    session_factory, _session, _ = _session_factory(resource)
+    service = MagicMock()
+    service.get_resource = AsyncMock(return_value=resource)
+    service.update_title = AsyncMock()
+    broker = MagicMock()
+    broker.publish = AsyncMock()
+
+    with (
+        patch(
+            "app.services.resource.note_title.get_session_factory",
+            return_value=session_factory,
+        ),
+        patch(
+            "app.services.resource.note_title.ResourceService",
+            return_value=service,
+        ),
+        patch(
+            "app.services.resource.note_title.generate_note_title",
+            new=AsyncMock(side_effect=RuntimeError("llm down")),
+        ),
+        patch(
+            "app.services.resource.note_title.get_conversation_event_broker",
+            return_value=broker,
+        ),
     ):
-        await apply_note_title(uuid4(), uuid4(), uuid4())
+        await apply_note_title(conversation_id, resource.id, user_id)
+
+    service.update_title.assert_not_called()
+    broker.publish.assert_not_awaited()
