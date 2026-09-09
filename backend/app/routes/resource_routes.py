@@ -26,7 +26,7 @@ from app.services.usage_limits import LimitExceededError
 from app.studio.note_title import apply_note_title
 
 resource_router = APIRouter(
-    prefix="/conversations",
+    prefix="/conversations/{conversation_id}/resources",
     tags=["resources"],
     dependencies=[Depends(get_current_user)],
 )
@@ -40,7 +40,7 @@ def _http_limit(exc: LimitExceededError) -> HTTPException:
 
 
 @resource_router.get(
-    "/{conversation_id}/resources",
+    "",
     response_model=GetResourcesResponse,
 )
 async def get_resources(
@@ -63,7 +63,7 @@ async def get_resources(
 
 
 @resource_router.post(
-    "/{conversation_id}/resources/note",
+    "/note",
     response_model=CreateResourceResponse,
 )
 async def create_note_resource(
@@ -120,7 +120,7 @@ async def create_note_resource(
 
 
 @resource_router.patch(
-    "/{conversation_id}/resources/note/{resource_id}",
+    "/note/{resource_id}",
     response_model=CreateResourceResponse,
 )
 async def update_note_resource(
@@ -151,7 +151,7 @@ async def update_note_resource(
 
 
 @resource_router.delete(
-    "/{conversation_id}/resources/{resource_id}",
+    "/{resource_id}",
     response_model=DeleteResourceResponse,
 )
 async def delete_resource(
