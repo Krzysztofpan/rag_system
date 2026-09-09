@@ -6,6 +6,7 @@ import pytest
 from app.lib.file_types import FileTypes
 from app.lib.upload_temp import (
     UploadTooLargeError,
+    save_bytes_to_temp,
     save_upload_to_temp,
     upload_file_from_path,
 )
@@ -79,6 +80,30 @@ async def test_save_upload_to_temp_uses_configured_directory(tmp_path, monkeypat
         assert path.parent == tmp_path
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_save_bytes_to_temp_writes_markdown(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "app.lib.upload_temp.get_settings",
+        lambda: SimpleNamespace(
+            upload_temp_dir=tmp_path,
+            upload_read_chunk_bytes=64 * 1024,
+        ),
+    )
+    path, size = save_bytes_to_temp(b"# hello\n", suffix=".md", max_bytes=1024)
+    try:
+        assert size == 8
+        assert path.parent == tmp_path
+        assert path.suffix == ".md"
+        assert path.read_bytes() == b"# hello\n"
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def test_save_bytes_to_temp_rejects_oversize():
+    with pytest.raises(UploadTooLargeError) as exc_info:
+        save_bytes_to_temp(b"hello world", suffix=".md", max_bytes=5)
+    assert exc_info.value.size == 11
 
 
 async def test_save_upload_to_temp_skips_size_check_when_unlimited():

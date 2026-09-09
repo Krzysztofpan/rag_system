@@ -1,7 +1,7 @@
 import pytest
 
 from app.services.parser.base import ParseQualityError
-from app.services.parser.complex.ocr_repair import MISSING_GLYPH, REPLACEMENT_CHAR
+from app.services.parser.complex.glyphs import MISSING_GLYPH, REPLACEMENT_CHAR
 from app.services.parser.complex.quality_audit import (
     audit_markdown,
     chunk_defect_kinds,

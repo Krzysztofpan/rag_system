@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
 
-from langsmith import tracing_context
+from langsmith import trace as langsmith_trace, tracing_context
 
 THREAD_ID_KEY = "thread_id"
 
@@ -23,6 +23,27 @@ def conversation_metadata(
     if extra:
         metadata.update({key: str(value) for key, value in extra.items()})
     return metadata
+
+
+def _trace_value(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+def traced_run(
+    name: str,
+    *,
+    run_type: str = "chain",
+    inputs: Mapping[str, Any] | None = None,
+):
+    """Open a LangSmith span. `conversation_tracing` only attaches metadata."""
+    serialized = (
+        {key: _trace_value(value) for key, value in inputs.items()}
+        if inputs
+        else None
+    )
+    return langsmith_trace(name, run_type=run_type, inputs=serialized)
 
 
 @contextmanager

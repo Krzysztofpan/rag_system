@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.services.file_ingest import FileIngestService
+from app.services.document.file_ingest import FileIngestService
 
 
 async def ingest_document_source(

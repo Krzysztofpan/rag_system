@@ -12,7 +12,7 @@ from app.db.models.conversation import Conversation
 from app.db.models.document import Document, DocumentStatus
 from app.db.models.document_report import DocumentReport
 from app.schemas.origin import FileOrigin, YoutubeOrigin
-from app.services.document_service import DocumentService
+from app.services.document.document_service import DocumentService
 from tests.helpers import FakeVectorStore
 
 

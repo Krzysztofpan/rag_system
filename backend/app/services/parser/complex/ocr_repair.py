@@ -13,8 +13,8 @@ from docling_core.types.doc.items.table.table_data import TableCell
 from docling_core.types.doc.items.text import TextItem
 from rapidocr import RapidOCR
 
-MISSING_GLYPH = "\uffff"
-REPLACEMENT_CHAR = "\ufffd"
+from .glyphs import MISSING_GLYPH, REPLACEMENT_CHAR
+
 _MISSING_CHARS = {MISSING_GLYPH, REPLACEMENT_CHAR}
 _FI_SUFFIXES = r"rst|gure|nd|ed|ltration|cial|ngertips|ned|ciently"
 _PLACEHOLDER = r"(?:\uffff|\ufffd)"

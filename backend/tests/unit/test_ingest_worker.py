@@ -2,7 +2,11 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from app.ingest.queue import DocumentIngestJob, YoutubeIngestJob
-from app.workers.ingest import dispatch_ingest_job
+from app.workers.ingest import (
+    _ingest_document_job,
+    _ingest_youtube_job,
+    dispatch_ingest_job,
+)
 
 
 async def test_dispatch_document_job():
@@ -38,3 +42,8 @@ async def test_dispatch_youtube_job():
         await dispatch_ingest_job(job)
 
     ingest.assert_awaited_once_with(job)
+
+
+def test_ingest_jobs_are_langsmith_root_spans():
+    assert getattr(_ingest_document_job, "__langsmith_traceable__", False)
+    assert getattr(_ingest_youtube_job, "__langsmith_traceable__", False)

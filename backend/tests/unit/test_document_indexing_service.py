@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -11,9 +12,9 @@ from app.db.models.document import DocumentStatus
 from app.schemas.origin import FileOrigin
 from app.services.chunker.factory import ChunkerFactory
 from app.services.chunker.simple import SimpleChunker
-from app.services.document_indexing_service import DocumentIndexingService
+from app.services.document.document_indexing_service import DocumentIndexingService
 from app.services.parser.base import ParseQualityError, ParseResult
-from app.services.parser.complex.ocr_repair import REPLACEMENT_CHAR
+from app.services.parser.complex.glyphs import REPLACEMENT_CHAR
 from app.services.parser.factory import ParserFactory
 from app.services.parser.simple import SimpleParser
 from app.lib.file_types import FileTypes
@@ -110,6 +111,37 @@ async def test_ingest_simple_path_happy(
     assert ns == conversation_id
     assert len(vectors) == len(result.chunk_ids)
     assert [e[0] for e in fake_document_service.events[:2]] == ["create", "processing"]
+
+
+async def test_ingest_opens_parse_chunk_embed_upsert_spans(
+    markdown_upload,
+    conversation_id,
+    fake_document_service,
+    fake_vector_store,
+):
+    span_names: list[str] = []
+
+    @contextmanager
+    def fake_traced_run(name, **_kwargs):
+        span_names.append(name)
+        yield None
+
+    service = _service(document_service=fake_document_service, vector_store=fake_vector_store)
+    document = await _prepare_document(
+        fake_document_service, conversation_id, markdown_upload
+    )
+
+    with patch(
+        "app.services.document.document_indexing_service.traced_run",
+        fake_traced_run,
+    ):
+        await service.ingest(
+            markdown_upload,
+            conversation_id=conversation_id,
+            document_id=document.id,
+        )
+
+    assert span_names == ["parse", "chunk", "embed", "upsert"]
 
 
 async def test_ingest_text_path_uses_simple_parser_and_chunker(
@@ -410,16 +442,16 @@ async def test_summarize_document_writes_with_a_fresh_session(fake_document_serv
 
     with (
         patch(
-            "app.services.document_indexing_service.ChatPromptTemplate.from_template",
+            "app.services.document.document_indexing_service.ChatPromptTemplate.from_template",
             return_value=chain,
         ),
-        patch("app.services.document_indexing_service.ChatOpenAI"),
+        patch("app.services.document.document_indexing_service.ChatOpenAI"),
         patch(
-            "app.services.document_indexing_service.get_session_factory",
+            "app.services.document.document_indexing_service.get_session_factory",
             return_value=session_factory,
         ),
         patch(
-            "app.services.document_indexing_service.DocumentService",
+            "app.services.document.document_indexing_service.DocumentService",
             return_value=store,
         ) as store_cls,
     ):

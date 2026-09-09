@@ -1,20 +1,21 @@
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from app.auth.jwt import verify_auth_configuration
 from app.config import Settings, get_settings
 from app.container import get_conversation_event_broker, get_run_registry
 from app.db.health import check_db_connection
 from app.db.session import dispose_engine
+from app.lib.exceptions import register_limit_exceeded_handler
 from app.lib.redis import close_redis, verify_redis_configuration
 from app.lib.rate_limit import configure_rate_limiting
 from app.routes.chat_stream_routes import chat_stream_router
 from app.routes.conversation_routes import conversation_router
 from app.routes.health_routes import health_router
-from app.services.usage_limits import LimitExceededError
+from app.routes.ingest_routes import ingest_router
+from app.routes.resource_routes import resource_router
 
 API_PREFIX = "/api"
 
@@ -55,20 +56,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     configure_rate_limiting(app, settings)
-
-    @app.exception_handler(LimitExceededError)
-    async def limit_exceeded_handler(
-        _request: Request,
-        exc: LimitExceededError,
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.as_detail()},
-        )
+    register_limit_exceeded_handler(app)
 
     api = APIRouter(prefix=API_PREFIX)
     api.include_router(health_router)
     api.include_router(conversation_router)
+    api.include_router(resource_router)
+    api.include_router(ingest_router)
     api.include_router(chat_stream_router)
     app.include_router(api)
     return app

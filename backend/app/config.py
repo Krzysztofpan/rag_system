@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     max_messages_per_day: int = 20
     max_conversations: int = 10
     max_messages_per_conversation: int = 20
+    max_chat_notes_per_day: int = 3
     # Shared by API (write) and ingest-worker (read). Unset: system temp dir.
     upload_temp_dir: Path | None = None
 

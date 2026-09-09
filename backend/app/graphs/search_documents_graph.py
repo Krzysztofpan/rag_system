@@ -11,7 +11,7 @@ from langgraph.graph import END, StateGraph
 from app.config import get_settings
 from app.lib.cohere import get_cohere_client
 from app.prompts import HYDE_QUERY_REWRITE_TEMPLATE
-from app.services.fts_retriever import PostgresFTSRetriever
+from app.services.retrieval.fts_retriever import PostgresFTSRetriever
 from app.services.security import (
     PromptAttackError,
     get_prompt_shields_service,

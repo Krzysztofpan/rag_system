@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.db.models.message import Message, MessageRole
-from app.services.message_service import MessageService
+from app.services.conversation.message_service import MessageService
 
 
 def _result_with_messages(messages):

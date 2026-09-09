@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from app.prompts.documents import DOCUMENTS_CATALOG_ENTRY_CHAR_LIMIT
-from app.services.conversation_documents_summary import (
+from app.services.conversation.conversation_documents_summary import (
     ConversationDocumentsSummarizer,
     format_agent_document_catalog,
 )
@@ -30,10 +30,10 @@ async def test_synthesize_calls_catalog_prompt():
 
     with (
         patch(
-            "app.services.conversation_documents_summary.ChatPromptTemplate.from_template",
+            "app.services.conversation.conversation_documents_summary.ChatPromptTemplate.from_template",
             return_value=chain,
         ),
-        patch("app.services.conversation_documents_summary.ChatOpenAI"),
+        patch("app.services.conversation.conversation_documents_summary.ChatOpenAI"),
     ):
         result = await ConversationDocumentsSummarizer().synthesize(
             [("a.md", "Paper A"), ("b.md", "Paper B")]

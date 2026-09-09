@@ -16,6 +16,7 @@ from app.db.models import (  # noqa: F401
     Document,
     DocumentReport,
     Message,
+    Resource,
 )
 
 config = context.config

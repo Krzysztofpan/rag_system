@@ -5,13 +5,14 @@ from app.db.session import get_session
 from app.ingest.queue import IngestQueue
 from app.lib.redis import get_redis
 from app.services.chat.redis_run_registry import RedisRunRegistry
-from app.services.conversation_events import ConversationEventBroker
-from app.services.conversation_service import ConversationService
-from app.services.conversation_memory_service import ConversationMemoryService
-from app.services.document_service import DocumentService
+from app.services.conversation.conversation_events import ConversationEventBroker
+from app.services.conversation.conversation_service import ConversationService
+from app.services.conversation.conversation_memory_service import ConversationMemoryService
+from app.services.document.document_service import DocumentService
+from app.services.resource.resource_service import ResourceService
 from app.services.usage_limits import UsageLimitService
-from app.services.vector_store import VectorStore
-from app.services.message_service import MessageService
+from app.services.retrieval.vector_store import VectorStore
+from app.services.conversation.message_service import MessageService
 
 _vector_store: VectorStore | None = None
 _run_registry: RedisRunRegistry | None = None
@@ -79,6 +80,19 @@ def get_conversation_service(
     vector_store: VectorStore = Depends(get_vector_store),
 ) -> ConversationService:
     return create_conversation_service(session, vector_store)
+
+
+def create_resource_service(
+    session: AsyncSession,
+) -> ResourceService:
+    return ResourceService(session)
+
+
+def get_resource_service(
+    session: AsyncSession = Depends(get_session),
+) -> ResourceService:
+    return create_resource_service(session)
+
 
 def create_message_service(
     session: AsyncSession,

@@ -11,7 +11,7 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
-  # Shared app image: API uses the image CMD; ingest-worker overrides command.
+  # Shared app image: API uses the image CMD; workers override command.
   # CD sets BACKEND_IMAGE to the ECR URI (repo name stays rag-backend).
   backend:
     image: ${BACKEND_IMAGE:-rag-app}

@@ -9,7 +9,7 @@ from app.db.models.conversation import Conversation
 from app.db.models.conversation_summary import ConversationSummary
 from app.db.models.message import Message, MessageRole
 from app.schemas.conversation_memory import ConversationMemorySummary
-from app.services.conversation_memory_service import ConversationMemoryService
+from app.services.conversation.conversation_memory_service import ConversationMemoryService
 
 
 def _message(conversation_id, role, text):

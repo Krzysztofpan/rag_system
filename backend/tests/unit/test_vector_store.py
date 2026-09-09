@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-from app.services.vector_store import VectorStore
+from app.services.retrieval.vector_store import VectorStore
 from tests.helpers import make_chunk
 
 
@@ -114,7 +114,7 @@ def test_get_retriever_passes_document_ids():
     session_factory = MagicMock()
 
     with patch(
-        "app.services.vector_store.HydratedPineconeRetriever"
+        "app.services.retrieval.vector_store.HydratedPineconeRetriever"
     ) as retriever_cls:
         store.get_retriever(
             str(conversation_id),

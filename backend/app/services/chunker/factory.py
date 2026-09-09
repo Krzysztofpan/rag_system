@@ -1,5 +1,4 @@
 from app.services.chunker.base import Chunker
-from app.services.chunker.complex import ComplexChunker
 from app.services.chunker.simple import SimpleChunker
 from app.lib.file_types import FileTypes, resolve_file_type
 
@@ -13,6 +12,8 @@ class ChunkerFactory:
         resolved = resolve_file_type(content_type, filename)
         match resolved:
             case FileTypes.PDF | FileTypes.DOCX | FileTypes.PNG | FileTypes.JPEG:
+                from app.services.chunker.complex import ComplexChunker
+
                 return ComplexChunker(resolved)
             case FileTypes.MD | FileTypes.TXT | FileTypes.YOUTUBE:
                 return SimpleChunker(resolved)

@@ -1,0 +1,141 @@
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { useParams } from 'react-router'
+
+import { toast } from '@/components/ui/toast'
+import { useConversationEvents } from '@/hooks/useConversationEvents'
+import { useConversationsClient } from '@/hooks/useConversations'
+import { useInfiniteMessagesClient } from '@/hooks/useInfiniteMessages'
+import { useSources } from '@/hooks/useSources'
+import { useStreamResponse } from '@/hooks/useStreamResponse'
+import { isLimitError } from '@/lib/apiError'
+import { chatSendErrorMessage } from '@/lib/chatError'
+import type { NoteResource } from '@/services/api/types'
+import type { Message } from '@/types/Message'
+
+import { ConversationContext, type ConversationContextValue, type OpenStudioNote } from './ConversationContext'
+
+export function ConversationProvider({ children }: { children: ReactNode }) {
+    const { conversationId } = useParams<{ conversationId?: string }>()
+    const activeConversationId = conversationId ?? ''
+
+    const sourcesResponseObject = useSources(conversationId ?? null)
+    const { data: sources = [] } = sourcesResponseObject
+    const [unselectedSourcesIds, setUnselectedSourcesIds] = useState<string[]>([])
+    const [submittedMessageId, setSubmittedMessageId] = useState<string | null>(null)
+    const [localError, setLocalError] = useState<string | null>(null)
+    const { upsertMessage, invalidateMessages } = useInfiniteMessagesClient(activeConversationId, 5)
+    const { markConversationUpdated } = useConversationsClient()
+    const stream = useStreamResponse(activeConversationId)
+    const armConversationEvents = useConversationEvents(conversationId, sources)
+    const [studioOpenNote, setStudioOpenNote] = useState<OpenStudioNote | null>(null)
+    const [studioNoteConversationId, setStudioNoteConversationId] = useState(conversationId)
+    if (conversationId !== studioNoteConversationId) {
+        setStudioNoteConversationId(conversationId)
+        setStudioOpenNote(null)
+    }
+
+    const openStudioNote = useCallback((resource: NoteResource) => {
+        setStudioOpenNote({
+            id: resource.id,
+            title: resource.title,
+            content: resource.content,
+        })
+    }, [])
+
+    useEffect(() => {
+        if (stream.persistedMessage) {
+            upsertMessage(stream.persistedMessage)
+        }
+    }, [stream.persistedMessage, upsertMessage])
+
+    if (!conversationId) {
+        throw new Error('ConversationProvider only can be used in Conversation route')
+    }
+
+    const ingestedSources = sources.filter((source) => source.status === 'ready')
+    const selectedSources = ingestedSources
+        .map((source) => source.id)
+        .filter((id) => !unselectedSourcesIds.includes(id))
+
+    const handleToogleSelectAllSources = (checked: boolean) => {
+        if (checked) {
+            setUnselectedSourcesIds([])
+            return
+        }
+
+        setUnselectedSourcesIds(ingestedSources.map((source) => source.id))
+    }
+
+    const handleToogleSelectSource = (sourceId: string) => {
+        setUnselectedSourcesIds((prev) => (prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId]))
+    }
+
+    const sendMessage = async ({ documentIds, message }: { documentIds: string[]; message: string }) => {
+        const messageId = crypto.randomUUID()
+        const optimisticMessage: Message = {
+            id: messageId,
+            conversationId,
+            role: 'user',
+            text: message,
+            createdAt: new Date().toISOString(),
+            sources: [],
+        }
+        setLocalError(null)
+        setSubmittedMessageId(messageId)
+        upsertMessage(optimisticMessage)
+        markConversationUpdated(conversationId)
+        try {
+            await stream.sendMessage({ documentIds, message, messageId })
+        }
+        catch (error) {
+            const errorMessage = chatSendErrorMessage(error)
+            setLocalError(errorMessage)
+            if (isLimitError(error)) {
+                toast.add({ type: 'error', title: errorMessage })
+            }
+            await invalidateMessages()
+            throw error
+        }
+    }
+
+    const streamedMessage = (
+        stream.streamedMessageId
+        && stream.streamedMessageId !== submittedMessageId
+        && stream.streamedMessageId !== stream.persistedMessage?.id
+    )
+        ? {
+                id: stream.streamedMessageId,
+                conversationId,
+                role: 'assistant' as const,
+                text: stream.streamedText,
+                createdAt: new Date().toISOString(),
+                sources: [],
+            }
+        : null
+    const streamError = localError
+        ?? (stream.error ? chatSendErrorMessage(stream.error) : null)
+
+    const conversationContextObj: ConversationContextValue = {
+        conversationId,
+        handleToogleSelectAllSources,
+        handleToogleSelectSource,
+        selectedSources,
+        setUnselectedSourcesIds,
+        sourcesResponseObject,
+        unselectedSourcesIds,
+        isPendingMessage: stream.isStreaming,
+        sendMessage,
+        streamedMessage,
+        streamError,
+        toolInvocations: stream.toolCalls.map((toolCall) => ({
+            id: toolCall.callId,
+            name: toolCall.name,
+        })),
+        armConversationEvents,
+        studioOpenNote,
+        setStudioOpenNote,
+        openStudioNote,
+    }
+
+    return <ConversationContext.Provider value={conversationContextObj}>{children}</ConversationContext.Provider>
+}

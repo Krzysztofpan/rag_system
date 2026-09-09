@@ -15,7 +15,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     },
     "ignoreDeprecations": "6.0",
@@ -34,12 +34,6 @@
   },
   "include": [
     "src",
-    "components",
-    "contexts",
-    "lib",
-    "types",
-    "hooks",
-    "vite-env.d.ts",
-    "services"
+    "vite-env.d.ts"
   ]
 }

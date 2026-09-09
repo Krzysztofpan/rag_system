@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from app.lib.file_types import FileTypes
-from app.services.document_indexing_service import IngestResult
+from app.services.document.document_indexing_service import IngestResult
 from app.services.youtube.caption_client import (
     TranscriptCue,
     TranscriptUnavailableError,

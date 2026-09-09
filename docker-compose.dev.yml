@@ -11,7 +11,8 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Shared app image (rag-app): API uses the image CMD; ingest-worker overrides command.
+  # Shared app image (rag-app): API uses reload CMD; workers override command.
+  # Bind-mount app source only; image keeps .venv / alembic / main.py.
   backend:
     image: rag-app
     build:
@@ -21,7 +22,10 @@ services:
     environment:
       REDIS_URL: redis://redis:${REDIS_PORT:-6379}
     volumes:
+      - ./backend/app:/app/app
       - uploads:/var/rag/uploads
+    # --reload is incompatible with multiple workers; prod keeps UVICORN_WORKERS via image CMD.
+    command: [ "uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
     depends_on:
       redis:
         condition: service_healthy
@@ -45,6 +49,7 @@ services:
     environment:
       REDIS_URL: redis://redis:${REDIS_PORT:-6379}
     volumes:
+      - ./backend/app:/app/app
       - uploads:/var/rag/uploads
       - hf-cache:/var/rag/hf
       - xdg-cache:/var/rag/cache
@@ -73,9 +78,10 @@ services:
     environment:
       BACKEND_URL: "/api"
 
+    # Mount source only so image node_modules (from npm ci) is not shadowed.
     volumes:
-      - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
 
     ports:
       - "5173:5173"
@@ -98,4 +104,3 @@ volumes:
   hf-cache:
   xdg-cache:
   redis-data:
-  frontend-node-modules:

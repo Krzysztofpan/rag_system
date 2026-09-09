@@ -1,0 +1,381 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
+
+import pytest
+
+from app.db.models.resource import Resource, ResourceType
+from app.lib.note_markdown import DEFAULT_NOTE_TITLE
+from app.services.resource.resource_service import (
+    ResourceNotConvertibleError,
+    ResourceNotEditableError,
+    ResourceService,
+)
+
+
+def _session_with_resource(resource: Resource | None) -> AsyncMock:
+    session = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = resource
+    session.execute = AsyncMock(return_value=result)
+    return session
+
+
+async def test_find_chat_note_by_message_id_returns_owned_pin():
+    message_id = uuid4()
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Pinned",
+        content={
+            "kind": "chat",
+            "markdown": "# Hello",
+            "message_id": str(message_id),
+        },
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    result = await service.find_chat_note_by_message_id(
+        resource.conversation_id,
+        message_id,
+        user_id=uuid4(),
+    )
+
+    assert result is resource
+
+
+async def test_find_chat_note_by_message_id_returns_none_when_missing():
+    session = _session_with_resource(None)
+    service = ResourceService(session)
+
+    result = await service.find_chat_note_by_message_id(
+        uuid4(),
+        uuid4(),
+        user_id=uuid4(),
+    )
+
+    assert result is None
+
+
+async def test_get_resource_returns_owned_row():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    result = await service.get_resource(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+    )
+
+    assert result is resource
+
+
+async def test_get_resource_raises_when_missing_or_foreign():
+    resource_id = uuid4()
+    session = _session_with_resource(None)
+    service = ResourceService(session)
+
+    with pytest.raises(ValueError, match=f"Resource {resource_id} not found"):
+        await service.get_resource(uuid4(), resource_id, user_id=uuid4())
+
+
+async def test_update_note_content_replaces_user_html():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+    content = {"kind": "user", "html": "<p>Saved</p>"}
+
+    updated = await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content=content,
+    )
+
+    assert updated is resource
+    assert resource.content == content
+    assert resource.updated_at > datetime(2026, 1, 1, tzinfo=UTC)
+    session.commit.assert_awaited_once()
+    session.refresh.assert_awaited_once_with(resource)
+
+
+async def test_update_note_content_updates_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+    content = {"kind": "user", "html": "<p>Saved</p>"}
+
+    updated = await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content=content,
+        title="  Invoice terms  ",
+    )
+
+    assert updated is resource
+    assert resource.title == "Invoice terms"
+    assert resource.content == content
+    session.commit.assert_awaited_once()
+
+
+async def test_update_note_content_blank_title_uses_default():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Custom",
+        content={"kind": "user", "html": "<p>Hi</p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content={"kind": "user", "html": "<p>Hi</p>"},
+        title="   ",
+    )
+
+    assert resource.title == DEFAULT_NOTE_TITLE
+
+
+async def test_update_note_content_omitted_title_keeps_existing():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Keep me",
+        content={"kind": "user", "html": "<p>Hi</p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        content={"kind": "user", "html": "<p>Updated</p>"},
+    )
+
+    assert resource.title == "Keep me"
+
+
+async def test_update_note_content_rejects_chat_note_body():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Pinned",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotEditableError, match="Chat note content cannot be updated"):
+        await service.update_note_content(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+            content={"kind": "user", "html": "<p>Nope</p>"},
+        )
+
+    session.commit.assert_not_awaited()
+
+
+async def test_update_note_content_updates_chat_note_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    updated = await service.update_note_content(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        title="Invoice terms",
+    )
+
+    assert updated is resource
+    assert resource.title == "Invoice terms"
+    assert resource.content == {"kind": "chat", "markdown": "# Hello"}
+    session.commit.assert_awaited_once()
+
+
+async def test_update_note_content_rejects_non_notes():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.mind_map,
+        title="Map",
+        content={"nodes": []},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotEditableError, match="Only notes can be updated"):
+        await service.update_note_content(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+            content={"kind": "user", "html": "<p>Nope</p>"},
+        )
+
+    session.commit.assert_not_awaited()
+
+
+async def test_update_title_replaces_default_note_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title=DEFAULT_NOTE_TITLE,
+        content={"kind": "chat", "markdown": "# Hello"},
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    updated = await service.update_title(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        title="Invoice terms",
+    )
+
+    assert updated is resource
+    assert resource.title == "Invoice terms"
+    assert resource.updated_at > datetime(2026, 1, 1, tzinfo=UTC)
+    session.commit.assert_awaited_once()
+
+
+async def test_update_title_keeps_custom_title():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Pinned recap",
+        content={"kind": "chat", "markdown": "# Hello"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    updated = await service.update_title(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+        title="Invoice terms",
+    )
+
+    assert updated is resource
+    assert resource.title == "Pinned recap"
+    session.commit.assert_not_awaited()
+
+
+async def test_delete_resource_removes_owned_row():
+    conversation_id = uuid4()
+    resource = Resource(
+        conversation_id=conversation_id,
+        type=ResourceType.note,
+        title="New Note",
+        content={"kind": "user", "html": ""},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    deleted = await service.delete_resource(
+        conversation_id,
+        resource.id,
+        user_id=uuid4(),
+    )
+
+    assert deleted is resource
+    session.delete.assert_awaited_once_with(resource)
+    session.commit.assert_awaited_once()
+
+
+async def test_delete_resource_raises_when_missing():
+    session = _session_with_resource(None)
+    service = ResourceService(session)
+
+    with pytest.raises(ValueError, match="Resource .* not found"):
+        await service.delete_resource(uuid4(), uuid4(), user_id=uuid4())
+
+    session.delete.assert_not_called()
+    session.commit.assert_not_called()
+
+
+async def test_get_note_source_payload_builds_markdown_from_user_note():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="My Note",
+        content={"kind": "user", "html": "<p>Hello</p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    filename, markdown = await service.get_note_source_payload(
+        resource.conversation_id,
+        resource.id,
+        user_id=uuid4(),
+    )
+
+    assert filename == "My Note.md"
+    assert markdown == "# My Note\n\nHello\n"
+
+
+async def test_get_note_source_payload_rejects_empty_note():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.note,
+        title="Empty",
+        content={"kind": "user", "html": "<p><br></p>"},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotConvertibleError, match="Note has no content"):
+        await service.get_note_source_payload(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+        )
+
+
+async def test_get_note_source_payload_rejects_non_notes():
+    resource = Resource(
+        conversation_id=uuid4(),
+        type=ResourceType.mind_map,
+        title="Map",
+        content={"nodes": []},
+    )
+    session = _session_with_resource(resource)
+    service = ResourceService(session)
+
+    with pytest.raises(ResourceNotConvertibleError, match="Only notes can be converted"):
+        await service.get_note_source_payload(
+            resource.conversation_id,
+            resource.id,
+            user_id=uuid4(),
+        )
