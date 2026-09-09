@@ -36,7 +36,7 @@ const ConversationsPageHeader = ({ sortMethodIndex, setSortMethodIndex, searchVa
         <div className="flex justify-end">
             {!searchMode
                 ? (
-                        <div className="flex items-center gap-4 w-full">
+                        <div className="flex items-center gap-4 max-w-full">
                             <Button onClick={() => setSearchMode(true)} variant="outline" className="py-5 rounded-full aspect-square">
                                 <Search />
                             </Button>
