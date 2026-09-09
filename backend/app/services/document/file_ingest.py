@@ -7,7 +7,7 @@ from app.container import create_document_service
 from app.ingest.factory import create_indexing_service
 from app.ingest.summary import apply_document_summary
 from app.db.session import get_session_factory
-from app.lib.tracing import conversation_tracing
+from app.lib.tracing import conversation_tracing, traced_run
 from app.lib.upload_temp import upload_file_from_path
 from app.services.parser.base import ParseQualityError
 
@@ -39,7 +39,14 @@ class FileIngestService:
                 try:
                     session_factory = get_session_factory()
                     async with session_factory() as session:
-                        indexing = create_indexing_service(session)
+                        with traced_run(
+                            "init_indexing",
+                            inputs={
+                                "filename": filename,
+                                "content_type": content_type,
+                            },
+                        ):
+                            indexing = create_indexing_service(session)
                         result = await indexing.ingest(
                             upload,
                             conversation_id=conversation_id,

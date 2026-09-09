@@ -5,7 +5,7 @@ from fastapi import UploadFile
 
 from app.db.session import get_session_factory
 from app.lib.file_types import FileTypes
-from app.lib.tracing import conversation_tracing
+from app.lib.tracing import traced_run
 from app.prompts import DOCUMENT_SUMMARY_TEMPLATE
 from app.schemas.upload import build_upload_quality, quality_from_rejected_report
 from app.services.chunker.base import Chunker
@@ -99,23 +99,30 @@ class DocumentIndexingService:
         conversation_id: UUID,
         document_id: UUID,
     ) -> IngestResult:
-        with conversation_tracing(conversation_id, tags=["ingest"]):
-            parser = self.create_parser(file)
-            document_service, _ = self._require_services()
+        parser = self.create_parser(file)
+        document_service, _ = self._require_services()
 
-            try:
+        try:
+            with traced_run(
+                "parse",
+                inputs={
+                    "parser": type(parser).__name__,
+                    "filename": file.filename,
+                    "content_type": file.content_type,
+                },
+            ):
                 parsed = await parser._parse()
-            except Exception as exc:
-                await document_service.mark_failed(document_id, str(exc))
-                raise
+        except Exception as exc:
+            await document_service.mark_failed(document_id, str(exc))
+            raise
 
-            return await self.index_parsed(
-                document_id=document_id,
-                conversation_id=conversation_id,
-                parsed=parsed,
-                source_filename=file.filename or "unknown",
-                content_type=file.content_type,
-            )
+        return await self.index_parsed(
+            document_id=document_id,
+            conversation_id=conversation_id,
+            parsed=parsed,
+            source_filename=file.filename or "unknown",
+            content_type=file.content_type,
+        )
 
     async def index_parsed(
         self,
@@ -136,7 +143,13 @@ class DocumentIndexingService:
 
         try:
             doc = parsed.document if parsed.document is not None else parsed.markdown
-            chunks = chunker._chunk(doc=doc, source_text=parsed.markdown)
+            with traced_run(
+                "chunk",
+                inputs={"chunker": type(chunker).__name__},
+            ) as run:
+                chunks = chunker._chunk(doc=doc, source_text=parsed.markdown)
+                if run is not None:
+                    run.end(outputs={"chunk_count": len(chunks)})
 
             kept, chunk_quality = ensure_chunk_quality(
                 chunks,
@@ -145,16 +158,24 @@ class DocumentIndexingService:
 
             stored = await document_service.save_chunks(document_id, kept)
 
-            vectors = vector_store.construct_vectors(
-                stored,
-                document_id=document_id,
-                source_filename=source_filename,
-            )
+            with traced_run(
+                "embed",
+                inputs={"chunk_count": len(stored)},
+            ):
+                vectors = vector_store.construct_vectors(
+                    stored,
+                    document_id=document_id,
+                    source_filename=source_filename,
+                )
 
-            vector_store.add_vectors(
-                vectors,
-                conversation_id=conversation_id,
-            )
+            with traced_run(
+                "upsert",
+                inputs={"vector_count": len(vectors)},
+            ):
+                vector_store.add_vectors(
+                    vectors,
+                    conversation_id=conversation_id,
+                )
 
             quality = build_upload_quality(
                 parse_report=parsed.report,

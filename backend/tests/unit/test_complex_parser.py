@@ -95,7 +95,7 @@ async def test_complex_parser_writes_temp_file_with_jpg_suffix(jpeg_upload):
 
 
 async def test_complex_parser_audits_markdown_with_defects(pdf_upload):
-    from app.services.parser.complex.ocr_repair import REPLACEMENT_CHAR
+    from app.services.parser.complex.glyphs import REPLACEMENT_CHAR
 
     fake_doc = SimpleNamespace(
         export_to_markdown=lambda: f"broken {REPLACEMENT_CHAR} glyph"
