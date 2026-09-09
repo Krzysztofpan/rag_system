@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from app.config import get_settings
 from app.services.parser.base import ParseQualityError
 
-from .ocr_repair import MISSING_GLYPH, REPLACEMENT_CHAR
+from .glyphs import MISSING_GLYPH, REPLACEMENT_CHAR
 
 if TYPE_CHECKING:
     from app.services.chunker.base import ChunkResult

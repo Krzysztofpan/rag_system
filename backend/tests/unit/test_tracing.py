@@ -1,7 +1,7 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-from app.lib.tracing import conversation_metadata, conversation_tracing
+from app.lib.tracing import conversation_metadata, conversation_tracing, traced_run
 
 
 def test_conversation_metadata_uses_conversation_as_thread_id():
@@ -44,3 +44,22 @@ def test_conversation_tracing_default_keeps_parent(tracing_context):
         pass
 
     assert tracing_context.call_args.kwargs["parent"] is None
+
+
+@patch("app.lib.tracing.langsmith_trace")
+def test_traced_run_opens_a_named_span(langsmith_trace):
+    span = MagicMock()
+    langsmith_trace.return_value = span
+
+    result = traced_run(
+        "parse",
+        run_type="chain",
+        inputs={"filename": "note.md", "document_id": uuid4()},
+    )
+
+    assert result is span
+    assert langsmith_trace.call_args.args == ("parse",)
+    assert langsmith_trace.call_args.kwargs["run_type"] == "chain"
+    inputs = langsmith_trace.call_args.kwargs["inputs"]
+    assert inputs["filename"] == "note.md"
+    assert isinstance(inputs["document_id"], str)

@@ -10,7 +10,7 @@ from app.ingest.factory import create_indexing_service
 from app.ingest.summary import apply_document_summary
 from app.db.session import get_session_factory
 from app.lib.file_types import FileTypes
-from app.lib.tracing import conversation_tracing
+from app.lib.tracing import conversation_tracing, traced_run
 from app.schemas.origin import YoutubeOrigin
 from app.services.parser.base import ParseResult
 from app.services.parser.complex.quality_audit import audit_markdown
@@ -62,7 +62,11 @@ class YoutubeIngestService:
             extra_metadata={"document_id": document_id, "video_id": video_id},
         ):
             try:
-                transcript = await self._resolve_transcript(url, video_id)
+                with traced_run(
+                    "resolve_transcript",
+                    inputs={"video_id": video_id},
+                ):
+                    transcript = await self._resolve_transcript(url, video_id)
                 title = await asyncio.to_thread(self.title_fetcher, url)
                 filename = title or f"youtube:{video_id}"
                 markdown = transcript_to_markdown(
@@ -78,7 +82,11 @@ class YoutubeIngestService:
                 session_factory = get_session_factory()
                 async with session_factory() as session:
                     document_service = create_document_service(session)
-                    indexing = create_indexing_service(session)
+                    with traced_run(
+                        "init_indexing",
+                        inputs={"video_id": video_id},
+                    ):
+                        indexing = create_indexing_service(session)
 
                     if title:
                         await document_service.change_document_name(

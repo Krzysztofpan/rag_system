@@ -1,0 +1,2 @@
+MISSING_GLYPH = "\uffff"
+REPLACEMENT_CHAR = "\ufffd"
