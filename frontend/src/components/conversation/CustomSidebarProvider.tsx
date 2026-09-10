@@ -15,7 +15,7 @@ function CustomSidebarProvider({ children }: { children: ReactNode }) {
                     '--sidebar-width': '21vw',
                 } as CSSProperties
             }
-            open={!isMobile && isSidebarOpen}
+            open={isMobile || isSidebarOpen}
             onOpenChange={setIsSidebarOpen}
         >
             {children}

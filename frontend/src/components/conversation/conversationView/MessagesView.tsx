@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConversationContext } from '@/contexts/conversation/ConversationContext'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { flattenMessagePages, useInfiniteMessages, useInfiniteScrollSentinel } from '@/hooks/useInfiniteMessages'
 import { useMessageListScroll } from '@/hooks/useMessageListScroll'
 
@@ -11,7 +12,9 @@ import TypingIndicator from './TypingIndicator'
 const MessagesView = ({ conversationId }: { conversationId: string }) => {
     const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteMessages(conversationId, 5)
     const historyMessages = flattenMessagePages(data?.pages)
-    const { isPendingMessage, streamedMessage, streamError, toolInvocations } = useConversationContext()
+    const { isPendingMessage, streamedMessage, streamError, toolInvocations, mobileSection } = useConversationContext()
+    const isMobile = useIsMobile()
+    const isChatVisible = !isMobile || mobileSection === 'chat'
     const messages = streamedMessage?.text ? [...historyMessages, streamedMessage] : historyMessages
 
     const { containerRef, bottomRef, isAnchored } = useMessageListScroll({
@@ -25,7 +28,7 @@ const MessagesView = ({ conversationId }: { conversationId: string }) => {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
-        enabled: isAnchored,
+        enabled: isAnchored && isChatVisible,
         rootRef: containerRef,
         rootMargin: '200px 0px 0px 0px',
     })

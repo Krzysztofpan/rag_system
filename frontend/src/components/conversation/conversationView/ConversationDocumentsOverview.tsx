@@ -30,7 +30,7 @@ const ConversationDocumentsOverview = () => {
 
     if (!documentsSummary && sourceInFlight) {
         return (
-            <div className="flex flex-col gap-3 mt-10 pb-6">
+            <div className="flex flex-col gap-3 mt-6 pb-6 md:mt-10">
                 <Skeleton className="h-9 w-2/3" />
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="h-20 w-full" />
@@ -61,8 +61,8 @@ const ConversationDocumentsOverview = () => {
     }
 
     return (
-        <div className="flex flex-col gap-3 mt-10 pb-6">
-            <h2 className="text-3xl font-semibold tracking-tight text-balance">
+        <div className="flex flex-col gap-3 mt-6 pb-6 md:mt-10">
+            <h2 className="text-2xl font-semibold tracking-tight text-balance md:text-3xl">
                 {conversation.title}
             </h2>
             <p className="text-sm text-muted-foreground">

@@ -1,3 +1,4 @@
+import { conversationPanelClassName } from '@/components/conversation/conversationPanel'
 import ChatNoteView from '@/components/conversation/studio/note/ChatNoteView'
 import NoteView from '@/components/conversation/studio/note/NoteView'
 import { type OpenStudioNote, useConversationContext } from '@/contexts/conversation/ConversationContext'
@@ -5,7 +6,6 @@ import { useDeleteResource } from '@/hooks/useDeleteResource'
 import { useResources } from '@/hooks/useResources'
 import useUpdateNoteResource from '@/hooks/useUpdateNoteResource'
 import { isUnchangedUserNote, isUserNote, normalizeNoteTitle, userNoteContent } from '@/lib/note'
-import { cn } from '@/lib/utils'
 import type { NoteResource } from '@/services/api/types'
 
 type OpenNotePanelProps = {
@@ -73,14 +73,7 @@ function OpenNotePanel({ note }: OpenNotePanelProps) {
     }
 
     return (
-        <aside
-            className={cn(
-                'flex h-full relative shrink-0 flex-col overflow-hidden rounded-xl',
-                'bg-sidebar text-sidebar-foreground ring-1 ring-sidebar-border',
-                'transition-[width] duration-200 ease-linear',
-                'w-[min(46vw,40rem)]',
-            )}
-        >
+        <aside className={conversationPanelClassName('relative md:w-[min(46vw,40rem)]')}>
             {isUserNote(note.content)
                 ? (
                         <NoteView

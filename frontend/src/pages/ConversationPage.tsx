@@ -2,10 +2,7 @@ import { isAxiosError } from 'axios'
 import { ArrowLeftFromLine } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 
-import ConversationWindow from '@/components/conversation/conversationView/ConversationWindow'
-import CustomSidebarProvider from '@/components/conversation/CustomSidebarProvider'
-import SourceSection from '@/components/conversation/sources/SourceSection'
-import StudioPanelSection from '@/components/conversation/studio/StudioPanelSection'
+import ConversationWorkspace from '@/components/conversation/ConversationWorkspace'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import AvatarView from '@/components/utils/AvatarView'
 import { ConversationProvider } from '@/contexts/conversation/ConversationProvider'
@@ -31,12 +28,12 @@ const ConversationPage = () => {
     return (
         <>
             <title>{`Folio - ${conversation?.title ?? 'New Conversation'}`}</title>
-            <div className="flex gap-2 h-svh flex-col overflow-hidden px-5">
-                <header className="flex h-14 shrink-0 items-center px-2 gap-4">
-                    <Link to="/conversations">
+            <div className="flex h-svh flex-col gap-1 overflow-hidden px-3 pb-3 md:gap-2 md:px-5 md:pb-5">
+                <header className="flex h-12 shrink-0 items-center gap-3 px-1 md:h-14 md:gap-4 md:px-2">
+                    <Link to="/conversations" aria-label="Back to conversations" className="shrink-0">
                         <ArrowLeftFromLine />
                     </Link>
-                    <h1 className="flex min-w-0 items-center gap-2 text-xl font-medium flex-1">
+                    <h1 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-medium md:text-xl">
                         <span className="shrink-0 leading-none" aria-hidden>
                             {icon}
                         </span>
@@ -50,17 +47,7 @@ const ConversationPage = () => {
                     <AvatarView />
                 </header>
                 <ConversationProvider>
-                    <div className="flex min-h-0 flex-1 gap-4 pt-0 mb-5">
-                        <CustomSidebarProvider>
-                            <SourceSection />
-                        </CustomSidebarProvider>
-                        <main className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl ring-1 ring-sidebar-border">
-                            <ConversationWindow />
-                        </main>
-                        <CustomSidebarProvider>
-                            <StudioPanelSection />
-                        </CustomSidebarProvider>
-                    </div>
+                    <ConversationWorkspace />
                 </ConversationProvider>
             </div>
         </>
