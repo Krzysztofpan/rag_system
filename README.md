@@ -4,22 +4,26 @@ Chat with your own files. Answers that need a fact from a document come with a c
 
 **Live demo:** (for now stopped, cost is too high) [https://3.78.61.131.sslip.io](https://3.78.61.131.sslip.io)
 
-[![Folio conversation with a policy PDF, cited answer, and source panel](docs/folio-chat.png)](https://3.78.61.131.sslip.io)
+[![Folio conversation: sources, cited answer, and Studio notes](docs/folio-chat.png)](https://3.78.61.131.sslip.io)
 
-![Conversation start with an auto-generated source overview](docs/folio-summary.png)
+![Conversation start with an auto-generated document catalog](docs/folio-summary.png)
 
 ## Try it
 
 1. Open the demo and choose **Sign up** (email + password, min. 6 characters).
 2. Confirm the address from the mail Supabase sends — check spam if it does not show up.
 3. **Sign in**, create a conversation, **Add source** (PDF, DOCX, TXT, MD, image, or a YouTube link).
-4. Ask a question about that file. Toggle sources on the left to control what the model may use.
+4. After ingest, a **document catalog** appears at the top of the chat so you can skim what is in the files before asking.
+5. Ask a question about that file. Toggle sources on the left to control what the model may use. Pin an answer into a **Studio** note, or write your own.
 
 Production accounts are rate-limited so a public demo stays up: **3 uploads / day**, **20 messages / day**, **10 conversations**, **5 MB / file**. Limits reset at 00:00 UTC.
 
 ## What it does
 
+- Three-panel workspace: **Sources**, chat, and **Studio**
 - Conversations with streaming replies and clickable citations
+- Auto-generated document catalog at the top of the chat after ingest
+- Studio notes — pin a reply or write one of your own
 - Per-turn source selection — files you do not select are not searched
 - Background ingest (parse → chunk → embed) so upload does not block the API
 - Hybrid retrieval: Postgres full-text + Pinecone vectors, then Cohere rerank
@@ -54,7 +58,7 @@ flowchart LR
   Agent --> WebSearch[Tavily]
 ```
 
-Upload stores the file and returns immediately. An ingest worker parses it, chunks it, writes vectors to Pinecone and text to Postgres. Chat runs an agent over SSE; Redis is the broker so more than one API process can share a run. Factual questions hit hybrid search (FTS + vectors + rerank). Summaries and web lookup are separate tools, not stuffed into one prompt.
+Upload stores the file and returns immediately. An ingest worker parses it, chunks it, writes vectors to Pinecone and text to Postgres, then synthesizes a document catalog for the conversation. Chat runs an agent over SSE; Redis is the broker so more than one API process can share a run. Factual questions hit hybrid search (FTS + vectors + rerank). Summaries and web lookup are separate tools, not stuffed into one prompt.
 
 ## Run locally
 
