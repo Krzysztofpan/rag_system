@@ -30,9 +30,9 @@ const MessageItem = ({ message }: { message: Message }) => {
     }
 
     return (
-        <div className={cn('flex w-full px-3 py-3', isUser ? 'justify-end font-semibold' : 'font-normal')}>
+        <div className={cn('flex w-full px-1 py-3 md:px-3', isUser ? 'justify-end font-semibold' : 'font-normal')}>
             {isUser
-                ? <p className="max-w-2/3 break-all rounded-3xl bg-mist-300 px-5 py-3">{message.text}</p>
+                ? <p className="max-w-[85%] break-all rounded-3xl bg-mist-300 px-4 py-3 md:max-w-2/3 md:px-5">{message.text}</p>
                 : (
                         <div className="flex max-w-full flex-col gap-3">
                             <MarkdownContent

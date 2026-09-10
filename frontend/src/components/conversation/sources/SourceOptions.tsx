@@ -29,7 +29,7 @@ const SourceOptions = ({ disabled = false, editMode, setEditMode, sourceId }: So
     return (
         <div className="flex gap-2 items-center">
             <Popover open={isOpen} onOpenChange={setIsOpen}>
-                <PopoverTrigger className={`${isOpen || disabled ? 'block' : 'hidden'} group-hover:block p-0 m-0 flex justify-center items-center cursor-pointer`}>
+                <PopoverTrigger className={`${isOpen || disabled ? 'block' : 'hidden'} group-hover:block max-md:block p-0 m-0 flex justify-center items-center cursor-pointer`}>
                     <EllipsisVertical size={18} />
                 </PopoverTrigger>
                 <PopoverContent side="bottom" align="start" className="w-56 gap-0 p-1">

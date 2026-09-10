@@ -16,6 +16,8 @@ export type OpenStudioNote = {
     content: NoteContent;
 }
 
+export type ConversationMobileSection = 'sources' | 'chat' | 'studio'
+
 export type ConversationContextValue = {
     sourcesResponseObject: UseQueryResult<Source[]>;
     conversationId: string;
@@ -33,6 +35,8 @@ export type ConversationContextValue = {
     studioOpenNote: OpenStudioNote | null;
     setStudioOpenNote: Dispatch<SetStateAction<OpenStudioNote | null>>;
     openStudioNote: (resource: NoteResource) => void;
+    mobileSection: ConversationMobileSection;
+    setMobileSection: Dispatch<SetStateAction<ConversationMobileSection>>;
 }
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null)

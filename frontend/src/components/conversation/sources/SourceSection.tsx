@@ -1,5 +1,6 @@
 'use client'
 
+import { conversationPanelClassName } from '@/components/conversation/conversationPanel'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
@@ -51,13 +52,13 @@ function SourceSection() {
     }
 
     return (
-        <aside className={`flex h-full shrink-0 flex-col overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground ring-1 ring-sidebar-border transition-[width] duration-200 ease-linear ${isCollapsed ? 'w-(--sidebar-width-icon)' : 'w-(--sidebar-width)'}`}>
-            <div className={`flex h-12 shrink-0 items-center gap-2 px-2 ${isCollapsed ? 'justify-center' : 'justify-between pl-4'}`}>
+        <aside className={conversationPanelClassName(isCollapsed ? 'md:w-(--sidebar-width-icon)' : 'md:w-(--sidebar-width)')}>
+            <div className={`hidden h-12 shrink-0 items-center gap-2 px-2 md:flex ${isCollapsed ? 'justify-center' : 'justify-between pl-4'}`}>
                 {!isCollapsed && <span className="truncate font-medium">Sources</span>}
                 <SidebarTrigger />
             </div>
-            <Separator />
-            <div className={`min-h-0 flex-1 overflow-y-auto flex flex-col py-4 ${isCollapsed ? 'items-center gap-2' : 'px-7 gap-6'}`}>
+            <Separator className="hidden md:block" />
+            <div className={`min-h-0 flex-1 overflow-y-auto flex flex-col py-4 ${isCollapsed ? 'items-center gap-2' : 'px-5 gap-6 md:px-7'}`}>
                 <UploadFilePage
                     handleSelectSource={(file) => {
                         void uploadSource(file)

@@ -41,7 +41,7 @@ const NoteView = ({
     }
 
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
             <NoteHeader
                 title={title}
                 onTitleChange={setTitle}

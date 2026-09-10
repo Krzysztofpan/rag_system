@@ -12,7 +12,7 @@ import { chatSendErrorMessage } from '@/lib/chatError'
 import type { NoteResource } from '@/services/api/types'
 import type { Message } from '@/types/Message'
 
-import { ConversationContext, type ConversationContextValue, type OpenStudioNote } from './ConversationContext'
+import { ConversationContext, type ConversationContextValue, type ConversationMobileSection, type OpenStudioNote } from './ConversationContext'
 
 export function ConversationProvider({ children }: { children: ReactNode }) {
     const { conversationId } = useParams<{ conversationId?: string }>()
@@ -29,9 +29,11 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     const armConversationEvents = useConversationEvents(conversationId, sources)
     const [studioOpenNote, setStudioOpenNote] = useState<OpenStudioNote | null>(null)
     const [studioNoteConversationId, setStudioNoteConversationId] = useState(conversationId)
+    const [mobileSection, setMobileSection] = useState<ConversationMobileSection>('chat')
     if (conversationId !== studioNoteConversationId) {
         setStudioNoteConversationId(conversationId)
         setStudioOpenNote(null)
+        setMobileSection('chat')
     }
 
     const openStudioNote = useCallback((resource: NoteResource) => {
@@ -40,6 +42,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
             title: resource.title,
             content: resource.content,
         })
+        setMobileSection('studio')
     }, [])
 
     useEffect(() => {
@@ -135,6 +138,8 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         studioOpenNote,
         setStudioOpenNote,
         openStudioNote,
+        mobileSection,
+        setMobileSection,
     }
 
     return <ConversationContext.Provider value={conversationContextObj}>{children}</ConversationContext.Provider>
