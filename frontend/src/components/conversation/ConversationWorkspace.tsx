@@ -13,8 +13,8 @@ function ConversationWorkspace() {
     return (
         <div
             className={cn(
-                'flex min-h-0 flex-1 flex-col overflow-hidden',
-                'max-md:rounded-xl max-md:bg-background max-md:ring-1 max-md:ring-sidebar-border',
+                'flex min-h-0 flex-1 flex-col',
+                'max-md:overflow-hidden max-md:rounded-xl max-md:bg-background max-md:ring-1 max-md:ring-sidebar-border',
                 'md:flex-row md:gap-4',
             )}
         >
